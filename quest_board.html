@@ -352,6 +352,7 @@ body.signing .top,body.signing footer{display:none}
 
     <div class="bar" style="margin-top:14px">
       <button class="go small" id="upAdd" onclick="submitUpload()">Add these questions</button>
+      <button class="ghost small" onclick="solveBlanks()">Work out the missing answers</button>
       <button class="ghost small" onclick="goParent()">Cancel</button>
     </div>
     <div class="err" id="upErr"></div>
@@ -399,8 +400,22 @@ body.signing .top,body.signing footer{display:none}
 
 <footer>Marking, XP and scores are computed by the database, never by this page.</footer>
 
+<script src="./supabase.js"></script>
 <script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const createClient = window.supabase?.createClient;
+if (!createClient) {
+  document.getElementById("err").textContent =
+    "The app could not load its database library. Check the connection and reload.";
+}
+
+window.addEventListener("error", (e) => {
+  const box = document.getElementById("err");
+  if (box && !box.textContent) box.textContent = "Something broke: " + (e.message || "unknown error");
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const box = document.getElementById("err");
+  if (box && !box.textContent) box.textContent = "Something broke: " + (e.reason?.message || e.reason || "unknown");
+});
 
 const REMEMBER_KEY = "quest.remember";
 const remember = localStorage.getItem(REMEMBER_KEY) !== "0";
@@ -493,13 +508,25 @@ function paintArt() {
 
 /* --------------------------------------------------------------- auth --- */
 async function signIn() {
+  const btn = document.querySelector("#signin button.go");
   $("err").textContent = "";
+  if (!createClient) { $("err").textContent = "The app has no database library loaded. Reload the page."; return; }
+  const email = $("email").value.trim(), password = $("pw").value;
+  if (!email || !password) { $("err").textContent = "Type the email and the password."; return; }
+
   const wantRemember = $("remember")?.checked !== false;
   localStorage.setItem(REMEMBER_KEY, wantRemember ? "1" : "0");
+  if (btn) { btn.disabled = true; btn.textContent = "Signing in…"; }
 
-  const { error } = await sb.auth.signInWithPassword({
-    email: $("email").value.trim(), password: $("pw").value,
-  });
+  let error = null;
+  try {
+    const res = await sb.auth.signInWithPassword({ email, password });
+    error = res.error;
+  } catch (e) {
+    error = { message: "Could not reach the server: " + (e?.message ?? e) };
+  }
+  if (btn) { btn.disabled = false; btn.textContent = "Sign in"; }
+
   if (error) {
     $("err").textContent = error.message === "Invalid login credentials"
       ? "That email and password do not match. Check the password, or use “Forgot the password?”."
@@ -750,6 +777,24 @@ async function pdfToImages(file, maxPages) {
     out.push(blob);
   }
   return out;
+}
+
+async function solveBlanks() {
+  const exam = $("upBank").value;
+  $("upErr").textContent = "Working them out…";
+  const { data, error } = await sb.functions.invoke("solve-questions", { body: { exam, limit: 8 } });
+  if (error || data?.error) {
+    $("upErr").textContent = "The solver could not run: " + (error?.message || data?.error);
+    return;
+  }
+  const n = (data.solved ?? []).length;
+  $("upErr").textContent = "";
+  $("upDone").className = "fb right";
+  $("upDone").innerHTML = n
+    ? `<b>${n} answer${n === 1 ? "" : "s"} worked out</b>
+       <div class="m">${data.solved.map((x) => `Ch${x.chapter} Q${x.idx}: ${esc(x.answer)}${x.confident ? "" : " (unsure)"}`).join("<br>")}</div>
+       <div class="m" style="margin-top:8px">These came from the model, not the book, so they are marked unverified.</div>`
+    : `<b>Nothing left to solve</b><div class="m">Every question in this exam already has an answer.</div>`;
 }
 
 async function submitUpload() {
@@ -1386,12 +1431,16 @@ sb.auth.onAuthStateChange(() => start());
 start();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 
-Object.assign(window, { signIn, signOut, goLanding, openTrack, openBook, openChapter,
+const api = {
+  signIn, signOut, goLanding, openTrack, openBook, openChapter,
   practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly,
   startQuiz, startPaper, submitTest,
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
-  readPaper, extractOne, solveBlanks, updateDest });
+  readPaper, extractOne, updateDest
+};
+for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
+
 </script>
 </body>
 </html>
