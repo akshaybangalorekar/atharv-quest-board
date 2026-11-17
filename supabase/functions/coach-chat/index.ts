@@ -39,6 +39,12 @@ Voice rules, always:
 - If he asks for the answer, offer the next step instead.
 - One question at a time. End most messages with a single short question.
 
+You are given a STANDING BRIEF: his day in the programme, how many questions he has answered,
+his accuracy, the chapters he has started and mastered, his weakest techniques, his tests, the next
+real exam and how far away it is, and what is still missing from his formula board. Read it before
+you speak. It is how you know what he has already done, so never open as though it is day one when
+the brief says otherwise, and never ask him something the brief already answers.
+
 What you remember, and how to use it:
 - You are told how many days he is into the programme, and whether today is his first day.
   On day one, say so plainly and keep it light: one chapter, one session, nothing heroic.
@@ -68,20 +74,14 @@ Rules:
 - If something is not recorded, say "that is not in the log yet".
 - Three short paragraphs at most. No lists of platitudes. British/Australian spelling.`;
 
-const SPOKEN = `You also speak your message aloud, so every reply must carry a spoken
-version in "speak" — the same idea, said the way a teacher says it to a child sitting next to her.
-
-How to write "speak":
-- Conversational, with contractions. "Right, let's look at this one" not "Proceeding to the question".
-- Numbers in words, the way people say them: "nine hundred and ninety-nine thousand", not "999,999".
-- No symbols at all: no ×, ÷, +, =, ^, brackets, slashes, or bullet points. Say "times", "divided by",
-  "plus", "equals", "squared".
-- Never read out the question text or the method word for word. Give the gist, then ask.
-- Thirty-five words at most. One or two sentences.
-- If the written version has steps or lists, the spoken one gets the first step only.
+const SHAPE = `He reads everything you write, so write for an eleven-year-old to read:
+- Short sentences. Two to four per message, never a wall of text.
+- Numbers and symbols are fine on screen: 999 999, 3 × 4, 2:45.
+- If you give working, put one step on each line, starting with a dash.
+- No markdown headings, no bold, no tables.
 
 Reply with JSON only:
-{"say":"what appears on screen","speak":"what she says out loud"}`;
+{"say":"what appears on screen"}`;
 
 const MODES: Record<string, string> = {
   greet: `Open the session in four short lines at most (this is the "say" field):
@@ -96,14 +96,14 @@ const MODES: Record<string, string> = {
 4. Say you will wait for his answer.
 
 Do not start teaching. Do not list questions. Keep it warm and short.
-Also give "speak": two sentences, spoken, warm, no symbols.`,
+`,
 
   reply: `Continue the session.
 
 If he is telling you what he has been doing — school, TopScope, his tutor, IXL, the book — then
 acknowledge it in one line, and ask ONE follow-up: how confident he feels about it, on a scale of
 one to five. Reply with JSON only:
-{"say":"your reply, short","speak":"the same, spoken, no symbols",
+{"say":"your reply, short",
  "log":{"minutes":number or 0,"note":"what he did, in his own words",
  "confidence":1-5 or null,"topics":["what he named"]}}
 
@@ -116,18 +116,19 @@ thing — or give the first line of the method and stop. One step at a time, and
 something for him to do or say.
 
 If he says he has a doubt, or that he is stuck on a question, and no photo came with it, ask him
-to tap the paperclip and photograph the question — one line, friendly: "Show me the question — tap
-the paperclip and take a picture of it." Then wait.
+to tap the Photo button and photograph the question — one line, friendly: "Show me the question —
+tap Photo and take a picture of it." Then wait.
 
 If he is asking something else entirely, reply with plain text and no JSON. Answer what he just said or did, in two or three short
 sentences, then give him the next single step or ask one question.`,
 
   summary: `The session is ending. Write a note he can read back later. (This is the "say" field.) Give him a three-line closing card: what he did today,
 one thing he did well (be specific, from the attempts), and one thing to hold in mind next time.
+If he is pausing part-way, say plainly that you will pick up exactly here next time.
 Then say when the next session is, from the plan.
 Also give "title": a short, self-explanatory heading for this note, six words at most, naming what
 was actually worked on — "Place value: swapping digits", not "Session 4".
-And "speak": two spoken sentences.
+
 
 Never send him to another screen — the formula board, the journal, progress — in the middle of a
 chapter. Those come after the chapter is finished, and only then. If he has not finished, say what
@@ -173,9 +174,10 @@ and one concrete thing to do differently next week. Plain words, no jargon, no f
 // Models emit JSON with raw newlines inside strings, which JSON.parse rejects.
 // This reads it anyway, and never returns a string starting with a brace.
 function looseParse(raw: string): Record<string, any> {
-  const a = raw.indexOf("{"), b = raw.lastIndexOf("}");
-  if (a < 0 || b <= a) return {};
-  const body = raw.slice(a, b + 1);
+  const a = raw.indexOf("{");
+  if (a < 0) return {};
+  const b = raw.lastIndexOf("}");
+  const body = b > a ? raw.slice(a, b + 1) : raw.slice(a);   // an unclosed object still has words in it
 
   try { return JSON.parse(body); } catch { /* keep going */ }
   try { return JSON.parse(body.replace(/[\u0000-\u001f]+/g, " ")); } catch { /* keep going */ }
@@ -185,7 +187,17 @@ function looseParse(raw: string): Record<string, any> {
     if (!m) return "";
     return m[1].replace(/\\n/g, " ").replace(/\\"/g, '"').replace(/\s+/g, " ").trim();
   };
-  return { say: pick("say"), speak: pick("speak") };
+  const say = pick("say");
+  if (say) return { say };
+
+  // last resort: an unclosed or badly broken object — keep the words, drop the wrapper
+  const salvage = body
+    .replace(/^\{\s*"?[a-z_]+"?\s*:\s*"?/i, "")
+    .replace(/"?\s*[},]\s*$/, "")
+    .replace(/\\n/g, " ")
+    .replace(/\\"/g, '"')
+    .trim();
+  return { say: salvage.startsWith("{") ? "" : salvage };
 }
 
 Deno.serve(async (req) => {
@@ -210,6 +222,10 @@ Deno.serve(async (req) => {
     const toParent = mode === "parent" || mode === "parent-weekly";
     const { data: ctx } = await asUser.rpc(toParent ? "parent_context" : "coach_context");
     const c = ctx ?? {};
+
+    // the standing brief, rebuilt every night: where he is, what he has done,
+    // what is weak. This is what stops the coach starting from day one again.
+    const { data: brief } = await asUser.rpc("current_coach_brief");
 
     // the chapter actually being taught — from the book, or an uploaded bank
     const effChapter = chapter ?? c.chapter ?? null;
@@ -248,6 +264,7 @@ Deno.serve(async (req) => {
       `What he did in the app on his own: ${JSON.stringify(solo ?? {})}`,
       `Still missing from his formula board: ${JSON.stringify(boardPending ?? [])}`,
       `Placement needed: ${c.placement_due ? "yes — he has never been placed, or a parent reset the app" : "no"}`,
+      `STANDING BRIEF (his whole history, rebuilt nightly — trust it over your own memory): ${JSON.stringify(brief ?? {})}`,
       `His last check-in: ${JSON.stringify(c.self_reports?.[0] ?? {})}`,
       `Your last messages with him: ${JSON.stringify(c.recent_chat ?? []).slice(0, 1200)}`,
       `Today's plan: ${JSON.stringify(c.plan ?? [])}`,
@@ -277,7 +294,7 @@ Deno.serve(async (req) => {
       messages: [
         { role: "system", content: toParent
             ? `${PARENT_PERSONA}\n\nWHAT YOU KNOW RIGHT NOW:\n${parentFacts}`
-            : `${PERSONA}\n\n${SPOKEN}\n\nWHAT YOU KNOW RIGHT NOW:\n${facts}` },
+            : `${PERSONA}\n\n${SHAPE}\n\nWHAT YOU KNOW RIGHT NOW:\n${facts}` },
         { role: "system", content: MODES[mode] ?? MODES.reply },
         ...history,
       ],
@@ -297,17 +314,16 @@ Deno.serve(async (req) => {
     let reply = (body2?.choices?.[0]?.message?.content ?? "").trim();
     if (!reply) return json({ error: "empty reply" }, 502);
 
-    // any JSON reply carries a spoken version alongside the written one
-    let spoken = "";
     if (reply.trim().startsWith("{")) {
       const j = looseParse(reply);
-      if (j.speak) spoken = String(j.speak).trim();
+
       if (j.say) reply = String(j.say).trim();
+      if (!reply) reply = "Sorry — I lost that one. Say it again, a little slower.";
       if (mode !== "reply" && mode !== "decide" && j.say) {
         await admin.from("chat_messages").insert({
           student_id: user.id, role: "coach", body: String(j.say), meta: { mode, track },
         });
-        return json({ reply: String(j.say), speak: spoken });
+        return json({ reply: String(j.say) });
       }
     }
 
@@ -328,7 +344,7 @@ Deno.serve(async (req) => {
           await admin.from("chat_messages").insert({
             student_id: user.id, role: "coach", body: String(j.say), meta: { mode, track },
           });
-          return json({ reply: String(j.say), speak: String(j.speak ?? ""), logged: !!j.log });
+          return json({ reply: String(j.say), logged: !!j.log });
         }
       }
     }
@@ -348,7 +364,7 @@ Deno.serve(async (req) => {
           student_id: user.id, role: "coach", body: say,
           meta: { mode, track, plan },
         });
-        return json({ reply: say, speak: String(j.speak ?? ""), plan });
+        return json({ reply: say, plan });
       }
     }
 
@@ -373,14 +389,15 @@ Deno.serve(async (req) => {
     if (reply.trim().startsWith("{")) {
       const j = looseParse(reply);
       if (j.say) reply = String(j.say).trim();
-      else reply = reply.replace(/^\{|\}$/g, "").replace(/"(say|speak|log)"\s*:\s*/g, "").replace(/"/g, "").trim();
+      if (!reply) reply = "Sorry — I lost that one. Say it again, a little slower.";
+      else reply = reply.replace(/^\{|\}$/g, "").replace(/"(say|log)"\s*:\s*/g, "").replace(/"/g, "").trim();
     }
     let title = "";
     if (reply.trim().startsWith("{")) {
       const j = looseParse(reply);
       if (j.title) title = String(j.title).slice(0, 80);
     }
-    return json({ reply, speak: spoken, title });
+    return json({ reply, title });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
