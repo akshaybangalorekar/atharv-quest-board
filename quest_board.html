@@ -210,16 +210,12 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
     <div class="q" id="coachSay" style="font-size:18px">Thinking about today…</div>
     <div class="bar"><button class="go" id="coachGo" onclick="runCoachPlan()" disabled>Start →</button></div>
     <div class="hint" id="coachWhy"></div>
+    <div class="hint" id="weekLine" style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px"></div>
   </div>
 
   <div class="exams" id="examCards"></div>
 
-  <div class="card">
-    <div class="k">How the week is going</div>
-    <div class="sub" id="weekLine">—</div>
-    <div class="bar"><button class="ghost small" onclick="weekly()">Ask the coach for my weekly note</button></div>
-    <div id="weeklyOut" class="fb hidden"></div>
-  </div>
+
 </main>
 
 <!-- track home -->
@@ -989,9 +985,10 @@ function goLanding() {
   askCoachWhatNow();
 
   const done = (c.today_attempts ?? []).length;
-  $("weekLine").textContent = done
-    ? `${done} question${done === 1 ? "" : "s"} answered today · streak ${c.streak ?? 0} days · ${(c.xp ?? 0).toLocaleString()} XP`
-    : `Nothing answered yet today · streak ${c.streak ?? 0} days · ${(c.xp ?? 0).toLocaleString()} XP`;
+  const right = (c.today_attempts ?? []).filter((a) => a.ok).length;
+  $("weekLine").textContent =
+    `${done ? `${done} answered today, ${right} right` : "Nothing answered yet today"} · ` +
+    `streak ${c.streak ?? 0} days · ${(c.xp ?? 0).toLocaleString()} XP`;
 }
 
 async function askCoachWhatNow() {
