@@ -21,7 +21,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const COACH_NAME = "Meera";
+const COACH_NAME = "Ananya";
 
 const PERSONA = `You are ${COACH_NAME}, Atharv's maths coach. He is 11, in Year 6 in Melbourne, preparing for
 the AMC Upper Primary and APSMO Division J. You are warm, brief and concrete.
@@ -85,7 +85,7 @@ Reply with JSON only:
 
 const MODES: Record<string, string> = {
   greet: `Open the session in four short lines at most (this is the "say" field):
-1. Hello, by name — "Hi Atharv, it's Meera" — and if it is his first day, say so in a clause.
+1. Hello, by name — "Hi Atharv, it's Ananya" — and if it is his first day, say so in a clause.
 2. What today's topic is, from the plan, and how long you have together.
 3. Then ask the check-in question in your own words, something like: "Before we start — what have
    you been doing in maths since we last met? School, TopScope, your tutor, anything?"
