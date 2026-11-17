@@ -55,6 +55,7 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 
 /* exam cards */
 .exams{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(min-width:900px){.exams{grid-template-columns:1fr 1fr 1fr}}
 @media(max-width:640px){.exams{grid-template-columns:1fr}}
 .exam{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;cursor:pointer;text-align:left;font:inherit;color:inherit}
 .exam:active{background:#faf9ff}
@@ -495,6 +496,7 @@ const S = {
 const TRACKS = [
   { id: "olympiad", name: "Olympiad", school: "AMC Upper Primary & APSMO Division J", note: "The book, 24 chapters" },
   { id: "amc", name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Book chapters + AMC papers" },
+  { id: "apsmo", name: "APSMO", school: "Division J · five questions, thirty minutes", note: "School practice set — 200 questions in nine sets" },
   { id: "aas", name: "AAS", school: "Camberwell Grammar School", note: "Scholarship test" },
   { id: "edutest", name: "Edutest", school: "Kilvington Grammar", note: "Scholarship test" },
 ];
@@ -646,6 +648,7 @@ async function loadParent() {
 
 const BANK_LABEL = {
   "Olympiad book": "Olympiad · the book",
+  "APSMO Division J": "APSMO · Division J",
   "AAS numerical reasoning": "AAS · Camberwell Grammar",
   "Edutest numerical reasoning": "Edutest · Kilvington",
   "ICAS Maths": "ICAS · Maths",
