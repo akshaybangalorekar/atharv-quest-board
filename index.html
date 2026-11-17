@@ -3,29 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Atharv's Quest Board</title>
+<title>Atharv's Coach</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#5b4fcf">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Quest">
+<meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
 <style>
 :root{--ink:#1c1e2b;--mut:#6b6e85;--line:#e6e6ef;--bg:#f7f7fb;--card:#fff;--acc:#5b4fcf;--ok:#1f8a5b;--amber:#c7780a;--red:#c43d3d;--chip:#efedff}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.45}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
 .top{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;max-width:960px;margin:0 auto;gap:10px;flex-wrap:wrap;padding-top:max(18px, env(safe-area-inset-top))}
 .top h1{font-size:20px;margin:0;font-weight:650}
-.tabs{display:flex;gap:6px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px}
-.tabs button{border:0;background:transparent;padding:6px 14px;border-radius:999px;font:inherit;font-size:14px;color:var(--mut);cursor:pointer}
-.tabs button.on{background:var(--acc);color:#fff}
 main{max-width:960px;margin:0 auto;padding:0 22px 60px;display:grid;gap:14px;padding-bottom:max(60px, calc(env(safe-area-inset-bottom) + 40px))}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:700px){.row{grid-template-columns:1fr}}
 .k{font-size:12.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-.big{font-size:34px;font-weight:700;line-height:1.1}
+.big{font-size:32px;font-weight:700;line-height:1.1}
 .sub{color:var(--mut);font-size:14px;margin-top:4px}
 .grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:8px}
 @media(max-width:700px){.grid{grid-template-columns:repeat(6,1fr)}}
@@ -44,34 +41,51 @@ th{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12.5px;font-weight:600}
 .pill.ok{background:#e7f6ee;color:var(--ok)}.pill.amber{background:#fff4e3;color:var(--amber)}
 .pill.red{background:#fdeaea;color:var(--red)}.pill.grey{background:#eeeef4;color:var(--mut)}
-.weak li{margin:6px 0}
 .hint{font-size:13.5px;color:var(--mut);margin-top:8px}
-.streak{display:flex;gap:4px;margin-top:8px}
-.streak i{width:14px;height:14px;border-radius:4px;background:#e1e1ec}.streak i.y{background:var(--ok)}
 .xpbar{height:8px;background:#ececf5;border-radius:999px;overflow:hidden;margin-top:8px}.xpbar i{display:block;height:100%;background:var(--acc)}
 footer{max-width:960px;margin:0 auto;padding:0 22px 30px;font-size:12.5px;color:var(--mut);padding-bottom:max(30px, env(safe-area-inset-bottom))}
-.hidden{display:none}
-input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;width:100%}
+.hidden{display:none!important}
+input{font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px;width:100%;font-size:16px}
 button.go{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:14px 22px;font:inherit;font-size:17px;font-weight:600;cursor:pointer}
 button.go:disabled{opacity:.5}
 button.ghost{background:#fff;border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:12px 18px;font:inherit;font-size:15px;cursor:pointer}
+button.small{padding:8px 14px;font-size:14px;border-radius:10px}
+.out{background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:999px;padding:8px 16px;font:inherit;font-size:14px;cursor:pointer}
 .err{color:var(--red);font-size:14px;margin-top:8px}
-.q{font-size:19px;line-height:1.5;margin:6px 0 4px}
-.ansbox{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
-.ansbox input{flex:1;min-width:200px;font-size:17px}
-.fb{margin-top:14px;padding:14px;border-radius:12px;font-size:15px}
+
+/* exam cards */
+.exams{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.exams{grid-template-columns:1fr}}
+.exam{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.exam:active{background:#faf9ff}
+.exam h3{margin:0 0 2px;font-size:19px}
+.exam .school{font-size:13px;color:var(--mut)}
+.exam .state{margin-top:12px;font-size:14px}
+
+/* chat */
+#chatWrap{display:grid;gap:10px}
+.msg{max-width:86%;padding:12px 14px;border-radius:16px;font-size:15.5px;white-space:pre-wrap}
+.msg.coach{background:#fff;border:1px solid var(--line);border-bottom-left-radius:6px;justify-self:start}
+.msg.me{background:var(--acc);color:#fff;border-bottom-right-radius:6px;justify-self:end}
+.msg.think{background:#f1f0ff;border:1px dashed #c9c3ff;color:var(--mut);justify-self:start;font-size:14px}
+.qcard{background:#fff;border:2px solid var(--acc);border-radius:16px;padding:16px}
+.qcard .n{font-size:12px;color:var(--mut);font-weight:700;letter-spacing:.06em}
+.qcard .q{font-size:19px;margin:6px 0 12px;line-height:1.5}
+.qcard .timer{font-size:13px;color:var(--mut);margin-top:10px;font-variant-numeric:tabular-nums}
+.qcard .timer.warn{color:var(--amber);font-weight:600}
+.fb{margin-top:12px;padding:12px 14px;border-radius:12px;font-size:15px}
 .fb.right{background:#e7f6ee;border:1px solid #bfe3d1}
 .fb.wrong{background:#fdeaea;border:1px solid #f2c9c9}
 .fb.manual{background:#fff4e3;border:1px solid #f0d6a8}
-.fb b{font-weight:650}
-.timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:20px}
-.timer.low{color:var(--red)}
-.qlist{display:grid;gap:12px}
-.qitem{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.qitem .n{font-size:12.5px;color:var(--mut);font-weight:700;letter-spacing:.05em}
-.out{background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:999px;padding:8px 16px;font:inherit;font-size:14px;cursor:pointer}
-.out:active{background:#f1f1f8}
-#iosHint{display:none;font-size:13.5px;color:var(--mut);margin-top:10px}
+.fb .m{color:var(--mut);font-size:14px;margin-top:6px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chapterlist{display:grid;gap:8px;margin-top:8px}
+.ch{display:flex;justify-content:space-between;gap:10px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit;text-align:left}
+.ch:active{background:#faf9ff}
+.chip{display:inline-block;background:var(--chip);color:var(--acc);border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600;margin:3px 4px 0 0}
+.ex{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px;background:#fff}
+.ex .sol{color:var(--mut);font-size:14px;margin-top:8px;display:none}
+.ex.open .sol{display:block}
 </style>
 </head>
 <body>
@@ -82,14 +96,14 @@ button.ghost{background:#fff;border:1px solid var(--line);color:var(--ink);borde
 </script>
 
 <div class="top">
-  <h1>Atharv's Quest Board</h1>
-  <div class="tabs" id="tabs" style="display:none">
-    <button class="on" onclick="tab('home',this)">Atharv</button>
-    <button onclick="tab('parent',this)">Parent</button>
+  <h1 id="appTitle">Atharv's Coach</h1>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="out hidden" id="homeBtn" onclick="goLanding()">⌂</button>
+    <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
   </div>
-  <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
 </div>
 
+<!-- sign in -->
 <main id="signin">
   <div class="card">
     <div class="k">Sign in</div>
@@ -99,165 +113,104 @@ button.ghost{background:#fff;border:1px solid var(--line);color:var(--ink);borde
       <button class="go" onclick="signIn()">Sign in</button>
     </div>
     <div class="err" id="err"></div>
-    <div class="hint">Atharv, Pooja and Akshay each sign in with their own account. The parent sees the same data, read-only.</div>
-    <div id="iosHint">To keep this on the iPad: tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens full screen, like an app.</div>
   </div>
 </main>
 
-<!-- ---------------------------------------------------------------- home -->
-<main id="home" class="hidden">
+<!-- landing: pick the exam -->
+<main id="landing" class="hidden">
+  <div class="card" style="padding:16px 20px">
+    <div class="k">Who's working today</div>
+    <div class="big" style="font-size:20px" id="hello">Hello</div>
+    <div class="sub" id="todayLine"></div>
+  </div>
+
+  <div class="exams" id="examCards"></div>
+
   <div class="card">
-    <div class="k">Today · <span id="todayDate"></span></div>
-    <div class="big" id="todayLane" style="font-size:22px">No plan yet</div>
-    <div class="sub" id="todayNext"></div>
-    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
-      <button class="go" id="startBtn" onclick="startToday()">Start today's work →</button>
-      <button class="ghost" onclick="startPractice()">Practise anything</button>
-      <button class="ghost" onclick="startQuiz()">Chapter quiz</button>
-      <button class="ghost" onclick="startPaper()">AMC paper</button>
+    <div class="k">How the week is going</div>
+    <div class="sub" id="weekLine">—</div>
+    <div class="bar"><button class="ghost small" onclick="weekly()">Ask the coach for my weekly note</button></div>
+    <div id="weeklyOut" class="fb hidden"></div>
+  </div>
+</main>
+
+<!-- track home -->
+<main id="track" class="hidden">
+  <div class="card">
+    <div class="k" id="trackName">Olympiad</div>
+    <div class="big" style="font-size:22px" id="todayPlan">—</div>
+    <div class="sub" id="todayNote"></div>
+    <div class="bar">
+      <button class="go" onclick="startSession()">Start with the coach →</button>
+      <button class="ghost" onclick="openBook()">Look at the book</button>
     </div>
-    <div class="hint" id="startMsg"></div>
+    <div class="hint" id="trackHint"></div>
   </div>
 
   <div class="row">
     <div class="card">
-      <div class="k" id="levelLabel">Level 1 · Apprentice</div>
-      <div class="big"><span id="xp">0</span> <span style="font-size:16px;color:var(--mut);font-weight:500">XP</span></div>
+      <div class="k">Level</div>
+      <div class="big" id="xpBig">0</div>
       <div class="xpbar"><i id="xpFill" style="width:0%"></i></div>
-      <div class="sub" id="xpNext">300 XP to Level 2</div>
-      <div class="k" style="margin-top:14px">Streak · <span id="streakN">0</span> days</div>
-      <div class="streak" id="streakDots"></div>
-      <div class="sub" id="todayProgress"></div>
+      <div class="sub" id="xpNext"></div>
     </div>
     <div class="card">
       <div class="k">Is the content enough?</div>
-      <div id="readiness" class="sub">Loading…</div>
+      <div class="sub" id="readinessLine">—</div>
     </div>
   </div>
 
   <div class="card">
-    <div class="k">Chapter map · 24 chapters, in book order</div>
+    <div class="k">Chapter map</div>
     <div class="grid" id="grid"></div>
     <div class="leg"><span class="mastered">Mastered</span><span class="cleared">Cleared</span><span class="in_progress">In progress</span><span class="needs_work">Needs work</span><span class="not_started">Not started</span></div>
   </div>
 
   <div class="card">
     <div class="k">Work on these next</div>
-    <ul class="weak" id="weakKid"><li class="sub">Nothing queued yet.</li></ul>
+    <ul id="weakList" style="margin:6px 0 0;padding-left:18px"><li class="sub">Nothing queued yet.</li></ul>
   </div>
 </main>
 
-<!-- ------------------------------------------------------------- session -->
+<!-- the session: a conversation -->
 <main id="session" class="hidden">
-  <div class="card">
-    <div class="k" id="sessHead">Session</div>
-    <div class="big" id="sessWhere" style="font-size:20px">Chapter 1</div>
-    <div class="sub" id="sessCount"></div>
-  </div>
-
-  <div class="card" id="exCard" style="display:none">
-    <div class="k">Worked example</div>
-    <div class="q" id="exQ"></div>
-    <div class="sub" id="exSol" style="margin-top:10px"></div>
-    <div style="margin-top:14px"><button class="ghost" onclick="nextExample()">Next example →</button></div>
-  </div>
-
-  <div class="card" id="qCard">
-    <div class="k" id="qHead">Question</div>
-    <div class="q" id="qText">Loading…</div>
-    <div class="ansbox">
-      <input id="answer" placeholder="Your answer" autocomplete="off" autocapitalize="off"
-             onkeydown="if(event.key==='Enter')checkAnswer()">
-      <button class="go" id="checkBtn" onclick="checkAnswer()">Check</button>
+  <div id="chatWrap"></div>
+  <div class="card" style="position:sticky;bottom:0;padding:12px">
+    <div style="display:flex;gap:8px">
+      <input id="say" placeholder="Say something to the coach…" onkeydown="if(event.key==='Enter')sendMe()">
+      <button class="go small" onclick="sendMe()">Send</button>
     </div>
-    <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
-      <button class="ghost" onclick="document.getElementById('photo').click()">Show my working</button>
+    <div class="bar">
+      <button class="ghost small" onclick="document.getElementById('photo').click()">📷 Show my working</button>
       <input type="file" id="photo" accept="image/*" capture="environment" class="hidden" onchange="uploadWorking(this)">
+      <button class="ghost small" onclick="endSession()">Call it a day</button>
     </div>
-    <div class="fb hidden" id="fb"></div>
-    <div id="coachOut" class="fb hidden"></div>
-    <div style="margin-top:14px"><button class="ghost" id="nextBtn" style="display:none" onclick="nextQuestion()">Next →</button></div>
-  </div>
-
-  <div class="card" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
-    <button class="ghost" onclick="goHome()">← Back to the board</button>
-    <button class="ghost" onclick="skipQuestion()">Skip this one</button>
   </div>
 </main>
 
-<!-- ---------------------------------------------------------------- exam -->
-<main id="exam" class="hidden">
-  <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-    <div>
-      <div class="k" id="examKind">Test</div>
-      <div class="big" id="examWhere" style="font-size:20px"></div>
-    </div>
-    <div style="text-align:right">
-      <div class="k">Time left</div>
-      <div class="timer" id="clock">--:--</div>
-    </div>
-  </div>
-
+<!-- the book -->
+<main id="book" class="hidden">
   <div class="card">
-    <div class="hint" style="margin:0 0 12px">No hints, no help, no looking anything up. Answers stay hidden until you submit — that is the point of a test.</div>
-    <div class="qlist" id="examList"></div>
-    <div style="margin-top:16px"><button class="go" id="submitExam" onclick="submitExam()">Submit the test</button></div>
-    <div class="err" id="examErr"></div>
+    <div class="k">The book · 24 chapters, in order</div>
+    <div class="chapterlist" id="chList"></div>
   </div>
 </main>
 
-<!-- ------------------------------------------------------------- results -->
-<main id="results" class="hidden">
+<main id="chapter" class="hidden">
   <div class="card">
-    <div class="k">Result</div>
-    <div class="big" id="resScore">—</div>
-    <div class="sub" id="resPct"></div>
+    <div class="k" id="chNum">Chapter</div>
+    <div class="big" style="font-size:22px" id="chTitle"></div>
+    <div id="chIdeas" style="margin-top:8px"></div>
+    <div class="sub" id="chSummary" style="margin-top:12px"></div>
+    <div class="bar"><button class="go small" onclick="practiseChapter()">Practise this chapter →</button></div>
   </div>
   <div class="card">
-    <div class="k">Question by question</div>
-    <table><tbody id="resItems"></tbody></table>
-  </div>
-  <div class="card"><button class="ghost" onclick="goHome()">← Back to the board</button></div>
-</main>
-
-<!-- -------------------------------------------------------------- parent -->
-<main id="parent" class="hidden">
-  <div class="row">
-    <div class="card">
-      <div class="k">Overall</div>
-      <div class="sub" id="parentOverall">Loading…</div>
-    </div>
-    <div class="card">
-      <div class="k">Next real exam</div>
-      <div class="big" style="font-size:24px" id="nextExam">—</div>
-      <div class="sub" id="nextExamWhen"></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="k">Exam readiness</div>
-    <table>
-      <tr><th>Exam</th><th>Questions</th><th>Practised</th><th>Mastered</th><th>Verdict</th></tr>
-      <tbody id="readinessTable"></tbody>
-    </table>
-    <div class="hint" id="readinessNote"></div>
-  </div>
-
-  <div class="card">
-    <div class="k">Weakest techniques</div>
-    <ul class="weak" id="weakParent"><li class="sub">Nothing queued yet.</li></ul>
-  </div>
-
-  <div class="card">
-    <div class="k">Recent tests</div>
-    <table>
-      <tr><th>Date</th><th>Test</th><th>Score</th><th>Result</th></tr>
-      <tbody id="recentTests"><tr><td colspan="4" class="sub">No tests yet.</td></tr></tbody>
-    </table>
+    <div class="k">Worked examples</div>
+    <div id="chExamples"></div>
   </div>
 </main>
 
-<footer>Marking, XP and scores are computed by the database, never by this page. Every number here comes from Supabase.</footer>
+<footer>Marking, XP and scores are computed by the database, never by this page.</footer>
 
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -270,25 +223,30 @@ function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-
-const S = { qs: [], i: 0, chapter: null, lane: "Q", examId: null, timer: null, left: 0, exs: [], ei: 0, startedAt: 0 };
-
 function show(id) {
-  ["signin", "home", "session", "exam", "results", "parent"].forEach((m) => $(m).classList.add("hidden"));
+  ["signin", "landing", "track", "session", "book", "chapter"].forEach((m) => $(m).classList.add("hidden"));
   $(id).classList.remove("hidden");
+  $("homeBtn").classList.toggle("hidden", id === "landing" || id === "signin");
   window.scrollTo(0, 0);
 }
-function tab(id, btn) {
-  show(id);
-  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b === btn));
-}
 
-/* ---------------------------------------------------------------- auth -- */
+const S = {
+  track: "olympiad", plan: [], chat: [], qs: [], i: 0,
+  chapter: null, chapterTitle: "", startedAt: 0, ticker: null, nudged: false,
+  examId: null, profile: null, readiness: [], ctx: null,
+};
+
+const TRACKS = [
+  { id: "olympiad", name: "Olympiad", school: "AMC Upper Primary & APSMO Division J", note: "The book, 24 chapters" },
+  { id: "amc", name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Book chapters + AMC papers" },
+  { id: "aas", name: "AAS", school: "Camberwell Grammar School", note: "Scholarship test" },
+  { id: "edutest", name: "Edutest", school: "Kilvington Grammar", note: "Scholarship test" },
+];
+
+/* --------------------------------------------------------------- auth --- */
 async function signIn() {
   $("err").textContent = "";
-  const { error } = await sb.auth.signInWithPassword({
-    email: $("email").value.trim(), password: $("pw").value,
-  });
+  const { error } = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pw").value });
   if (error) { $("err").textContent = error.message; return; }
   start();
 }
@@ -296,368 +254,322 @@ async function signOut() { await sb.auth.signOut(); location.reload(); }
 
 async function start() {
   const { data: { user } } = await sb.auth.getUser();
-  if (!user) {
-    show("signin");
-    $("tabs").style.display = "none";
-    $("signOut").style.display = "none";
-    return;
-  }
-  $("tabs").style.display = "flex";
+  if (!user) { show("signin"); $("signOut").style.display = "none"; return; }
   $("signOut").style.display = "inline-block";
-  show("home");
-  $("todayDate").textContent = new Date().toLocaleDateString("en-AU",
-    { weekday: "long", day: "numeric", month: "short" });
-  await Promise.all([loadProfile(), loadPlan(), loadMap(), loadWeak(), loadReadiness(), loadTests(), loadNextExam()]);
+  await loadContext();
+  goLanding();
 }
 
-/* ---------------------------------------------------------------- home -- */
-async function loadProfile() {
-  const { data } = await sb.from("profiles").select("*").limit(1).maybeSingle();
-  if (!data) { $("levelLabel").textContent = "No profile row yet"; return; }
-  const xp = data.xp ?? 0;
-  const level = 1 + Math.floor(xp / 300);
-  $("levelLabel").textContent = `Level ${level} · ${TITLES[Math.min(4, Math.floor((level - 1) / 3))]}`;
-  $("xp").textContent = xp.toLocaleString();
+async function loadContext() {
+  const { data } = await sb.rpc("coach_context");
+  S.ctx = data ?? {};
+  const { data: prof } = await sb.from("profiles").select("*").limit(1).maybeSingle();
+  S.profile = prof;
+  const { data: plan } = await sb.from("plan_days").select("*").eq("day", todayISO()).order("seq");
+  S.plan = plan ?? [];
+  const { data: ready } = await sb.from("v_exam_readiness").select("*");
+  S.readiness = ready ?? [];
+}
+
+/* ------------------------------------------------------------- landing -- */
+function goLanding() {
+  show("landing");
+  const c = S.ctx ?? {};
+  $("hello").textContent = `Hello, ${c.name ?? "Atharv"}`;
+  const lane = S.plan.find((p) => p.lane !== "R");
+  $("todayLine").textContent = lane
+    ? `Today: ${lane.lane === "Q" ? "quest" : lane.lane === "M" ? "a test" : lane.lane === "D" ? "a drill" : lane.lane}${lane.chapter ? " · chapter " + lane.chapter : ""} · ${lane.minutes} minutes`
+    : "Today is a rest day.";
+
+  const readinessFor = (id) => {
+    const hit = S.readiness.find((r) => (r.exam || "").toLowerCase().includes(id === "olympiad" ? "olympiad" : id));
+    return hit ? hit.verdict : "no_content";
+  };
+  const words = { ready: "Content is enough", too_early: "Just started", in_progress: "Keep going",
+                  thin: "Need more data", no_content: "No questions uploaded yet" };
+
+  $("examCards").innerHTML = TRACKS.map((t) => {
+    const v = readinessFor(t.id);
+    return `<button class="exam" onclick="openTrack('${t.id}')">
+      <h3>${t.name}</h3>
+      <div class="school">${t.school}</div>
+      <div class="state"><span class="pill ${v === "ready" ? "ok" : v === "no_content" ? "grey" : "amber"}">${words[v] ?? v}</span>
+      <div class="sub" style="margin-top:8px">${t.note}</div></div>
+    </button>`;
+  }).join("");
+
+  const done = (c.today_attempts ?? []).length;
+  $("weekLine").textContent = done
+    ? `${done} question${done === 1 ? "" : "s"} answered today · streak ${c.streak ?? 0} days · ${(c.xp ?? 0).toLocaleString()} XP`
+    : `Nothing answered yet today · streak ${c.streak ?? 0} days · ${(c.xp ?? 0).toLocaleString()} XP`;
+}
+
+async function weekly() {
+  $("weeklyOut").className = "fb";
+  $("weeklyOut").textContent = "Thinking about your week…";
+  const r = await callCoach({ mode: "weekly" });
+  $("weeklyOut").innerHTML = r ? `<b>This week</b><div class="m" style="color:var(--ink)">${esc(r)}</div>` : "The coach is unavailable right now.";
+}
+
+/* --------------------------------------------------------------- track -- */
+async function openTrack(id) {
+  S.track = id;
+  show("track");
+  const t = TRACKS.find((x) => x.id === id);
+  $("trackName").textContent = `${t.name} · ${t.school}`;
+  const lane = S.plan.find((p) => p.lane !== "R");
+  $("todayPlan").textContent = lane
+    ? `${lane.lane === "Q" ? "Quest" : lane.lane === "M" ? "Test" : lane.lane === "D" ? "Drill" : lane.lane}${lane.chapter ? " · Chapter " + lane.chapter : ""} · ${lane.minutes} min`
+    : "Rest day";
+  $("todayNote").textContent = lane ? (lane.note ?? "") : "Nothing scheduled today.";
+
+  const ready = S.readiness.find((r) => (r.exam || "").toLowerCase().includes(id === "olympiad" ? "olympiad" : id));
+  $("readinessLine").textContent = ready ? ready.message : "No questions uploaded for this exam yet.";
+  $("trackHint").textContent = (id === "aas" || id === "edutest")
+    ? "There is no question bank for this exam yet. Send me the paper and I'll load it — until then the coach can still talk him through the olympiad work, but it cannot report readiness honestly."
+    : "";
+
+  const xp = S.ctx?.xp ?? 0, level = 1 + Math.floor(xp / 300);
+  $("xpBig").textContent = `${xp.toLocaleString()} XP · level ${level}`;
   $("xpFill").style.width = `${Math.round((xp % 300) / 3)}%`;
-  $("xpNext").textContent = `${300 - (xp % 300)} XP to Level ${level + 1}`;
-  const streak = data.streak_days ?? 0;
-  $("streakN").textContent = streak;
-  $("streakDots").innerHTML = Array.from({ length: 7 }, (_, i) => `<i class="${i < streak ? "y" : ""}"></i>`).join("");
-  $("parentOverall").textContent =
-    `${xp.toLocaleString()} XP · level ${level} · streak ${streak} days · ` +
-    `${data.days_per_week ?? "?"} sessions/week at ${data.session_min ?? 30} min`;
+  $("xpNext").textContent = `${300 - (xp % 300)} XP to level ${level + 1} · streak ${S.ctx?.streak ?? 0} days`;
 
-  const { data: tp } = await sb.rpc("today_progress");
-  if (tp) $("todayProgress").textContent =
-    `Today: ${tp.answered} answered, ${tp.correct} right, ${tp.xp} XP.`;
-}
+  const { data: map } = await sb.from("v_chapter_map").select("*").order("chapter");
+  $("grid").innerHTML = (map ?? []).map((c) =>
+    `<div class="t ${c.status}" onclick="openChapter(${c.chapter})">${c.chapter}${c.quiz_best ? `<small>${c.quiz_best}%</small>` : ""}</div>`).join("");
 
-async function loadPlan() {
-  const { data } = await sb.from("plan_days").select("*").eq("day", todayISO()).order("seq");
-  if (!data || !data.length) {
-    $("todayLane").textContent = "Rest day";
-    $("todayNext").textContent = "Nothing scheduled. A rest day is part of the plan.";
-    $("startBtn").style.display = "none";
-    return;
+  const { data: weak } = await sb.from("v_weak_techniques").select("*").order("misses", { ascending: false }).limit(3);
+  if (weak && weak.length) {
+    $("weakList").innerHTML = weak.map((w) =>
+      `<li><b>${w.technique}</b> <span class="sub">· ${w.open_items} open, ${w.misses} misses</span></li>`).join("");
   }
-  const lanes = data.map((d) => `${d.lane}${d.chapter ? " · Ch " + d.chapter : ""} · ${d.minutes} min`);
-  $("todayLane").textContent = lanes.join("  +  ");
-  $("todayNext").textContent = data[0].note ?? "";
-  S.plan = data;
 }
 
-async function loadMap() {
-  const { data } = await sb.from("v_chapter_map").select("*").order("chapter");
-  if (!data) return;
-  $("grid").innerHTML = data.map((c) => {
-    const score = c.quiz_best ? `<small>${c.quiz_best}%</small>` : "";
-    return `<div class="t ${c.status}" title="Ch ${c.chapter} · ${c.title} · ${c.status}">${c.chapter}${score}</div>`;
-  }).join("");
+/* -------------------------------------------------------------- the book - */
+async function openBook() {
+  show("book");
+  const { data } = await sb.from("chapters").select("n,title,pages,examples,practice").order("n");
+  $("chList").innerHTML = (data ?? []).map((c) => `
+    <button class="ch" onclick="openChapter(${c.n})">
+      <span><b>${c.n}. ${c.title}</b><div class="sub">pages ${c.pages ?? "—"} · ${c.examples} examples · ${c.practice} questions</div></span>
+      <span class="sub">›</span>
+    </button>`).join("");
 }
 
-async function loadWeak() {
-  const { data } = await sb.from("v_weak_techniques").select("*").order("misses", { ascending: false }).limit(3);
-  if (!data || !data.length) return;
-  $("weakKid").innerHTML = data.map((w) =>
-    `<li><b>${w.technique}</b><br><span class="sub">${w.open_items} open · ${w.misses} misses · next ${w.next_due ?? "—"}</span></li>`).join("");
-  $("weakParent").innerHTML = data.map((w) =>
-    `<li><b>${w.technique}</b> — ${w.open_items} open, ${w.misses} misses</li>`).join("");
+async function openChapter(n) {
+  show("chapter");
+  S.chapter = n;
+  const { data: c } = await sb.from("chapters").select("*").eq("n", n).single();
+  const { data: note } = await sb.from("chapter_notes").select("*").eq("chapter", n).maybeSingle();
+  const { data: exs } = await sb.from("examples").select("*").eq("chapter", n).order("n");
+  S.chapterTitle = c?.title ?? "";
+  $("chNum").textContent = `Chapter ${n} · book pages ${c?.pages ?? "—"}`;
+  $("chTitle").textContent = c?.title ?? "";
+  $("chIdeas").innerHTML = (note?.ideas ?? []).map((i) => `<span class="chip">${esc(i)}</span>`).join("");
+  $("chSummary").textContent = note?.summary ?? "No notes recorded for this chapter.";
+  $("chExamples").innerHTML = (exs ?? []).map((e) => `
+    <div class="ex" onclick="this.classList.toggle('open')">
+      <b>Example ${e.n}</b> · <span class="sub">tap to see the method</span>
+      <div style="margin-top:6px">${esc(e.prompt)}</div>
+      <div class="sol">${esc(e.solution)}</div>
+    </div>`).join("") || `<div class="sub">No worked examples in this chapter — the book goes straight to questions.</div>`;
 }
 
-async function loadReadiness() {
-  const { data } = await sb.from("v_exam_readiness").select("*");
-  if (!data) { $("readiness").textContent = "Readiness view not available."; return; }
-  $("readiness").textContent = data.map((r) => r.message).join(" ");
-  $("readinessTable").innerHTML = data.map((r) => {
-    const cls = r.verdict === "ready" ? "ok" : r.verdict === "too_early" ? "grey"
-      : r.verdict === "in_progress" ? "amber" : "red";
-    const word = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
-      thin: "Need more data", no_content: "Nothing uploaded" }[r.verdict] ?? r.verdict;
-    return `<tr><td>${r.exam}</td><td>${r.items}</td><td>${r.practised}</td>
-            <td>${r.mastered}</td><td><span class="pill ${cls}">${word}</span></td></tr>`;
-  }).join("");
-  $("readinessNote").textContent =
-    "“Need more data” means the question bank for that exam is too small to judge him on — upload more before reading anything into the score.";
+function practiseChapter() { startSession(S.chapter); }
+
+/* ----------------------------------------------------------- the session - */
+function bubble(role, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + role;
+  d.innerHTML = esc(text);
+  $("chatWrap").appendChild(d);
+  d.scrollIntoView({ behavior: "smooth", block: "end" });
+  return d;
 }
 
-async function loadTests() {
-  const { data } = await sb.from("exam_mocks").select("*").order("taken_at", { ascending: false }).limit(6);
-  if (!data || !data.length) return;
-  $("recentTests").innerHTML = data.map((t) => {
-    const d = new Date(t.taken_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
-    const cls = t.pct >= 80 ? "ok" : t.pct >= 60 ? "amber" : "red";
-    return `<tr><td>${d}</td><td>${t.kind}${t.scope && t.scope !== "all" ? " · Ch " + t.scope : ""}</td>
-            <td>${t.score ?? 0}/${t.total ?? 0}</td><td><span class="pill ${cls}">${t.pct ?? 0}%</span></td></tr>`;
-  }).join("");
+async function callCoach({ mode, note }) {
+  const history = S.chat.slice(-10).map((m) => ({ role: m.role, content: m.text }));
+  const { data, error } = await sb.functions.invoke("coach-chat", {
+    body: { mode, track: S.track, chapter: S.chapter, messages: history, note },
+  });
+  if (error) return null;
+  if (data?.error) return null;
+  return data?.reply ?? null;
 }
 
-async function loadNextExam() {
-  const { data } = await sb.from("exam_calendar").select("*").gte("sits_on", todayISO()).order("sits_on").limit(1).maybeSingle();
-  if (!data) { $("nextExamWhen").textContent = "No exam dates seeded yet."; return; }
-  const days = Math.ceil((new Date(data.sits_on) - new Date()) / 86400000);
-  $("nextExam").textContent = data.exam;
-  $("nextExamWhen").textContent =
-    `${new Date(data.sits_on).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" })} · ${days} days · ${data.date_status}`;
-}
-
-/* ------------------------------------------------------------- session -- */
-async function startToday() {
-  const rows = S.plan ?? [];
-  if (!rows.length) return;
-  const q = rows.find((r) => r.lane === "Q");
-  const d = rows.find((r) => r.lane === "D");
-  const m = rows.find((r) => r.lane === "M");
-  if (q) return startQuest(q.chapter, q.target_questions || 4, q.note || "");
-  if (d) return startDrill();
-  if (m) return startTest(m.chapter, m.minutes);
-}
-
-async function startQuest(chapter, count, note) {
-  S.lane = "Q"; S.chapter = chapter; S.qs = []; S.i = 0; S.exs = []; S.ei = 0;
+async function startSession(chapterOverride) {
+  S.chat = []; S.qs = []; S.i = 0; S.nudged = false;
+  $("chatWrap").innerHTML = "";
   show("session");
-  $("sessHead").textContent = "Quest";
-  $("sessWhere").textContent = `Chapter ${chapter}`;
-  $("exCard").style.display = "none";
 
-  if (/worked examples/i.test(note)) {
-    const { data } = await sb.from("examples").select("*").eq("chapter", chapter).order("n");
-    if (data && data.length) {
-      S.exs = data; S.ei = 0;
-      $("qCard").style.display = "none";
-      $("exCard").style.display = "block";
-      paintExample();
-      return;
-    }
+  const lane = S.plan.find((p) => p.lane !== "R");
+  S.chapter = chapterOverride ?? lane?.chapter ?? null;
+  if (!S.chapter) {
+    const { data: map } = await sb.from("v_chapter_map").select("chapter,status").order("chapter");
+    const open = (map ?? []).filter((c) => c.status !== "not_started");
+    S.chapter = open.length ? open[open.length - 1].chapter : 1;
   }
-  await loadQuestions(chapter, count);
+
+  bubble("think", "…");
+  const greet = await callCoach({ mode: "greet" });
+  document.querySelector(".msg.think")?.remove();
+  bubble("coach", greet ?? `Hello. Today we are on chapter ${S.chapter}. Open the book and tell me when you are ready.`);
+  S.chat.push({ role: "coach", text: greet ?? "" });
+
+  await loadQuestions(lane);
 }
 
-function paintExample() {
-  const e = S.exs[S.ei];
-  $("exQ").textContent = e.prompt;
-  $("exSol").textContent = e.solution;
-  $("sessCount").textContent = `Example ${S.ei + 1} of ${S.exs.length} · talk it through together`;
-}
-
-function nextExample() {
-  S.ei++;
-  if (S.ei < S.exs.length) { paintExample(); return; }
-  $("exCard").style.display = "none";
-  $("qCard").style.display = "block";
-  loadQuestions(S.chapter, 4);
-}
-
-async function loadQuestions(chapter, count) {
-  const { data, error } = await sb.rpc("next_in_chapter", { p_chapter: chapter, p_count: count });
-  if (error) { $("qText").textContent = "Could not load questions: " + error.message; return; }
-  S.qs = data ?? []; S.i = 0; S.startedAt = Date.now();
+async function loadQuestions(lane) {
+  const isDrill = lane?.lane === "D";
+  const { data } = isDrill
+    ? await sb.rpc("due_reviews", { p_count: 6 })
+    : await sb.rpc("next_in_chapter", { p_chapter: S.chapter, p_count: lane?.target_questions || 4 });
+  S.qs = data ?? []; S.i = 0;
   if (!S.qs.length) {
-    $("qHead").textContent = "Done";
-    $("qText").textContent = "Every question in this chapter has been answered. Take the quiz, or move on.";
-    $("answer").style.display = "none"; $("checkBtn").style.display = "none";
+    bubble("coach", "Nothing left to do in this chapter — every question has been answered. Say the word and we will take the quiz, or move to the next chapter.");
     return;
   }
-  paintQuestion();
+  presentQuestion();
 }
 
-function paintQuestion() {
+function presentQuestion() {
+  document.querySelector(".qcard")?.remove();
   const q = S.qs[S.i];
-  $("qHead").textContent = `Chapter ${q.chapter} · question ${q.idx}`;
-  $("qText").textContent = q.prompt;
-  $("sessCount").textContent = `${S.i + 1} of ${S.qs.length} · read it in the book if there is a diagram`;
-  $("answer").value = ""; $("answer").style.display = ""; $("checkBtn").style.display = "";
-  $("fb").className = "fb hidden"; $("coachOut").className = "fb hidden";
-  $("nextBtn").style.display = "none";
-  $("answer").focus();
+  const el = document.createElement("div");
+  el.className = "qcard";
+  el.innerHTML = `
+    <div class="n">CHAPTER ${q.chapter} · QUESTION ${q.idx} · ${S.i + 1} of ${S.qs.length}</div>
+    <div class="q">${esc(q.prompt)}</div>
+    <div style="display:flex;gap:8px">
+      <input id="ans" placeholder="Your answer" autocomplete="off" onkeydown="if(event.key==='Enter')check()">
+      <button class="go small" id="chk" onclick="check()">Check</button>
+    </div>
+    <div class="timer" id="qtimer">0:00</div>
+    <div id="qfb"></div>`;
+  $("chatWrap").appendChild(el);
+  el.scrollIntoView({ behavior: "smooth", block: "end" });
+  S.startedAt = Date.now(); S.nudged = false;
+  clearInterval(S.ticker);
+  S.ticker = setInterval(tickQuestion, 1000);
+  setTimeout(() => $("ans")?.focus(), 200);
 }
 
-async function checkAnswer() {
+function tickQuestion() {
+  const s = Math.floor((Date.now() - S.startedAt) / 1000);
+  const el = $("qtimer");
+  if (!el) { clearInterval(S.ticker); return; }
+  el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  el.classList.toggle("warn", s >= 240);
+  if (s >= 300 && !S.nudged) {
+    S.nudged = true;
+    bubble("coach", "You have been on this one for five minutes. Where are you up to? Send me a photo of your working and I will look at it with you.");
+  }
+}
+
+async function check() {
   const q = S.qs[S.i];
-  const text = $("answer").value.trim();
-  if (!text) return;
-  $("checkBtn").disabled = true;
+  const val = $("ans")?.value.trim();
+  if (!val) return;
+  $("chk").disabled = true;
   const secs = Math.round((Date.now() - S.startedAt) / 1000);
   const { data, error } = await sb.rpc("submit_answer", {
-    p_chapter: q.chapter, p_idx: q.idx, p_answer: text, p_hints: 0,
+    p_chapter: q.chapter, p_idx: q.idx, p_answer: val, p_hints: 0,
     p_working: false, p_mode: "quest", p_seconds: secs, p_exam_id: null,
   });
-  $("checkBtn").disabled = false;
-  if (error) { $("fb").className = "fb wrong"; $("fb").textContent = error.message; return; }
+  $("chk").disabled = false;
+  if (error) { $("qfb").innerHTML = `<div class="fb wrong">${esc(error.message)}</div>`; return; }
+  clearInterval(S.ticker);
 
-  const fb = $("fb");
+  const fb = $("qfb");
   if (data.correct === true) {
-    fb.className = "fb right";
-    fb.innerHTML = `<b>Right.</b> +${data.xp} XP<br><span class="sub">${data.method ?? ""}</span>`;
+    fb.innerHTML = `<div class="fb right"><b>Right.</b> +${data.xp} XP<div class="m">${esc(data.method ?? "")}</div></div>`;
+    bubble("coach", `Correct. ${data.method ? "That is the method: " + data.method : ""}`);
   } else if (data.correct === false) {
-    fb.className = "fb wrong";
-    fb.innerHTML = `<b>Not yet.</b><br><span class="sub">${data.method ?? ""}</span>`;
+    fb.innerHTML = `<div class="fb wrong"><b>Not yet.</b><div class="m">${esc(data.method ?? "")}</div></div>`;
+    bubble("think", "…");
+    const reply = await callCoach({ mode: "reply", note: `He answered chapter ${q.chapter} question ${q.idx} with "${val}", which was wrong. The book method is: ${data.method}. Give him the next step only, not the answer.` });
+    document.querySelector(".msg.think")?.remove();
+    if (reply) bubble("coach", reply);
   } else {
-    fb.className = "fb manual";
-    fb.innerHTML = `<b>Written answer — this one needs a person to mark it.</b><br><span class="sub">${data.method ?? ""}</span>`;
+    fb.innerHTML = `<div class="fb manual"><b>Written answer — a person marks this one.</b><div class="m">${esc(data.method ?? "")}</div></div>`;
   }
-  $("nextBtn").style.display = "inline-block";
-  $("answer").style.display = "none"; $("checkBtn").style.display = "none";
-  loadProfile();
+  S.chat.push({ role: "atharv", text: `Chapter ${q.chapter} Q${q.idx}: ${val}` });
+  loadContext();
+
+  const bar = document.createElement("div");
+  bar.className = "bar";
+  bar.innerHTML = `<button class="go small" onclick="nextQ()">Next →</button>`;
+  fb.appendChild(bar);
 }
 
-function nextQuestion() {
-  S.i++; S.startedAt = Date.now();
-  if (S.i < S.qs.length) paintQuestion();
-  else { $("qHead").textContent = "Session done"; $("qText").textContent = "That is the session. Well done."; $("answer").style.display = "none"; $("checkBtn").style.display = "none"; $("fb").className = "fb hidden"; $("nextBtn").style.display = "none"; }
-}
-function skipQuestion() { nextQuestion(); }
-
-async function startDrill() {
-  S.lane = "D"; S.chapter = null; S.i = 0;
-  show("session");
-  $("sessHead").textContent = "Drill";
-  $("sessWhere").textContent = "Things you got wrong";
-  $("exCard").style.display = "none"; $("qCard").style.display = "block";
-  const { data } = await sb.rpc("due_reviews", { p_count: 6 });
-  S.qs = data ?? []; S.startedAt = Date.now();
-  if (!S.qs.length) {
-    $("qHead").textContent = "Nothing due";
-    $("qText").textContent = "Nothing in the review queue today. Start the next chapter instead.";
-    $("answer").style.display = "none"; $("checkBtn").style.display = "none";
-    return;
+function nextQ() {
+  S.i++;
+  if (S.i < S.qs.length) presentQuestion();
+  else {
+    document.querySelector(".qcard")?.remove();
+    bubble("coach", "That is the set done. Say \"call it a day\" when you want to stop, or ask me anything about what we just did.");
   }
-  paintQuestion();
 }
 
-function currentChapter() {
-  const r = (S.plan ?? []).find((x) => x.chapter);
-  return r ? r.chapter : 1;
-}
-function startQuiz() { startTest(currentChapter(), 20); }
-function startPaper() { startTest(null, 60); }
-
-async function startPractice() {
-  const { data } = await sb.from("v_chapter_map").select("chapter,status").order("chapter");
-  const open = (data ?? []).filter((c) => c.status !== "not_started");
-  const ch = open.length ? open[open.length - 1].chapter : 1;
-  await startQuest(ch, 4, "");
-}
-
-/* ---------------------------------------------------------------- test -- */
-async function startTest(chapter, minutes) {
-  const isQuiz = !!chapter;
-  const body = isQuiz
-    ? { p_kind: "quiz", p_chapters: [chapter], p_count: 5, p_minutes: 20, p_pass: 80 }
-    : { p_kind: "mock", p_chapters: null, p_count: 30, p_minutes: 60, p_pass: 70 };
-  const { data, error } = await sb.rpc("start_exam", body);
-  if (error) { alert(error.message); return; }
-
-  S.examId = data.exam_id; S.left = (data.minutes || 20) * 60;
-  show("exam");
-  $("examKind").textContent = isQuiz ? "Chapter quiz" : "AMC paper";
-  $("examWhere").textContent = isQuiz ? `Chapter ${chapter} · ${data.items.length} questions` : `${data.items.length} questions · 135 marks`;
-  $("examList").innerHTML = data.items.map((q, n) => `
-    <div class="qitem">
-      <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
-      <div>${q.prompt}</div>
-      <input data-chapter="${q.chapter}" data-idx="${q.idx}" placeholder="Your answer" autocomplete="off">
-    </div>`).join("");
-  startClock();
+async function sendMe() {
+  const box = $("say");
+  const text = box.value.trim();
+  if (!text) return;
+  box.value = "";
+  bubble("me", text);
+  S.chat.push({ role: "atharv", text });
+  bubble("think", "…");
+  const reply = await callCoach({ mode: "reply" });
+  document.querySelector(".msg.think")?.remove();
+  if (reply) { bubble("coach", reply); S.chat.push({ role: "coach", text: reply }); }
+  else bubble("coach", "I could not reach the coach just then. Try again in a moment.");
 }
 
-function startClock() {
-  clearInterval(S.timer);
-  const tick = () => {
-    const m = Math.floor(S.left / 60), s = S.left % 60;
-    $("clock").textContent = `${m}:${String(s).padStart(2, "0")}`;
-    $("clock").classList.toggle("low", S.left <= 120);
-    if (S.left <= 0) { clearInterval(S.timer); submitExam(); }
-    S.left--;
-  };
-  tick();
-  S.timer = setInterval(tick, 1000);
+async function endSession() {
+  bubble("think", "…");
+  const reply = await callCoach({ mode: "summary" });
+  document.querySelector(".msg.think")?.remove();
+  if (reply) bubble("coach", reply);
+  await sb.rpc("record_session", { p_lane: "Q", p_minutes: 30, p_status: "done", p_note: "chat session" });
+  loadContext();
 }
-
-async function submitExam() {
-  clearInterval(S.timer);
-  $("submitExam").disabled = true;
-  $("examErr").textContent = "Marking…";
-  const inputs = [...document.querySelectorAll("#examList input")];
-  for (const el of inputs) {
-    if (!el.value.trim()) continue;
-    await sb.rpc("submit_answer", {
-      p_chapter: Number(el.dataset.chapter), p_idx: Number(el.dataset.idx),
-      p_answer: el.value.trim(), p_hints: 0, p_working: false,
-      p_mode: "mock", p_seconds: null, p_exam_id: S.examId,
-    });
-  }
-  const { data, error } = await sb.rpc("finish_exam", { p_exam_id: S.examId });
-  $("submitExam").disabled = false;
-  if (error) { $("examErr").textContent = error.message; return; }
-  $("examErr").textContent = "";
-  showResults(data);
-}
-
-function showResults(r) {
-  show("results");
-  $("resScore").textContent = `${r.score} / ${r.total}`;
-  $("resPct").textContent = `${r.pct}% · ${r.passed ? "passed" : "not passed yet"}`;
-  $("resItems").innerHTML = (r.items ?? []).map((it, n) => {
-    const mark = it.ok === true ? `<span class="pill ok">right</span>`
-      : it.ok === false ? `<span class="pill red">wrong</span>`
-      : `<span class="pill grey">to mark</span>`;
-    return `<tr><td style="width:44px">Q${n + 1}</td>
-      <td>${mark}<div class="sub">he wrote: ${it.answer_given ?? "—"}</div>
-      <div class="sub">${it.method ?? ""}</div></td></tr>`;
-  }).join("");
-}
-
-function goHome() { clearInterval(S.timer); start(); }
 
 /* --------------------------------------------------------------- photo -- */
 async function uploadWorking(input) {
-  const file = input.files && input.files[0];
+  const file = input.files?.[0];
   if (!file) return;
   const q = S.qs[S.i];
+  if (!q) return;
   const { data: { user } } = await sb.auth.getUser();
   const path = `${user.id}/ch${q.chapter}-q${q.idx}-${Date.now()}.jpg`;
-  const out = $("coachOut");
-  out.className = "fb manual";
-  out.textContent = "Sending your working…";
-
+  const t = bubble("think", "Sending your working…");
   const up = await sb.storage.from("working").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
-  if (up.error) { out.textContent = "Upload failed: " + up.error.message; return; }
+  if (up.error) { t.textContent = "Upload failed: " + up.error.message; return; }
 
   const { data, error } = await sb.functions.invoke("coach-work", {
     body: { chapter: q.chapter, idx: q.idx, image_path: path, stage: "work" },
   });
-  if (error) { out.textContent = "The coach could not read it: " + error.message; return; }
-  if (data && data.error) { out.textContent = "The coach could not read it: " + data.error; return; }
+  t.remove();
+  if (error || data?.error) { bubble("coach", "I could not read that photo. Try again with more light, straight above the page."); return; }
 
-  out.className = "fb";
-  out.style.background = "#f3f1ff";
-  out.style.border = "1px solid #d9d4ff";
-  out.innerHTML = `
-    <b>What is right</b><div class="sub" style="color:var(--ink)">${data.whats_right ?? "—"}</div>
-    <b style="display:block;margin-top:10px">Where it slipped</b><div class="sub" style="color:var(--ink)">${data.slip ?? "—"}</div>
-    <b style="display:block;margin-top:10px">Another way</b><div class="sub" style="color:var(--ink)">${data.alternative ?? "—"}</div>
-    <b style="display:block;margin-top:10px">Check yourself</b><div class="sub" style="color:var(--ink)">${data.check_question ?? "—"}</div>
-    <b style="display:block;margin-top:10px">Now explain it</b><div class="sub" style="color:var(--ink)">${data.ask_teachback ?? "—"}</div>`;
+  bubble("coach",
+    `What is right: ${data.whats_right ?? "—"}\n\nWhere it slipped: ${data.slip ?? "—"}\n\n` +
+    `Another way: ${data.alternative ?? "—"}\n\nCheck yourself: ${data.check_question ?? "—"}\n\n` +
+    `Now you explain it: ${data.ask_teachback ?? "—"}`);
   input.value = "";
 }
 
-/* ----------------------------------------------------------------- boot -- */
+/* ---------------------------------------------------------------- util -- */
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+}
+
 sb.auth.onAuthStateChange(() => start());
 start();
-
-// keep the shell on the device; data still comes from the network
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-if (isIOS && !standalone) { const h = $("iosHint"); if (h) h.style.display = "block"; }
 
-window.tab = tab; window.signIn = signIn; window.signOut = signOut;
-window.startToday = startToday; window.startPractice = startPractice;
-window.startQuiz = startQuiz; window.startPaper = startPaper;
-window.checkAnswer = checkAnswer; window.nextQuestion = nextQuestion;
-window.skipQuestion = skipQuestion; window.nextExample = nextExample;
-window.submitExam = submitExam; window.goHome = goHome;
-window.uploadWorking = uploadWorking;
+Object.assign(window, { signIn, signOut, goLanding, openTrack, openBook, openChapter,
+  practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly });
 </script>
 </body>
 </html>
