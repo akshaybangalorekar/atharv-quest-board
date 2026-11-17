@@ -83,6 +83,14 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 .ch{display:flex;justify-content:space-between;gap:10px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit;text-align:left}
 .ch:active{background:#faf9ff}
 .chip{display:inline-block;background:var(--chip);color:var(--acc);border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600;margin:3px 4px 0 0}
+.trick{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid var(--line);
+  border-radius:14px;padding:14px 16px;margin-top:10px}
+.trick .tn{flex:0 0 30px;height:30px;border-radius:10px;background:var(--chip);color:var(--acc);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px}
+.trick .tt{font-weight:650;font-size:17px;line-height:1.3}
+.trick .tp{font-size:15px;color:var(--ink);margin-top:3px;line-height:1.45}
+.trick .te{display:inline-block;margin-top:8px;font-family:ui-monospace,Menlo,monospace;font-size:13.5px;
+  background:#f4f3fb;color:#4a3fb0;border-radius:8px;padding:4px 9px}
 .ex{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px;background:#fff}
 .ex .sol{color:var(--mut);font-size:14px;margin-top:8px;display:none}
 .ex.open .sol{display:block}
@@ -226,8 +234,12 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
   <div class="card">
     <div class="k" id="chNum">Chapter</div>
     <div class="big" style="font-size:22px" id="chTitle"></div>
-    <div id="chIdeas" style="margin-top:8px"></div>
-    <div class="sub" id="chSummary" style="margin-top:12px"></div>
+    <div class="sub" id="chIntro" style="margin-top:6px"></div>
+    <div id="chTricks" style="margin-top:10px"></div>
+    <details id="chMore" style="margin-top:14px">
+      <summary class="sub" style="cursor:pointer">The book's own wording</summary>
+      <div class="sub" id="chSummary" style="margin-top:8px"></div>
+    </details>
     <div class="bar"><button class="go small" onclick="practiseChapter()">Practise this chapter →</button></div>
   </div>
   <div class="card">
@@ -391,8 +403,23 @@ async function openChapter(n) {
   S.chapterTitle = c?.title ?? "";
   $("chNum").textContent = `Chapter ${n} · book pages ${c?.pages ?? "—"}`;
   $("chTitle").textContent = c?.title ?? "";
-  $("chIdeas").innerHTML = (note?.ideas ?? []).map((i) => `<span class="chip">${esc(i)}</span>`).join("");
-  $("chSummary").textContent = note?.summary ?? "No notes recorded for this chapter.";
+  const tricks = note?.tricks ?? [];
+  $("chIntro").textContent = tricks.length
+    ? `${tricks.length} ${tricks.length === 1 ? "idea" : "ideas"} to take away. Tap an example to see it on the page.`
+    : "";
+  $("chTricks").innerHTML = tricks.length
+    ? tricks.map((k, i) => `
+      <div class="trick">
+        <div class="tn">${i + 1}</div>
+        <div>
+          <div class="tt">${esc(k.t)}</div>
+          <div class="tp">${esc(k.p)}</div>
+          <div class="te">${esc(k.e)}</div>
+        </div>
+      </div>`).join("")
+    : `<div class="sub">Notes for this chapter are still being written.</div>`;
+  $("chSummary").textContent = note?.summary ?? "";
+  $("chMore").style.display = note?.summary ? "" : "none";
   $("chExamples").innerHTML = (exs ?? []).map((e) => `
     <div class="ex" onclick="this.classList.toggle('open')">
       <b>Example ${e.n}</b> · <span class="sub">tap to see the method</span>
