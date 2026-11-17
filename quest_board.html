@@ -249,6 +249,15 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
     <div class="k">Recent tests</div>
     <table><tbody id="pTests"><tr><td class="sub">No tests yet.</td></tr></tbody></table>
   </div>
+
+  <div class="card" style="border-color:#f2c9c9">
+    <div class="k" style="color:var(--red)">Start again</div>
+    <div class="sub">Wipes every attempt, score, badge, streak, chat and weekly note for him, and puts his XP back to zero. The timetable, the question bank and the logins are kept. It cannot be undone.</div>
+    <div class="bar">
+      <button class="ghost small" style="border-color:#f2c9c9;color:var(--red)" onclick="resetProgress()">Reset all progress…</button>
+    </div>
+    <div class="err" id="resetMsg"></div>
+  </div>
 </main>
 
 <!-- upload questions -->
@@ -495,6 +504,25 @@ async function sendParent() {
   box.value = "";
   pBubble("me", text);
   await askParent(text);
+}
+
+async function resetProgress() {
+  const first = confirm(
+    "Reset all progress for Atharv?\n\n" +
+    "This deletes every attempt, test score, badge, streak, chat message and weekly note, " +
+    "and sets his XP back to zero.\n\n" +
+    "The timetable and the question bank stay. This cannot be undone.");
+  if (!first) return;
+
+  const word = prompt("Type RESET (in capitals) to confirm.");
+  if (word !== "RESET") { $("resetMsg").textContent = "Nothing was deleted."; return; }
+
+  const { data, error } = await sb.rpc("reset_progress", { p_confirm: "RESET" });
+  if (error) { $("resetMsg").textContent = error.message; return; }
+  $("resetMsg").textContent =
+    `Done. ${data.attempts} attempts, ${data.tests} tests, ${data.badges} badges and ` +
+    `${data.sessions} sessions removed. XP back to zero.`;
+  await goParent();
 }
 
 async function parentWeekly() {
@@ -920,7 +948,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").ca
 Object.assign(window, { signIn, signOut, goLanding, openTrack, openBook, openChapter,
   practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly,
   startQuiz, startPaper, submitTest,
-  goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly });
+  goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress });
 </script>
 </body>
 </html>
