@@ -431,24 +431,6 @@ h1{font-size:17px;letter-spacing:-.01em}
 </main>
 
 <!-- logging work done away from the app -->
-<main id="selflog" class="hidden">
-  <div class="card">
-    <div class="k">Work you did away from the app</div>
-    <div class="sub" style="margin-bottom:12px">Did some questions on paper, or with a parent? Say so and the coach will count it and carry on from there.</div>
-    <div class="field"><label>Chapter</label><input id="slChapter" type="number" min="1" placeholder="1"></div>
-    <div class="field"><label>Questions, from and to</label>
-      <div style="display:flex;gap:8px"><input id="slFrom" type="number" placeholder="from"><input id="slTo" type="number" placeholder="to"></div>
-    </div>
-    <div class="field"><label>How long, in minutes</label><input id="slMins" type="number" min="1" placeholder="25"></div>
-    <div class="field"><label>Anything to remember</label><input id="slNote" placeholder="did it at the kitchen table"></div>
-    <div class="bar">
-      <button class="go small" onclick="saveSelfLog()">Save it</button>
-      <button class="ghost small" onclick="goLanding()">Cancel</button>
-    </div>
-    <div class="err" id="slErr"></div>
-  </div>
-</main>
-
 <!-- the journal -->
 <main id="journal" class="hidden">
   <div class="card">
@@ -504,14 +486,6 @@ h1{font-size:17px;letter-spacing:-.01em}
       <button class="ghost" onclick="openJournal()">Journal</button>
       <button class="ghost" onclick="openFormula()">Formula board</button>
     </div>
-  </div>
-</main>
-
-<!-- the book -->
-<main id="book" class="hidden">
-  <div class="card">
-    <div class="k">The book · 24 chapters, in order</div>
-    <div class="chapterlist" id="chList"></div>
   </div>
 </main>
 
@@ -604,7 +578,7 @@ function saveRoute() {
 function show(id) {
   S.view = id;
   if (!S.restoring) saveRoute();
-  ["boot", "signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat", "selflog", "dash", "journal", "formula"].forEach((m) => $(m).classList.add("hidden"));
+  ["boot", "signin", "landing", "track", "session", "chapter", "exam", "results", "parent", "upload", "pchat", "dash", "journal", "formula"].forEach((m) => $(m).classList.add("hidden"));
   const signing = id === "signin";
   document.body.classList.toggle("signing", signing);
   if (!signing) document.body.style.background = "";   // back to plain white
@@ -1439,29 +1413,7 @@ function runCoachPlan() {
   return startSession(p.chapter || null);
 }
 
-function openSelfLog() {
-  show("selflog");
-  ["slChapter","slFrom","slTo","slMins","slNote"].forEach((id) => { $(id).value = ""; });
-  $("slErr").textContent = "";
-  const lane = (S.plan ?? []).find((p) => p.chapter);
-  if (lane) $("slChapter").value = lane.chapter;
-}
 
-async function saveSelfLog() {
-  const ch = Number($("slChapter").value) || null;
-  const mins = Number($("slMins").value) || 0;
-  if (!ch && !mins) { $("slErr").textContent = "Give at least the chapter or the minutes."; return; }
-  const { error } = await sb.rpc("log_self_study", {
-    p_chapter: ch,
-    p_minutes: mins,
-    p_from: Number($("slFrom").value) || null,
-    p_to: Number($("slTo").value) || null,
-    p_note: $("slNote").value.trim() || null,
-  });
-  if (error) { $("slErr").textContent = error.message; return; }
-  await loadContext();
-  goLanding();
-}
 
 async function openDash() {
   show("dash");
@@ -1637,16 +1589,6 @@ async function startMock() {
   await runExam(body, label);
 }
 
-/* -------------------------------------------------------------- the book - */
-async function openBook() {
-  show("book");
-  const { data } = await sb.from("chapters").select("n,title,pages,examples,practice").order("n");
-  $("chList").innerHTML = (data ?? []).map((c) => `
-    <button class="ch" onclick="openChapter(${c.n})">
-      <span><b>${c.n}. ${c.title}</b><div class="sub">pages ${c.pages ?? "—"} · ${c.examples} examples · ${c.practice} questions</div></span>
-      <span class="sub">›</span>
-    </button>`).join("");
-}
 
 async function openChapter(n) {
   show("chapter");
@@ -1684,10 +1626,6 @@ async function openChapter(n) {
     </div>`).join("") || `<div class="sub">No worked examples in this chapter — the book goes straight to questions.</div>`;
 }
 
-function practiseChapter() {
-  sb.rpc("log_visit", { p_chapter: S.chapter, p_source: "solo-practice" });
-  startSession(S.chapter, null, "solo");
-}
 
 /* straight into the questions: the coach reads the results afterwards */
 /* the clock the teacher sets for the session */
@@ -1732,7 +1670,13 @@ async function startSolo(chapterArg) {
     return;
   }
   if (!S.script.length) {
-    bubble("coach", "Nothing left to do in this chapter — every question is answered.");
+    bubble("coach", "Nothing left in this chapter — every question is answered. Take the quiz, or pick another chapter.");
+    const nx = document.createElement("div");
+    nx.className = "qcard";
+    nx.innerHTML = `<div class="bar">
+      <button class="go small" onclick="startQuiz()">Chapter quiz</button>
+      <button class="ghost small" onclick="openTrack(S.track)">Pick another chapter</button></div>`;
+    $("chatWrap").appendChild(nx);
     return;
   }
   nextStep();
@@ -1878,7 +1822,14 @@ function nextStep() {
   saveSession();
   paintActions();
   if (S.si >= S.script.length) {
-    bubble("coach", "That is the whole set done. Say “call it a day” when you want to stop, or ask me anything about what we just did.");
+    bubble("coach", "That is the whole set done — well worked. Close the session below, or ask me anything about what we just did.");
+    const done = document.createElement("div");
+    done.className = "qcard";
+    done.innerHTML = `<div class="q" style="font-size:16px">What next?</div>
+      <div class="bar"><button class="go small" onclick="endSession()">Call it a day</button>
+      <button class="ghost small" onclick="startSolo(S.chapter)">Another one</button>
+      <button class="ghost small" onclick="openDash()">See progress</button></div>`;
+    $("chatWrap").appendChild(done);
     S.finished = true;
     saveSession();
     return;
@@ -2286,7 +2237,6 @@ function currentChapter() {
   return r ? r.chapter : (S.chapter || 1);
 }
 function startQuiz() { startTest(currentChapter(), 20); }
-function startPaper() { startTest(null, 60); }
 
 async function submitTest() {
   clearInterval(T.timer);
@@ -2365,9 +2315,8 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").ca
 let api = {};
 try {
 api = {
-  signIn, signOut, goLanding, openTrack, openBook, openChapter,
-  practiseChapter, startSession, check, advance, nextStep, drawFigure, revealExample, sendMe, endSession, uploadWorking,
-  startQuiz, startPaper, submitTest,
+  signIn, signOut, goLanding, openTrack, openChapter, startSession, check, advance, nextStep, drawFigure, revealExample, sendMe, endSession, uploadWorking,
+  startQuiz, submitTest,
   goParent, goHome, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
