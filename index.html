@@ -163,7 +163,11 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .actions:empty{display:none}
 .composer{padding:12px 14px;border-radius:16px;backdrop-filter:blur(8px);background:rgba(255,255,255,.94)}
-.composer input#say{border-radius:11px;background:#fbfbfd}
+.sayRow{display:flex;gap:8px;align-items:flex-end;width:100%}
+.sayRow #say{flex:1 1 auto;min-width:0}
+.sayRow .go{flex:0 0 auto;align-self:flex-end}
+.composer textarea#say{border-radius:11px;background:#fbfbfd;resize:none;line-height:1.5;
+  min-height:48px;max-height:140px;padding:12px 13px;overflow-y:auto}
 .composer .attach{white-space:nowrap;padding:11px 14px;flex:0 0 auto}
 .composer .bar{margin-top:10px;gap:8px;flex-wrap:wrap}
 .composer .hint{margin-top:8px;font-size:12.5px;line-height:1.45}
@@ -342,10 +346,12 @@ body:has(.pad:not(.hidden)) footer{margin-bottom:220px}
   <div class="actions" id="chatActions"></div>
   <div id="chatWrap"></div>
   <div class="card" style="position:sticky;bottom:0;padding:12px">
-    <div style="display:flex;gap:8px;align-items:center">
+    <div class="sayRow">
       <input type="file" id="doubt" accept="image/*" capture="environment" multiple class="hidden" onchange="handlePhoto(this)">
-      <input id="say" placeholder="Say something to Ananya…" inputmode="none" autocomplete="off"
-             onfocus="openPad(this,'text')" onkeydown="if(event.key==='Enter')sendMe()">
+      <textarea id="say" rows="2" placeholder="Say something to Ananya…" inputmode="none" autocomplete="off"
+                onfocus="openPad(this,'text')"
+                oninput="growSay(this)"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMe()}"></textarea>
       <button class="go small" onclick="sendMe()">Send</button>
     </div>
     <div class="row3">
@@ -676,7 +682,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.10.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.11.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -961,6 +967,11 @@ function paintPad() {
   $("padKeys").innerHTML = body + (extras.length ? `<div class="pkRow">${extras.join("")}</div>` : "");
 }
 
+function growSay(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(140, Math.max(48, el.scrollHeight)) + "px";
+}
+
 function padKey(k) {
   if (!padTarget) return;
   if (k === "⌫") {
@@ -973,6 +984,7 @@ function padKey(k) {
     if (padShift) { padShift = false; paintPad(); }
   }
   padTarget.dispatchEvent(new Event("input", { bubbles: true }));
+  if (padTarget.id === "say") growSay(padTarget);
 }
 
 function padDone() {
@@ -1627,6 +1639,8 @@ async function sendParent() {
   const text = box.value.trim();
   if (!text) return;
   box.value = "";
+  heard = "";                    // the microphone must not put it back
+  if (box.style) box.style.height = "";
   pBubble("me", text);
   await askParent(text);
 }
@@ -2115,7 +2129,8 @@ async function callCoach({ mode, note }) {
   const history = S.chat.slice(-10).map((m) => ({ role: m.role, content: m.text }));
   const { data, error } = await sb.functions.invoke("coach-chat", {
     body: { mode, track: S.track, chapter: S.chapter, messages: history, note,
-            hasAttach: typeof S.canAttach === "boolean" ? S.canAttach : true },
+            hasAttach: typeof S.canAttach === "boolean" ? S.canAttach : true,
+            onScreen: S.onScreen ?? null },
   });
   if (error) return null;
   if (data?.error) return null;
@@ -2138,7 +2153,8 @@ async function startSession(chapterOverride, forceMode, mode) {
   $("chatWrap").innerHTML = "";
   show("session");
 
-  const mins = S.planAction?.minutes ?? (S.plan.find((p) => p.lane !== "R")?.minutes) ?? 60;
+  const planned = S.planAction?.minutes ?? (S.plan.find((p) => p.lane !== "R")?.minutes) ?? 60;
+  const mins = Math.max(60, planned);        // a sitting is an hour unless the plan asks for more
   await planSitting(mins);
   startBudget(S.sitting?.minutes ?? mins);
 
@@ -2228,6 +2244,7 @@ async function buildScript(lane, forceMode) {
 }
 
 function clearBoard() {
+  S.onScreen = null;
   document.querySelectorAll(".qcard").forEach((n) => n.remove());
 }
 
@@ -2299,6 +2316,7 @@ function showQuestion(q) {
   el.scrollIntoView({ behavior: "smooth", block: "end" });
   autoFigure("question", q.idx, "qFig", q.prompt, q.diagram_svg);
   S.startedAt = Date.now(); S.nudged = 0;
+  S.onScreen = { chapter: q.chapter, idx: q.idx, prompt: q.prompt };
   S.qBudget = 150;
   sb.rpc("question_budget", { p_chapter: q.chapter, p_idx: q.idx }).then(({ data }) => {
     if (typeof data === "number" && data > 0) {
@@ -2423,6 +2441,8 @@ async function sendMe() {
   const text = box.value.trim();
   if (!text) return;
   box.value = "";
+  heard = "";                    // the microphone must not put it back
+  if (box.style) box.style.height = "";
   bubble("me", text);
   S.chat.push({ role: "atharv", text });
   bubble("think", "…");
