@@ -129,6 +129,10 @@ Also give "title": a short, self-explanatory heading for this note, six words at
 was actually worked on — "Place value: swapping digits", not "Session 4".
 And "speak": two spoken sentences.
 
+Never send him to another screen — the formula board, the journal, progress — in the middle of a
+chapter. Those come after the chapter is finished, and only then. If he has not finished, say what
+is left and that you will do the board together at the end.
+
 End the note with one line about the formula board: name the one or two techniques from this
 chapter he should write up on the board beside his desk, in his own hand, before he goes. Say it
 once, kindly, and make it the last thing — "Before you go, put the ten-minus-one trick on your board."`,
