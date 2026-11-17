@@ -60,6 +60,19 @@ sentences, then give him the next single step or ask one question.`,
 one thing he did well (be specific, from the attempts), and one thing to hold in mind next time.
 Then say when the next session is, from the plan.`,
 
+  decide: `Decide what he should do in this session, right now. Reply with JSON only:
+{"action":"quest|drill|quiz|paper|rest","chapter":number or null,"minutes":number,
+ "say":"one or two sentences to him, in your own voice, saying what you are doing and why"}
+
+How to choose:
+- If today's plan has a test (lane M) and a chapter, action "quiz" on that chapter, 20 minutes.
+- If today's plan has a test and no chapter, action "paper", 60 minutes.
+- If today is a rest day (lane R, or no plan at all), action "rest", and say so kindly.
+- If three or more weak items are due today, action "drill", 20 minutes — clear the debt first.
+- If the planned chapter's questions are all answered and its quiz is under 80, action "quiz" on it.
+- Otherwise action "quest" on the planned chapter, minutes from the plan, default 30.
+Keep "say" short and concrete. Never mention JSON, plans or lanes to him.`,
+
   parent: `Answer the parent's question about how he is doing and what to do next.
 If they have not asked anything yet, open with a two-line status: what he has done this week,
 and the single weakest area, then offer to go deeper.`,
@@ -161,8 +174,30 @@ Deno.serve(async (req) => {
     if (!r.ok) return json({ error: "model call failed", detail: await r.text() }, 502);
 
     const data = await r.json();
-    const reply = (data?.choices?.[0]?.message?.content ?? "").trim();
+    let reply = (data?.choices?.[0]?.message?.content ?? "").trim();
     if (!reply) return json({ error: "empty reply" }, 502);
+
+    // the decision comes back as JSON: hand the app both the instruction and the words
+    if (mode === "decide") {
+      try {
+        const j = JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1));
+        const action = ["quest", "drill", "quiz", "paper", "rest"].includes(j.action) ? j.action : "quest";
+        const plan = {
+          action,
+          chapter: Number.isFinite(j.chapter) ? j.chapter : (c.chapter ?? null),
+          minutes: Number.isFinite(j.minutes) ? j.minutes : 30,
+        };
+        const say = String(j.say ?? "").trim() || "Let's get going.";
+        await admin.from("chat_messages").insert({
+          student_id: user.id, role: "coach", body: say,
+          meta: { mode, track, plan },
+        });
+        return json({ reply: say, plan });
+      } catch {
+        const plan = { action: "quest", chapter: c.chapter ?? null, minutes: 30 };
+        return json({ reply, plan });
+      }
+    }
 
     await admin.from("chat_messages").insert({
       student_id: user.id, role: "coach", body: reply,
