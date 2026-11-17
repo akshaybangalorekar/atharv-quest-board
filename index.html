@@ -1158,98 +1158,82 @@ async function startSession(chapterOverride, forceMode) {
   bubble("coach", greet ?? `Hello. Today we are on chapter ${S.chapter}. Open the book and tell me when you are ready.`);
   S.chat.push({ role: "coach", text: greet ?? "" });
 
-  if (forceMode !== "drill") await showExamples();
-  await loadQuestions(lane, forceMode === "drill");
-}
-
-async function showExamples() {
-  const { data } = await sb.from("examples").select("*").eq("chapter", S.chapter).order("n");
-  const { data: ch } = await sb.from("chapters").select("pages,title").eq("n", S.chapter).single();
-  if (!data || !data.length) return;
-
-  const head = document.createElement("div");
-  head.className = "sub";
-  head.style.margin = "6px 0 0";
-  head.textContent = `${data.length} worked example${data.length === 1 ? "" : "s"} · book pages ${ch?.pages ?? "—"}`;
-  $("chatWrap").appendChild(head);
-
-  data.forEach((e) => {
-    const el = document.createElement("div");
-    el.className = "qcard";
-    el.style.borderColor = "var(--line)";
-    el.innerHTML = `
-      <div class="n">WORKED EXAMPLE ${e.n}</div>
-      <div class="q">${esc(e.prompt)}</div>
-      <button class="ghost small" onclick="this.style.display='none';this.nextElementSibling.style.display='block'">Show me how</button>
-      <div class="fb" style="display:none;background:#f7f7fb;border:1px solid var(--line)">
-        <b>How it goes</b><div class="m" style="color:var(--ink)">${esc(e.solution)}</div>
-      </div>`;
-    $("chatWrap").appendChild(el);
-  });
-
-  const bar = document.createElement("div");
-  bar.className = "qcard";
-  bar.style.borderColor = "var(--acc)";
-  bar.innerHTML = `<div class="q" style="font-size:16px">Read those through, then we'll do some ourselves.</div>
-    <button class="go small" onclick="this.closest('.qcard').remove()">Ready for the questions →</button>`;
-  $("chatWrap").appendChild(bar);
-  bar.scrollIntoView({ behavior: "smooth", block: "end" });
-}
-
-async function pickChapterForTrack() {
-  if (S.track === "olympiad" || S.track === "amc") return null;
-  const { data } = await sb.from("chapters").select("n").eq("source", S.track).order("n");
-  return data && data.length ? data[0].n : null;
-}
-
-/* the teacher sets the clock, and calls time when it runs out */
-function startBudget(mins) {
-  clearInterval(S.budgetTimer);
-  let left = Math.max(5, Number(mins) || 30) * 60;
-  $("budgetBar").classList.remove("hidden");
-  $("budgetLabel").textContent = `${mins} minutes · work on your own, then come back`;
-  const tick = () => {
-    const m = Math.floor(left / 60), sec = left % 60;
-    $("budgetClock").textContent = `${m}:${String(sec).padStart(2, "0")}`;
-    $("budgetBar").classList.toggle("low", left <= 300);
-    if (left <= 0) {
-      clearInterval(S.budgetTimer);
-      bubble("coach", "Time is up for today. Put the pencil down and tell me how far you got — one line is enough.");
-      $("budgetClock").textContent = "0:00";
-      return;
-    }
-    left--;
-  };
-  tick();
-  S.budgetTimer = setInterval(tick, 1000);
-}
-
-async function loadQuestions(lane, forceDrill) {
-  const isDrill = forceDrill || lane?.lane === "D";
-  const { data } = isDrill
-    ? await sb.rpc("due_reviews", { p_count: 6 })
-    : await sb.rpc("next_in_chapter", { p_chapter: S.chapter, p_count: lane?.target_questions || 4 });
-  S.qs = data ?? []; S.i = 0;
-  if (!S.qs.length) {
-    bubble("coach", "Nothing left to do in this chapter — every question has been answered. Say the word and we will take the quiz, or move to the next chapter.");
+  await buildScript(lane, forceMode);
+  if (!S.script.length) {
+    bubble("coach", "There is nothing left to do in this chapter — every question is answered. Take the quiz, or move on.");
     return;
   }
-  presentQuestion();
+  nextStep();
 }
 
-function presentQuestion() {
-  document.querySelector(".qcard")?.remove();
-  const q = S.qs[S.i];
+/* one thing on the board at a time, in the order a teacher would do it */
+async function buildScript(lane, forceMode) {
+  const { data: exs } = await sb.from("examples").select("*").eq("chapter", S.chapter).order("n");
+  const { data: qs } = forceMode === "drill"
+    ? await sb.rpc("due_reviews", { p_count: 6 })
+    : await sb.rpc("next_in_chapter", { p_chapter: S.chapter, p_count: lane?.target_questions || 4 });
+
+  S.script = [
+    ...(forceMode === "drill" ? [] : (exs ?? [])).map((e) => ({ type: "example", data: e })),
+    ...(qs ?? []).map((q) => ({ type: "question", data: q })),
+  ];
+  S.si = 0;
+}
+
+function clearBoard() {
+  document.querySelectorAll(".qcard").forEach((n) => n.remove());
+}
+
+function nextStep() {
+  clearBoard();
+  if (S.si >= S.script.length) {
+    bubble("coach", "That is the whole set done. Say “call it a day” when you want to stop, or ask me anything about what we just did.");
+    return;
+  }
+  const step = S.script[S.si];
+  if (step.type === "example") showExample(step.data);
+  else showQuestion(step.data);
+}
+
+function showExample(e) {
+  const el = document.createElement("div");
+  el.className = "qcard";
+  el.style.borderColor = "var(--line)";
+  el.innerHTML = `
+    <div class="n">WORKED EXAMPLE ${e.n} · ${S.si + 1} of ${S.script.length}</div>
+    <div class="q">${esc(e.prompt)}</div>
+    <div id="exFig"></div>
+    <div class="bar">
+      <button class="go small" id="exShow" onclick="revealExample(this)">Show me how</button>
+      <button class="ghost small" onclick="drawFigure('example', ${e.n}, 'exFig')">✎ Draw it</button>
+    </div>
+    <div class="fb hidden" id="exSol" style="background:#f7f7fb;border:1px solid var(--line)">
+      <b>How it goes</b><div class="m" style="color:var(--ink)">${esc(e.solution)}</div>
+    </div>
+    <div class="bar hidden" id="exNext"><button class="go small" onclick="advance()">Next →</button></div>`;
+  $("chatWrap").appendChild(el);
+  el.scrollIntoView({ behavior: "smooth", block: "end" });
+  if (e.diagram_svg) $("exFig").innerHTML = `<div class="diagram">${e.diagram_svg}</div>`;
+}
+
+function revealExample(btn) {
+  btn.style.display = "none";
+  $("exSol").classList.remove("hidden");
+  $("exNext").classList.remove("hidden");
+}
+
+function showQuestion(q) {
   const el = document.createElement("div");
   el.className = "qcard";
   el.innerHTML = `
-    <div class="n">CHAPTER ${q.chapter} · QUESTION ${q.idx} · ${S.i + 1} of ${S.qs.length}</div>
+    <div class="n">CHAPTER ${q.chapter} · QUESTION ${q.idx} · ${S.si + 1} of ${S.script.length}</div>
     <div class="q">${esc(q.prompt)}</div>
-    ${q.diagram_svg ? `<div class="diagram">${q.diagram_svg}</div>` : ""}
+    <div id="qFig">${q.diagram_svg ? `<div class="diagram">${q.diagram_svg}</div>` : ""}</div>
     <div style="display:flex;gap:8px">
       <input id="ans" placeholder="Your answer" autocomplete="off" onkeydown="if(event.key==='Enter')check()">
       <button class="go small" id="chk" onclick="check()">Check</button>
     </div>
+    <div class="bar"><button class="ghost small" onclick="drawFigure('question', ${q.idx}, 'qFig')">✎ Draw it</button></div>
     <div class="timer" id="qtimer">0:00</div>
     <div id="qfb"></div>`;
   $("chatWrap").appendChild(el);
@@ -1257,7 +1241,7 @@ function presentQuestion() {
   S.startedAt = Date.now(); S.nudged = false;
   clearInterval(S.ticker);
   S.ticker = setInterval(tickQuestion, 1000);
-  setTimeout(() => $("ans")?.focus(), 200);
+  setTimeout(() => $("ans")?.focus(), 250);
 }
 
 function tickQuestion() {
@@ -1268,12 +1252,25 @@ function tickQuestion() {
   el.classList.toggle("warn", s >= 240);
   if (s >= 300 && !S.nudged) {
     S.nudged = true;
-    bubble("coach", "You have been on this one for five minutes. Where are you up to? Send me a photo of your working and I will look at it with you.");
+    bubble("coach", "Five minutes on this one. Where are you up to? Send me a photo of your working and I will look at it with you.");
   }
 }
 
+async function drawFigure(kind, key, targetId) {
+  const box = $(targetId);
+  if (!box) return;
+  box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:14px">Drawing…</div>`;
+  const { data, error } = await sb.functions.invoke("draw-figure", {
+    body: { chapter: S.chapter, kind, n: kind === "example" ? key : null, idx: kind === "question" ? key : null },
+  });
+  if (error || data?.error) { box.innerHTML = `<div class="sub">Could not draw it just now.</div>`; return; }
+  box.innerHTML = data.svg
+    ? `<div class="diagram">${data.svg}</div>`
+    : `<div class="sub">There is no useful figure for this one — the words carry it.</div>`;
+}
+
 async function check() {
-  const q = S.qs[S.i];
+  const q = S.script[S.si].data;
   const val = $("ans")?.value.trim();
   if (!val) return;
   $("chk").disabled = true;
@@ -1289,7 +1286,6 @@ async function check() {
   const fb = $("qfb");
   if (data.correct === true) {
     fb.innerHTML = `<div class="fb right"><b>Right.</b> +${data.xp} XP<div class="m">${esc(data.method ?? "")}</div></div>`;
-    bubble("coach", `Correct. ${data.method ? "That is the method: " + data.method : ""}`);
   } else if (data.correct === false) {
     fb.innerHTML = `<div class="fb wrong"><b>Not yet.</b><div class="m">${esc(data.method ?? "")}</div></div>`;
     bubble("think", "…");
@@ -1304,17 +1300,13 @@ async function check() {
 
   const bar = document.createElement("div");
   bar.className = "bar";
-  bar.innerHTML = `<button class="go small" onclick="nextQ()">Next →</button>`;
+  bar.innerHTML = `<button class="go small" onclick="advance()">Next →</button>`;
   fb.appendChild(bar);
 }
 
-function nextQ() {
-  S.i++;
-  if (S.i < S.qs.length) presentQuestion();
-  else {
-    document.querySelector(".qcard")?.remove();
-    bubble("coach", "That is the set done. Say \"call it a day\" when you want to stop, or ask me anything about what we just did.");
-  }
+function advance() {
+  S.si++;
+  nextStep();
 }
 
 async function sendMe() {
@@ -1462,11 +1454,11 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").ca
 
 const api = {
   signIn, signOut, goLanding, openTrack, openBook, openChapter,
-  practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly,
+  practiseChapter, startSession, check, advance, nextStep, drawFigure, revealExample, sendMe, endSession, uploadWorking,
   startQuiz, startPaper, submitTest,
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
-  readPaper, extractOne, updateDest
+  readPaper, extractOne, updateDest, buildScript
 };
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
 
