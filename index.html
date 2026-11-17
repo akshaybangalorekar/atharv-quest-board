@@ -236,8 +236,12 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 
   <div class="card">
     <div class="k">Exams and what is loaded</div>
-    <div class="chapterlist" id="pExams"></div>
-    <div class="hint">A verdict of “Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy. Upload a paper and it appears here at once.</div>
+    <table>
+      <tr><th>Exam</th><th>Loaded</th><th>Practised</th><th>Mastered</th><th>Verdict</th></tr>
+      <tbody id="pExams"></tbody>
+    </table>
+    <div class="hint">“Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy.</div>
+    <div class="bar"><button class="go small" onclick="openUpload()">＋ Add questions</button></div>
   </div>
 
   <div class="card">
@@ -265,14 +269,27 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
   <div class="card">
     <div class="k">Add questions</div>
     <div class="big" style="font-size:20px" id="upExam">—</div>
-    <div class="sub">One question per line, like this:</div>
-    <div class="te" style="margin:10px 0">What comes next: 3, 7, 15, 31, … | 63</div>
-    <div class="sub" style="margin-bottom:10px">Leave the part after the pipe empty if it has to be marked by hand — a diagram, a proof, a table.</div>
-    <input id="upStrand" placeholder="Strand (e.g. Sequences, Codes, Data)" style="margin-bottom:10px">
-    <textarea id="upRows" rows="10" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px"
-      placeholder="Next: 2, 6, 12, 20, … | 30&#10;Odd one out: 4, 9, 16, 25, 30 | 30"></textarea>
+    <div class="sub" style="margin-bottom:12px">Choose the exam, say which strand, then either paste the questions or upload the paper.</div>
+
+    <label class="k">Exam</label>
+    <select id="upBank" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px"
+            onchange="document.getElementById('upExam').textContent=this.options[this.selectedIndex].text"></select>
+
+    <label class="k">Strand</label>
+    <input id="upStrand" placeholder="Sequences, Codes, Data…" style="margin-bottom:12px">
+
+    <label class="k">Questions</label>
+    <textarea id="upRows" rows="8" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px"
+      placeholder="One per line, question then a pipe then the answer:&#10;Next: 2, 6, 12, 20, … | 30&#10;Odd one out: 4, 9, 16, 25, 30 | 30&#10;Leave the answer empty if a person should mark it."></textarea>
+
     <div class="bar">
-      <button class="go small" onclick="submitUpload()">Add them</button>
+      <button class="ghost small" onclick="document.getElementById('upFile').click()">📄 Upload a paper (jpg, png, pdf)</button>
+      <input type="file" id="upFile" accept="image/*,application/pdf" multiple class="hidden" onchange="readPaper(this)">
+    </div>
+    <div class="hint" id="upNote">A paper is read page by page and the questions land in the box above, for you to check before anything is saved.</div>
+
+    <div class="bar" style="margin-top:14px">
+      <button class="go small" id="upAdd" onclick="submitUpload()">Add these questions</button>
       <button class="ghost small" onclick="goParent()">Cancel</button>
     </div>
     <div class="err" id="upErr"></div>
@@ -412,19 +429,15 @@ async function goParent() {
   (c.readiness ?? []).forEach((r) => { if (!exams.includes(r.exam)) exams.push(r.exam); });
 
   const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
-                  thin: "Need more data", no_content: "Nothing uploaded" };
+                  thin: "Need more data", no_content: "Nothing yet" };
 
   $("pExams").innerHTML = exams.map((name) => {
     const r = byExam[name];
     const v = r ? r.verdict : "no_content";
     const cls = v === "ready" ? "ok" : v === "too_early" ? "grey" : v === "in_progress" ? "amber" : "red";
-    const nums = r ? `${r.items} loaded · ${r.practised} practised · ${r.mastered} mastered` : "nothing loaded yet";
-    return `<div class="ch" style="cursor:default">
-      <span><b>${esc(BANK_LABEL[name] ?? name)}</b>
-        <div class="sub">${nums}</div>
-        <div style="margin-top:6px"><span class="pill ${cls}">${words[v] ?? v}</span></div></span>
-      <button class="ghost small" onclick="openUpload('${esc(name).replace(/'/g, "\\'")}')">Add questions</button>
-    </div>`;
+    return `<tr><td><b>${esc(BANK_LABEL[name] ?? name)}</b></td>
+      <td>${r ? r.items : 0}</td><td>${r ? r.practised : 0}</td><td>${r ? r.mastered : 0}</td>
+      <td><span class="pill ${cls}">${words[v] ?? v}</span></td></tr>`;
   }).join("");
 
   const weak = c.weak ?? [];
@@ -443,12 +456,83 @@ async function goParent() {
     : `<tr><td class="sub">No tests yet.</td></tr>`;
 }
 
-function openUpload(exam) {
-  S.uploadExam = exam;
+function openUpload() {
   show("upload");
-  $("upExam").textContent = BANK_LABEL[exam] ?? exam;
+  const banks = (S.pctx?.banks ?? []).map((b) => b.exam);
+  $("upBank").innerHTML = banks.map((b) =>
+    `<option value="${esc(b)}">${esc(BANK_LABEL[b] ?? b)}</option>`).join("");
+  $("upExam").textContent = BANK_LABEL[banks[0]] ?? banks[0] ?? "—";
   $("upRows").value = ""; $("upStrand").value = "";
   $("upErr").textContent = ""; $("upDone").className = "fb hidden";
+  $("upNote").textContent = "A paper is read page by page and the questions land in the box above, for you to check before anything is saved.";
+}
+
+/* a paper: images go straight up; a pdf is rendered page by page in the browser */
+async function readPaper(input) {
+  const files = [...(input.files ?? [])];
+  if (!files.length) return;
+  const { data: { user } } = await sb.auth.getUser();
+  const note = $("upNote");
+  $("upErr").textContent = "";
+  let added = 0;
+
+  for (const file of files) {
+    try {
+      if (file.type === "application/pdf") {
+        const pages = await pdfToImages(file, 10);
+        for (let i = 0; i < pages.length; i++) {
+          note.textContent = `Reading page ${i + 1} of ${pages.length}…`;
+          added += await extractOne(pages[i], user.id, `${Date.now()}-p${i + 1}.jpg`);
+        }
+      } else {
+        note.textContent = `Reading ${file.name}…`;
+        added += await extractOne(file, user.id, `${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "")}`);
+      }
+    } catch (e) {
+      $("upErr").textContent = "Could not read " + file.name + ": " + e.message;
+    }
+  }
+  note.textContent = added
+    ? `${added} question${added === 1 ? "" : "s"} read. Check them above, then press Add.`
+    : "Nothing was read from that file.";
+  input.value = "";
+}
+
+async function extractOne(blob, uid, name) {
+  const path = `${uid}/${name}`;
+  const up = await sb.storage.from("papers").upload(path, blob, { upsert: true, contentType: blob.type || "image/jpeg" });
+  if (up.error) throw new Error(up.error.message);
+  const { data, error } = await sb.functions.invoke("extract-questions", {
+    body: { path, exam: $("upBank").value, strand: $("upStrand").value.trim() },
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  const rows = data?.rows ?? [];
+  if (rows.length) {
+    const box = $("upRows");
+    box.value = (box.value ? box.value.trim() + "\n" : "") +
+      rows.map((r) => `${r.q} | ${r.a ?? ""}`).join("\n");
+  }
+  return rows.length;
+}
+
+async function pdfToImages(file, maxPages) {
+  const pdfjs = await import("https://esm.sh/pdfjs-dist@4.6.82/build/pdf.min.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc = "https://esm.sh/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
+  const buf = await file.arrayBuffer();
+  const doc = await pdfjs.getDocument({ data: buf }).promise;
+  const out = [];
+  const n = Math.min(doc.numPages, maxPages);
+  for (let i = 1; i <= n; i++) {
+    const page = await doc.getPage(i);
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.85));
+    out.push(blob);
+  }
+  return out;
 }
 
 async function submitUpload() {
@@ -460,14 +544,15 @@ async function submitUpload() {
 
   $("upErr").textContent = "";
   const { data, error } = await sb.rpc("add_questions", {
-    p_exam: S.uploadExam, p_strand: $("upStrand").value.trim() || "General", p_rows: rows,
+    p_exam: $("upBank").value, p_strand: $("upStrand").value.trim() || "General", p_rows: rows,
   });
   if (error) { $("upErr").textContent = error.message; return; }
   $("upDone").className = "fb right";
   $("upDone").innerHTML = `<b>${data.added} question${data.added === 1 ? "" : "s"} added</b>
-    <div class="m">into ${esc(data.strand)}. The readiness panel will update now.</div>`;
+    <div class="m">into ${esc(data.strand)}. The readiness panel has already updated.</div>`;
   $("upRows").value = "";
   await goParent();
+  show("upload");
 }
 
 function openParentChat() {
@@ -948,7 +1033,8 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").ca
 Object.assign(window, { signIn, signOut, goLanding, openTrack, openBook, openChapter,
   practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly,
   startQuiz, startPaper, submitTest,
-  goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress });
+  goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
+  readPaper, extractOne });
 </script>
 </body>
 </html>
