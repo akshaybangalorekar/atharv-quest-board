@@ -2,8 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Atharv's Quest Board</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#5b4fcf">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Quest">
+<link rel="apple-touch-icon" href="./icon-180.png">
+
 <style>
 :root{--ink:#1c1e2b;--mut:#6b6e85;--line:#e6e6ef;--bg:#f7f7fb;--card:#fff;--acc:#5b4fcf;--ok:#1f8a5b;--amber:#c7780a;--red:#c43d3d;--chip:#efedff}
 *{box-sizing:border-box}
@@ -48,6 +56,15 @@ input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:
 button.go{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:12px 20px;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
 .err{color:var(--red);font-size:14px;margin-top:8px}
 </style>
+<style>
+/* standalone app: respect the iPad's rounded corners and status bar */
+.top{padding-top:max(18px, env(safe-area-inset-top));}
+footer{padding-bottom:max(30px, env(safe-area-inset-bottom));}
+main{padding-bottom:max(60px, calc(env(safe-area-inset-bottom) + 40px));}
+body{-webkit-tap-highlight-color:transparent;}
+button{-webkit-user-select:none;user-select:none;}
+#iosHint{display:none;font-size:13.5px;color:var(--mut);margin-top:10px}
+</style>
 </head>
 <body>
 
@@ -79,6 +96,8 @@ button.go{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:1
     </div>
     <div class="err" id="err"></div>
     <div class="hint">Atharv, Pooja and Akshay each sign in with their own account. The parent sees the same data, read-only.</div>
+<div id="iosHint">To keep this on the iPad: tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens full screen, like an app.</div>
+
   </div>
 </main>
 
@@ -160,11 +179,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (id) => document.getElementById(id);
 
-function todayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 const TITLES = ["Apprentice","Explorer","Challenger","Olympian","Grandmaster"];
 
 function tab(id, btn) {
@@ -213,7 +227,7 @@ async function loadProfile() {
 }
 
 async function loadPlan() {
-  const today = todayISO();
+  const today = new Date().toISOString().slice(0, 10);
   const { data } = await sb.from("plan_days").select("*").eq("day", today);
   if (!data || !data.length) {
     $("todayLane").textContent = "No plan yet";
@@ -274,7 +288,7 @@ async function loadTests() {
 // exam countdown from the calendar, if it has been seeded
 async function loadNextExam() {
   const { data } = await sb.from("exam_calendar").select("*")
-    .gte("sits_on", todayISO())
+    .gte("sits_on", new Date().toISOString().slice(0, 10))
     .order("sits_on").limit(1).maybeSingle();
   if (!data) { $("nextExamWhen").textContent = "No exam dates seeded yet."; return; }
   const days = Math.ceil((new Date(data.sits_on) - new Date()) / 86400000);
@@ -287,6 +301,18 @@ async function loadNextExam() {
 sb.auth.onAuthStateChange((_e, session) => { if (session) start(); else start(); });
 start();
 window.tab = tab; window.signIn = signIn;
+
+// keep the shell on the device; data still comes from the network
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+if (isIOS && !standalone) {
+  const hint = document.getElementById("iosHint");
+  if (hint) hint.style.display = "block";
+}
+
 </script>
 </body>
 </html>
