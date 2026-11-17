@@ -12,7 +12,9 @@
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
 <style>
-:root{--ink:#1c1e2b;--mut:#6b6e85;--line:#e6e6ef;--bg:#f7f7fb;--card:#fff;--acc:#5b4fcf;--ok:#1f8a5b;--amber:#c7780a;--red:#c43d3d;--chip:#efedff}
+:root{--ink:#171a26;--mut:#70748a;--line:#e9e7f0;--bg:#fbfbfd;--card:#fff;--acc:#4b3fc4;
+  --acc-soft:#f3f1fd;--ok:#1d7d55;--amber:#b06f0b;--red:#b8383d;--chip:#f3f1fd;
+  --shadow:0 1px 2px rgba(23,26,38,.04),0 8px 24px rgba(23,26,38,.05)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
 .top{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;margin:0 auto;gap:10px;flex-wrap:wrap;padding-top:max(18px, env(safe-area-inset-top));
@@ -154,6 +156,16 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
   transition:background .15s,color .15s,border-color .15s}
 .shelfTabs button:active{transform:translateY(1px)}
 .shelfTabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.composer{padding:12px 14px;border-radius:16px;backdrop-filter:blur(8px);background:rgba(255,255,255,.94)}
+.composer input#say{border-radius:11px;background:#fbfbfd}
+.composer .attach{white-space:nowrap;padding:11px 14px;flex:0 0 auto}
+.composer .bar{margin-top:10px;gap:8px;flex-wrap:wrap}
+.composer .hint{margin-top:8px;font-size:12.5px;line-height:1.45}
+input,textarea,select{font:inherit;border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:#fff;color:var(--ink)}
+input:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(75,63,196,.12)}
+h1{font-size:17px;letter-spacing:-.01em}
+.top{border-bottom:1px solid var(--line);background:rgba(255,255,255,.86);backdrop-filter:blur(10px);
+  position:sticky;top:0;z-index:20}
 </style>
 </head>
 <body>
@@ -265,16 +277,14 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
   <div id="chatWrap"></div>
   <div class="card" style="position:sticky;bottom:0;padding:12px">
     <div style="display:flex;gap:8px;align-items:center">
-      <button class="ghost small" title="Attach a photo of a question" onclick="document.getElementById('doubt').click()" style="flex:0 0 auto;padding:10px 12px">📎</button>
-      <input type="file" id="doubt" accept="image/*" capture="environment" multiple class="hidden" onchange="askDoubt(this)">
+      <button class="ghost small attach" title="Send a photo" onclick="document.getElementById('doubt').click()">Photo</button>
+      <input type="file" id="doubt" accept="image/*" capture="environment" multiple class="hidden" onchange="handlePhoto(this)">
       <input id="say" placeholder="Say something to Ananya…" onkeydown="if(event.key==='Enter')sendMe()">
       <button class="go small" onclick="sendMe()">Send</button>
     </div>
     <div class="bar">
-      <button class="ghost small" id="micBtn" onclick="toggleMic()">🎤 Talk</button>
-      <button class="ghost small" id="voiceBtn" onclick="toggleVoice()">🔊 ${COACH}'s voice</button>
-      <button class="ghost small" onclick="document.getElementById('photo').click()">📷 My working</button>
-      <input type="file" id="photo" accept="image/*" capture="environment" class="hidden" onchange="uploadWorking(this)">
+      <button class="ghost small" id="micBtn" onclick="toggleMic()">Talk</button>
+      <button class="ghost small" id="voiceBtn" onclick="toggleVoice()">Voice on</button>
       <button class="ghost small" onclick="endSession()">Call it a day</button>
     </div>
     <div class="hint" id="voiceState"></div>
@@ -623,8 +633,8 @@ function toggleVoice() {
 
 function paintVoice() {
   const b = $("voiceBtn"), m = $("micBtn"), st = $("voiceState");
-  if (b) b.textContent = voiceOn ? `🔊 ${COACH}'s voice` : "🔇 Voice off";
-  if (m) m.textContent = listening ? "🎙 Listening…" : micArmed ? "🎤 Talk" : "🎤 Tap to talk";
+  if (b) b.textContent = voiceOn ? "Voice on" : "Voice off";
+  if (m) m.textContent = listening ? "Listening…" : micArmed ? "Talk" : "Tap to talk";
   if (st && !window.__voiceIsEnhanced && voiceOn) {
     st.textContent = "Tip: for a warmer voice, download the Enhanced Australian voice in Settings → Accessibility → Spoken Content → Voices → English (Australia).";
   } else if (st) st.textContent = !voiceOn
@@ -1711,7 +1721,7 @@ function showExample(e) {
     <div id="exFig"></div>
     <div class="bar">
       <button class="go small" id="exShow" onclick="revealExample(this)">Show me how</button>
-      <button class="ghost small" onclick="drawFigure('example', ${e.n}, 'exFig')">✎ Draw it</button>
+      <button class="ghost small" onclick="drawFigure('example', ${e.n}, 'exFig')">Draw it</button>
     </div>
     <div class="fb hidden" id="exSol" style="background:#f7f7fb;border:1px solid var(--line)">
       <b>How it goes</b><div class="m" style="color:var(--ink)">${esc(e.solution)}</div>
@@ -1739,7 +1749,7 @@ function showQuestion(q) {
       <input id="ans" placeholder="Your answer" autocomplete="off" onkeydown="if(event.key==='Enter')check()">
       <button class="go small" id="chk" onclick="check()">Check</button>
     </div>
-    <div class="bar"><button class="ghost small" onclick="drawFigure('question', ${q.idx}, 'qFig')">✎ Draw it</button></div>
+    <div class="bar"><button class="ghost small" onclick="drawFigure('question', ${q.idx}, 'qFig')">Draw it</button></div>
     <div class="timer" id="qtimer">0:00</div>
     <div id="qfb"></div>`;
   $("chatWrap").appendChild(el);
@@ -1847,6 +1857,13 @@ function examForDoubt() {
   return "AAS numerical reasoning";
 }
 
+function handlePhoto(input) {
+  const said = ($("say")?.value || "").toLowerCase();
+  const doubtish = /stuck|doubt|help|understand|don'?t know|explain|how do i/.test(said) || !said;
+  if (doubtish) return askDoubt(input);
+  return uploadWorking(input);
+}
+
 async function askDoubt(input) {
   const files = [...(input.files ?? [])];
   input.value = "";
@@ -1854,7 +1871,7 @@ async function askDoubt(input) {
 
   if (!S.chat) S.chat = [];
   show("session");
-  bubble("me", files.length > 1 ? `📷 ${files.length} photos of questions I'm stuck on` : "📷 Here is one I'm stuck on");
+  bubble("me", files.length > 1 ? `${files.length} photos of questions I'm stuck on` : "Here is one I'm stuck on");
 
   const { data: { user } } = await sb.auth.getUser();
   const exam = examForDoubt();
@@ -2065,7 +2082,7 @@ const api = {
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
-  readPaper, extractOne, updateDest, buildScript, toggleMic, toggleVoice, speak, askDoubt
+  readPaper, extractOne, updateDest, buildScript, toggleMic, toggleVoice, speak, askDoubt, handlePhoto
 };
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
 
