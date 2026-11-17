@@ -269,10 +269,13 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
       <button class="go small" onclick="sendMe()">Send</button>
     </div>
     <div class="bar">
-      <button class="ghost small" onclick="document.getElementById('photo').click()">📷 Show my working</button>
+      <button class="ghost small" id="micBtn" onclick="toggleMic()">🎤 Talk</button>
+      <button class="ghost small" id="voiceBtn" onclick="toggleVoice()">🔊 Her voice</button>
+      <button class="ghost small" onclick="document.getElementById('photo').click()">📷 My working</button>
       <input type="file" id="photo" accept="image/*" capture="environment" class="hidden" onchange="uploadWorking(this)">
       <button class="ghost small" onclick="endSession()">Call it a day</button>
     </div>
+    <div class="hint" id="voiceState"></div>
   </div>
 </main>
 
@@ -540,6 +543,117 @@ const TRACKS = [
   { id: "aas", name: "AAS", school: "Camberwell Grammar School", note: "Scholarship test" },
   { id: "edutest", name: "Edutest", school: "Kilvington Grammar", note: "Scholarship test" },
 ];
+
+/* --------------------------------------------------------------- voice --- */
+const VOICE_KEY = "quest.voice";
+let voiceOn = localStorage.getItem(VOICE_KEY) !== "0";
+let auVoice = null;
+let micArmed = false;        // has he tapped the mic at least once
+let listening = false;
+let recog = null;
+
+function pickVoice() {
+  const voices = window.speechSynthesis?.getVoices?.() ?? [];
+  if (!voices.length) return;
+  const au = voices.filter((v) => /en[-_]AU/i.test(v.lang));
+  // Karen and Catherine are the Australian voices iPadOS ships with
+  auVoice = au.find((v) => /karen|catherine|matilda|lee/i.test(v.name)) || au[0]
+         || voices.find((v) => /en[-_]GB/i.test(v.lang)) || voices[0];
+}
+if (window.speechSynthesis) {
+  pickVoice();
+  window.speechSynthesis.onvoiceschanged = pickVoice;
+}
+
+function speak(text) {
+  if (!voiceOn || !window.speechSynthesis) return;
+  const clean = String(text)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = "en-AU";
+  if (auVoice) u.voice = auVoice;
+  u.rate = 0.88;          // slow and clear
+  u.pitch = 1.02;
+  u.onstart = () => { VOICE.speaking = true; stopListening(); };
+  u.onend = () => { VOICE.speaking = false; maybeListen(clean); };
+  window.speechSynthesis.speak(u);
+}
+
+function toggleVoice() {
+  voiceOn = !voiceOn;
+  localStorage.setItem(VOICE_KEY, voiceOn ? "1" : "0");
+  if (!voiceOn) window.speechSynthesis?.cancel();
+  paintVoice();
+}
+
+function paintVoice() {
+  const b = $("voiceBtn"), m = $("micBtn"), st = $("voiceState");
+  if (b) b.textContent = voiceOn ? "🔊 Her voice" : "🔇 Voice off";
+  if (m) m.textContent = listening ? "🎙 Listening…" : micArmed ? "🎤 Talk" : "🎤 Tap to talk";
+  if (st) st.textContent = !voiceOn
+    ? "She is silent. Tap the speaker to hear her."
+    : listening ? "Go ahead — she is listening. Stop talking and she will take it from there."
+    : "She reads each message aloud. The mic opens by itself when she asks you something.";
+}
+
+/* ---------- the mic: opens when she asks, closes when he stops ---------- */
+function maybeListen(lastSaid) {
+  if (!micArmed || listening || !lastSaid) return;
+  const asked = /\?\s*$/.test(lastSaid) || /tell me|what do you think|how did you|ready\?/i.test(lastSaid.slice(-120));
+  if (asked) startListening(6000);
+}
+
+function startListening(ms = 8000) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { $("voiceState").textContent = "This browser cannot listen. Type instead."; return; }
+  if (listening) return;
+
+  recog = new SR();
+  recog.lang = "en-AU";
+  recog.interimResults = true;
+  recog.continuous = false;
+  recog.maxAlternatives = 1;
+
+  let finalText = "";
+  listening = true; paintVoice();
+
+  recog.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) finalText += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    $("say").value = (finalText + interim).trim();
+  };
+  recog.onerror = () => { stopListening(); };
+  recog.onend = () => {
+    stopListening();
+    const text = $("say").value.trim();
+    if (text) { sendMe(); }
+  };
+
+  try { recog.start(); } catch (_) { stopListening(); return; }
+  setTimeout(() => { if (listening) stopListening(true); }, ms);
+}
+
+function stopListening(keepText) {
+  listening = false;
+  try { recog?.stop(); } catch (_) {}
+  recog = null;
+  paintVoice();
+}
+
+function toggleMic() {
+  micArmed = true;
+  if (listening) { stopListening(true); return; }
+  startListening(9000);
+}
 
 /* ---------------------------------------------------------------- art --- */
 function warliTile() {
@@ -1389,6 +1503,7 @@ function bubble(role, text) {
   const d = document.createElement("div");
   d.className = "msg " + role;
   d.innerHTML = esc(text);
+  if (role === "coach") speak(text);
   $("chatWrap").appendChild(d);
   d.scrollIntoView({ behavior: "smooth", block: "end" });
   return d;
@@ -1764,6 +1879,7 @@ if (localStorage.getItem(REMEMBER_KEY) === "0") {
 
 paintArt();
 $("remember").checked = remember;
+paintVoice();
 let booted = false;
 sb.auth.onAuthStateChange((event, session) => {
   if (event === "SIGNED_OUT") { location.reload(); return; }
@@ -1789,7 +1905,7 @@ const api = {
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
-  readPaper, extractOne, updateDest, buildScript
+  readPaper, extractOne, updateDest, buildScript, toggleMic, toggleVoice, speak
 };
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
 
