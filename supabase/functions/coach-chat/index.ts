@@ -106,6 +106,10 @@ one to five. Reply with JSON only:
 If he has just told you his confidence, note it and move into the work: same JSON shape, with
 confidence filled and a "say" that starts the first example.
 
+If he says he has a doubt, or that he is stuck on a question, and no photo came with it, ask him
+to tap the paperclip and photograph the question — one line, friendly: "Show me the question — tap
+the paperclip and take a picture of it." Then wait.
+
 If he is asking something else entirely, reply with plain text and no JSON. Answer what he just said or did, in two or three short
 sentences, then give him the next single step or ask one question.`,
 
