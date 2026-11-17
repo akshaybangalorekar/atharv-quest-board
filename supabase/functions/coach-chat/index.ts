@@ -70,7 +70,10 @@ underneath your message, so do not tell him to fetch a book — say the examples
 and mention the book page only as somewhere the pictures are if he wants them. If this is his first day, say that in one clause. Say how long the session is, in one short phrase, using the minutes in the plan.
 End by asking him to read the examples and tell you when he is ready. Do not start teaching yet.`,
 
-  reply: `Continue the session. Answer what he just said or did, in two or three short
+  reply: `Continue the session. He may tell you about work done elsewhere — TopScope homework, an
+IXL section from his tutor, a page of the book. When he does, reply with JSON only:
+{"say":"your normal short reply","log":{"minutes":number or 0,"note":"what he did, in his words, one line"}}
+If he reports nothing of the sort, reply with plain text and no JSON. Answer what he just said or did, in two or three short
 sentences, then give him the next single step or ask one question.`,
 
   summary: `The session is ending. Give him a three-line closing card: what he did today,
@@ -78,10 +81,12 @@ one thing he did well (be specific, from the attempts), and one thing to hold in
 Then say when the next session is, from the plan.`,
 
   decide: `Decide what he should do in this session, right now. Reply with JSON only:
-{"action":"quest|drill|quiz|paper|rest","chapter":number or null,"minutes":number,
+{"action":"quest|drill|quiz|paper|mock|rest","chapter":number or null,"minutes":number,
  "say":"one or two sentences to him, in your own voice, saying what you are doing and why"}
 
 How to choose:
+- If he has done four or more sessions since his last test, action "mock" — a timed paper in the
+  shape of his exam. Say plainly that it is time to see where he stands.
 - If today's plan has a test (lane M) and a chapter, action "quiz" on that chapter, 20 minutes.
 - If today's plan has a test and no chapter, action "paper", 60 minutes.
 - If today is a rest day (lane R, or no plan at all), action "rest", and say so kindly.
@@ -201,15 +206,34 @@ Deno.serve(async (req) => {
     });
     if (!r.ok) return json({ error: "model call failed", detail: await r.text() }, 502);
 
-    const data = await r.json();
-    let reply = (data?.choices?.[0]?.message?.content ?? "").trim();
+    const body2 = await r.json();
+    let reply = (body2?.choices?.[0]?.message?.content ?? "").trim();
     if (!reply) return json({ error: "empty reply" }, 502);
+
+    // a reply may carry a note about work done away from the app
+    if (mode === "reply" && reply.trim().startsWith("{")) {
+      try {
+        const j = JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1));
+        if (j.say) {
+          if (j.log && (j.log.note || j.log.minutes)) {
+            await admin.from("self_reports").insert({
+              student_id: user.id, minutes: Number(j.log.minutes) || 0,
+              note: String(j.log.note ?? "").slice(0, 400),
+            });
+          }
+          await admin.from("chat_messages").insert({
+            student_id: user.id, role: "coach", body: String(j.say), meta: { mode, track },
+          });
+          return json({ reply: String(j.say), logged: !!j.log });
+        }
+      } catch { /* not JSON: fall through and use it as words */ }
+    }
 
     // the decision comes back as JSON: hand the app both the instruction and the words
     if (mode === "decide") {
       try {
         const j = JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1));
-        const action = ["quest", "drill", "quiz", "paper", "rest"].includes(j.action) ? j.action : "quest";
+        const action = ["quest", "drill", "quiz", "paper", "mock", "rest"].includes(j.action) ? j.action : "quest";
         const plan = {
           action,
           chapter: Number.isFinite(j.chapter) ? j.chapter : (c.chapter ?? null),
