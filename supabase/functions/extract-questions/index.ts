@@ -20,7 +20,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PROMPT = `This is a page from a school test or workbook. Extract every question on it.
+const PROMPT_IMAGE = `This is a page from a school test or workbook. Extract every question on it.
 
 Rules:
 - One row per question. Keep the question's own words, shortened to the essentials if it is long.
@@ -32,7 +32,21 @@ Rules:
 - Number the rows in the order they appear.
 
 Reply with JSON only, no prose around it:
-{"rows":[{"q":"...","a":"..."}]}`;
+{"strand":"two or three words naming the topic, e.g. Sequences, Codes, Venn diagrams, Ratio",
+ "rows":[{"q":"...","a":"..."}]}`;
+
+const PROMPT_TEXT = `Below is text taken from a worksheet, a markdown file or a web page of practice
+questions. Pull out every question it contains.
+
+Rules:
+- One row per question. Keep the question's own words, trimmed to the essentials.
+- If an answer is printed next to the question, or follows it in an answer key, put it in "a".
+  Otherwise leave "a" as an empty string.
+- Do not invent questions. Do not merge two into one. Skip headings, instructions and marks.
+- Name the topic in "strand": two or three words, e.g. Sequences, Codes, Ratio, Venn diagrams.
+
+Reply with JSON only:
+{"strand":"...","rows":[{"q":"...","a":"..."}]}`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -52,18 +66,40 @@ Deno.serve(async (req) => {
     const { data: { user } } = await asUser.auth.getUser();
     if (!user) return json({ error: "not signed in" }, 401);
 
-    const { path, exam = "", strand = "" } = await req.json();
-    if (!path) return json({ error: "path required" }, 400);
-    if (!path.startsWith(user.id + "/")) return json({ error: "not your file" }, 403);
+    const { path, text, exam = "", strand = "" } = await req.json();
 
-    const { data: file, error: dlErr } = await admin.storage.from("papers").download(path);
-    if (dlErr || !file) return json({ error: "could not read the file" }, 404);
+    let messages: any[];
+    let system: string;
 
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    let bin = "";
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    const b64 = btoa(bin);
-    const mime = file.type || "image/jpeg";
+    if (text) {
+      // a markdown file, an html page, a pasted document — read as words
+      system = PROMPT_TEXT;
+      messages = [{
+        role: "user",
+        content: `Exam: ${exam}. Strand hint: ${strand || "work it out"}.\n\n${String(text).slice(0, 60000)}`,
+      }];
+    } else {
+      if (!path) return json({ error: "path or text required" }, 400);
+      if (!path.startsWith(user.id + "/")) return json({ error: "not your file" }, 403);
+
+      const { data: file, error: dlErr } = await admin.storage.from("papers").download(path);
+      if (dlErr || !file) return json({ error: "could not read the file" }, 404);
+
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let bin = "";
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      const b64 = btoa(bin);
+      const mime = file.type || "image/jpeg";
+
+      system = PROMPT_IMAGE;
+      messages = [{
+        role: "user",
+        content: [
+          { type: "text", text: `Exam: ${exam}. Strand hint: ${strand || "work it out"}. Extract the questions.` },
+          { type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } },
+        ],
+      }];
+    }
 
     const r = await fetch(ENDPOINT, {
       method: "POST",
@@ -75,23 +111,14 @@ Deno.serve(async (req) => {
         model: MODEL,
         temperature: 0.1,
         max_tokens: 2500,
-        messages: [
-          { role: "system", content: PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: `Exam: ${exam}. Strand: ${strand || "General"}. Extract the questions.` },
-              { type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } },
-            ],
-          },
-        ],
+        messages: [{ role: "system", content: system }, ...messages],
       }),
     });
     if (!r.ok) return json({ error: "model call failed", detail: await r.text() }, 502);
 
     const body = await r.json();
     const raw = body?.choices?.[0]?.message?.content ?? "{}";
-    let parsed: { rows?: Array<{ q: string; a: string }> } = {};
+    let parsed: { strand?: string; rows?: Array<{ q: string; a: string }> } = {};
     try {
       parsed = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
     } catch {
@@ -104,6 +131,7 @@ Deno.serve(async (req) => {
 
     return json({
       rows,
+      strand: (parsed.strand ?? "").trim(),
       note: rows.length
         ? `${rows.length} question${rows.length === 1 ? "" : "s"} read from this page. Check them before adding.`
         : "Nothing that looked like a question on this page.",

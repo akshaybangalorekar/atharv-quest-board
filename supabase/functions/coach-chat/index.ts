@@ -96,6 +96,14 @@ Deno.serve(async (req) => {
     const { data: ctx } = await asUser.rpc(toParent ? "parent_context" : "coach_context");
     const c = ctx ?? {};
 
+    // the chapter actually being taught — from the book, or an uploaded bank
+    const effChapter = chapter ?? c.chapter ?? null;
+    let pack: any = {};
+    if (effChapter && !toParent) {
+      const { data: p } = await asUser.rpc("chapter_pack", { p_chapter: effChapter });
+      pack = p ?? {};
+    }
+
     const parentFacts = [
       `Child: ${c.student ?? "Atharv"}. XP ${c.xp ?? 0}, streak ${c.streak ?? 0} days.`,
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
@@ -113,9 +121,11 @@ Deno.serve(async (req) => {
       `Today's plan: ${JSON.stringify(c.plan ?? [])}`,
       `Next session: ${JSON.stringify(c.next_session ?? {})}`,
       `Track he chose: ${track}.`,
-      chapter ? `Current chapter: ${chapter} — ${c.chapter_title ?? ""}.` : `Current chapter: ${c.chapter ?? "none today"} — ${c.chapter_title ?? ""}.`,
-      `Chapter techniques: ${JSON.stringify(c.chapter_notes?.ideas ?? [])}`,
-      `Chapter core ideas: ${c.chapter_notes?.summary ?? "(not recorded)"}`,
+      `Current chapter: ${effChapter ?? "none today"} — ${pack.title ?? c.chapter_title ?? ""} (${pack.source ?? "book"}).`,
+      `Chapter techniques: ${JSON.stringify(pack.ideas ?? c.chapter_notes?.ideas ?? [])}`,
+      `Chapter core ideas: ${pack.summary ?? c.chapter_notes?.summary ?? "(not recorded)"}`,
+      `Worked examples in this chapter: ${JSON.stringify(pack.examples ?? []).slice(0, 1500)}`,
+      `Questions in this chapter: ${JSON.stringify(pack.questions ?? []).slice(0, 1500)}`,
       `His weak areas: ${JSON.stringify(c.weak ?? [])}`,
       `What he has done today: ${JSON.stringify(c.today_attempts ?? [])}`,
       `Recent tests: ${JSON.stringify(c.recent_tests ?? [])}`,
