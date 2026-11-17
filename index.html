@@ -1535,7 +1535,17 @@ async function startSolo(chapterArg) {
 }
 
 /* ----------------------------------------------------------- the session - */
+/* whatever the server sends, never put a raw JSON blob in front of him */
+function cleanCoachText(text) {
+  const t = String(text ?? "");
+  if (!/\{\s*"?(say|speak|log)"/.test(t)) return t;
+  const m = /"say"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"(?:speak|log)"|\})/.exec(t);
+  if (m) return m[1].replace(/\\n/g, " ").replace(/\\"/g, '"').trim();
+  return t.replace(/\{.*\}/s, "").trim() || "…";
+}
+
 function bubble(role, text, spoken) {
+  if (role === "coach") text = cleanCoachText(text);
   const d = document.createElement("div");
   d.className = "msg " + role;
   d.innerHTML = esc(text);
