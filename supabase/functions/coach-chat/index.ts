@@ -23,6 +23,46 @@ const CORS = {
 
 const COACH_NAME = "Ananya";
 
+
+const APP_TRUTH = `WHAT IS ACTUALLY IN THE APP — the only things you may mention.
+Screens: the home screen with your card and one button; the chapter list; a chapter's page with its
+examples; the conversation with you; a test screen; a results screen; Progress; Journal; Formula board.
+Buttons he can see, by their exact words:
+- "Start →", or "Resume where you left off →" when a session is unfinished
+- "Chapter 3 →" (whatever chapter you have sent him to)
+- "Check where I am" (the placement — offered once, before he is placed)
+- "Paper is due — sit it" (only when a test is due)
+- "Skip this one", "Chapter quiz", "Talk", "Photo", "Pause for now"
+- "Talk to Ananya — I will answer as you think" (appears on your nudge when he is slow)
+- "Back to Ananya", "Home", "Progress", "Journal", "Formula board", "Leave this paper", "Submit the test"
+What the app does by itself: it shows a figure automatically when a question needs one, it marks his
+answer the moment he submits, and it keeps the conversation so he resumes exactly where he stopped.
+
+WHAT NO LONGER EXISTS — never mention, suggest or refer to any of these:
+- You do not speak. There is no voice toggle ("voice on" / "voice off"), no read-aloud, and nothing
+  says "tap to hear". You write, and he reads.
+- There is no "Draw it" button. Figures appear on their own.
+- There is no paperclip. The button is called Photo.
+- There is no "I worked on my own" tab and no self-log screen (no "selflog"). He tells you in the
+  conversation instead.
+- There is no "Call it a day". The button is "Pause for now".
+- He cannot see page numbers or images from the book. Everything he needs is on his screen.
+- There are no menus, no settings, no profile page, no badges to collect.
+
+If a thing he needs is not in the list above, say what you would do with what is there. Never invent
+a button, a screen, a tab or a feature.`;
+
+const BANNED: [RegExp, string][] = [
+  [/the paper ?clip|paper ?clip/gi, "the Photo button"],
+  [/call it a day/gi, "pause for now"],
+  [/tap (the )?draw it|press draw it|the draw it button/gi, "look at the figure"],
+  [/tap to hear me (say|read) it again/gi, "read it again"],
+  [/tap to hear me|tap to hear/gi, "read it"],
+  [/listen to me/gi, "read what I write"],
+  [/my voice|voice on|voice off/gi, "what I write"],
+  [/i worked on my own tab|the self.?log tab|the self.?log/gi, "our conversation"],
+];
+
 const PERSONA = `You are ${COACH_NAME}, Atharv's maths coach. He is 11, in Year 6 in Melbourne, preparing for
 the AMC Upper Primary and APSMO Division J. You are warm, brief and concrete.
 
@@ -294,7 +334,7 @@ Deno.serve(async (req) => {
       messages: [
         { role: "system", content: toParent
             ? `${PARENT_PERSONA}\n\nWHAT YOU KNOW RIGHT NOW:\n${parentFacts}`
-            : `${PERSONA}\n\n${SHAPE}\n\nWHAT YOU KNOW RIGHT NOW:\n${facts}` },
+            : `${PERSONA}\n\n${SHAPE}\n\n${APP_TRUTH}\n\nWHAT YOU KNOW RIGHT NOW:\n${facts}` },
         { role: "system", content: MODES[mode] ?? MODES.reply },
         ...history,
       ],
@@ -313,6 +353,11 @@ Deno.serve(async (req) => {
     const body2 = await r.json();
     let reply = (body2?.choices?.[0]?.message?.content ?? "").trim();
     if (!reply) return json({ error: "empty reply" }, 502);
+
+    const before = reply;
+    for (const [re, to] of BANNED) reply = reply.replace(re, to);
+    reply = reply.replace(/\s{2,}/g, " ").replace(/\s+([.,!?])/g, "$1").trim();
+    if (before !== reply) console.warn("coach reply mentioned a removed feature; cleaned");
 
     if (reply.trim().startsWith("{")) {
       const j = looseParse(reply);
