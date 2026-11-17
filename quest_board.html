@@ -11,17 +11,16 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Quest">
 <link rel="apple-touch-icon" href="./icon-180.png">
-
 <style>
 :root{--ink:#1c1e2b;--mut:#6b6e85;--line:#e6e6ef;--bg:#f7f7fb;--card:#fff;--acc:#5b4fcf;--ok:#1f8a5b;--amber:#c7780a;--red:#c43d3d;--chip:#efedff}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.45}
-.top{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;max-width:960px;margin:0 auto;gap:10px;flex-wrap:wrap}
+.top{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;max-width:960px;margin:0 auto;gap:10px;flex-wrap:wrap;padding-top:max(18px, env(safe-area-inset-top))}
 .top h1{font-size:20px;margin:0;font-weight:650}
 .tabs{display:flex;gap:6px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px}
 .tabs button{border:0;background:transparent;padding:6px 14px;border-radius:999px;font:inherit;font-size:14px;color:var(--mut);cursor:pointer}
 .tabs button.on{background:var(--acc);color:#fff}
-main{max-width:960px;margin:0 auto;padding:0 22px 60px;display:grid;gap:14px}
+main{max-width:960px;margin:0 auto;padding:0 22px 60px;display:grid;gap:14px;padding-bottom:max(60px, calc(env(safe-area-inset-bottom) + 40px))}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:700px){.row{grid-template-columns:1fr}}
@@ -50,32 +49,33 @@ th{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em
 .streak{display:flex;gap:4px;margin-top:8px}
 .streak i{width:14px;height:14px;border-radius:4px;background:#e1e1ec}.streak i.y{background:var(--ok)}
 .xpbar{height:8px;background:#ececf5;border-radius:999px;overflow:hidden;margin-top:8px}.xpbar i{display:block;height:100%;background:var(--acc)}
-footer{max-width:960px;margin:0 auto;padding:0 22px 30px;font-size:12.5px;color:var(--mut)}
+footer{max-width:960px;margin:0 auto;padding:0 22px 30px;font-size:12.5px;color:var(--mut);padding-bottom:max(30px, env(safe-area-inset-bottom))}
 .hidden{display:none}
 input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;width:100%}
-button.go{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:12px 20px;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
+button.go{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:14px 22px;font:inherit;font-size:17px;font-weight:600;cursor:pointer}
+button.go:disabled{opacity:.5}
+button.ghost{background:#fff;border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:12px 18px;font:inherit;font-size:15px;cursor:pointer}
 .err{color:var(--red);font-size:14px;margin-top:8px}
-</style>
-<style>
-/* standalone app: respect the iPad's rounded corners and status bar */
-.top{padding-top:max(18px, env(safe-area-inset-top));}
-footer{padding-bottom:max(30px, env(safe-area-inset-bottom));}
-main{padding-bottom:max(60px, calc(env(safe-area-inset-bottom) + 40px));}
-body{-webkit-tap-highlight-color:transparent;}
-button{-webkit-user-select:none;user-select:none;}
-.out{background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:999px;
-     padding:8px 16px;font:inherit;font-size:14px;cursor:pointer}
+.q{font-size:19px;line-height:1.5;margin:6px 0 4px}
+.ansbox{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.ansbox input{flex:1;min-width:200px;font-size:17px}
+.fb{margin-top:14px;padding:14px;border-radius:12px;font-size:15px}
+.fb.right{background:#e7f6ee;border:1px solid #bfe3d1}
+.fb.wrong{background:#fdeaea;border:1px solid #f2c9c9}
+.fb.manual{background:#fff4e3;border:1px solid #f0d6a8}
+.fb b{font-weight:650}
+.timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:20px}
+.timer.low{color:var(--red)}
+.qlist{display:grid;gap:12px}
+.qitem{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.qitem .n{font-size:12.5px;color:var(--mut);font-weight:700;letter-spacing:.05em}
+.out{background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:999px;padding:8px 16px;font:inherit;font-size:14px;cursor:pointer}
 .out:active{background:#f1f1f8}
 #iosHint{display:none;font-size:13.5px;color:var(--mut);margin-top:10px}
 </style>
 </head>
 <body>
 
-<!-- ======================================================================
-     CONFIG — the only two lines to edit.
-     url: your project URL.  key: the PUBLISHABLE key (sb_publishable_...).
-     Never put the service_role / secret key in this file.
-     ====================================================================== -->
 <script>
   const SUPABASE_URL = "https://qjynqcbhyctisptciblp.supabase.co";
   const SUPABASE_KEY = "sb_publishable_u9waWMPmL79A9TRhmct-Zg_MXiG3Uj_";
@@ -84,7 +84,7 @@ button{-webkit-user-select:none;user-select:none;}
 <div class="top">
   <h1>Atharv's Quest Board</h1>
   <div class="tabs" id="tabs" style="display:none">
-    <button class="on" onclick="tab('kid',this)">Atharv</button>
+    <button class="on" onclick="tab('home',this)">Atharv</button>
     <button onclick="tab('parent',this)">Parent</button>
   </div>
   <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
@@ -100,16 +100,21 @@ button{-webkit-user-select:none;user-select:none;}
     </div>
     <div class="err" id="err"></div>
     <div class="hint">Atharv, Pooja and Akshay each sign in with their own account. The parent sees the same data, read-only.</div>
-<div id="iosHint">To keep this on the iPad: tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens full screen, like an app.</div>
-
+    <div id="iosHint">To keep this on the iPad: tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens full screen, like an app.</div>
   </div>
 </main>
 
-<main id="kid" class="hidden">
+<!-- ---------------------------------------------------------------- home -->
+<main id="home" class="hidden">
   <div class="card">
     <div class="k">Today · <span id="todayDate"></span></div>
     <div class="big" id="todayLane" style="font-size:22px">No plan yet</div>
     <div class="sub" id="todayNext"></div>
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="go" id="startBtn" onclick="startToday()">Start today's work →</button>
+      <button class="ghost" onclick="startPractice()">Practise anything</button>
+    </div>
+    <div class="hint" id="startMsg"></div>
   </div>
 
   <div class="row">
@@ -120,6 +125,7 @@ button{-webkit-user-select:none;user-select:none;}
       <div class="sub" id="xpNext">300 XP to Level 2</div>
       <div class="k" style="margin-top:14px">Streak · <span id="streakN">0</span> days</div>
       <div class="streak" id="streakDots"></div>
+      <div class="sub" id="todayProgress"></div>
     </div>
     <div class="card">
       <div class="k">Is the content enough?</div>
@@ -139,6 +145,80 @@ button{-webkit-user-select:none;user-select:none;}
   </div>
 </main>
 
+<!-- ------------------------------------------------------------- session -->
+<main id="session" class="hidden">
+  <div class="card">
+    <div class="k" id="sessHead">Session</div>
+    <div class="big" id="sessWhere" style="font-size:20px">Chapter 1</div>
+    <div class="sub" id="sessCount"></div>
+  </div>
+
+  <div class="card" id="exCard" style="display:none">
+    <div class="k">Worked example</div>
+    <div class="q" id="exQ"></div>
+    <div class="sub" id="exSol" style="margin-top:10px"></div>
+    <div style="margin-top:14px"><button class="ghost" onclick="nextExample()">Next example →</button></div>
+  </div>
+
+  <div class="card" id="qCard">
+    <div class="k" id="qHead">Question</div>
+    <div class="q" id="qText">Loading…</div>
+    <div class="ansbox">
+      <input id="answer" placeholder="Your answer" autocomplete="off" autocapitalize="off"
+             onkeydown="if(event.key==='Enter')checkAnswer()">
+      <button class="go" id="checkBtn" onclick="checkAnswer()">Check</button>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="ghost" onclick="document.getElementById('photo').click()">Show my working</button>
+      <input type="file" id="photo" accept="image/*" capture="environment" class="hidden" onchange="uploadWorking(this)">
+    </div>
+    <div class="fb hidden" id="fb"></div>
+    <div id="coachOut" class="fb hidden"></div>
+    <div style="margin-top:14px"><button class="ghost" id="nextBtn" style="display:none" onclick="nextQuestion()">Next →</button></div>
+  </div>
+
+  <div class="card" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <button class="ghost" onclick="goHome()">← Back to the board</button>
+    <button class="ghost" onclick="skipQuestion()">Skip this one</button>
+  </div>
+</main>
+
+<!-- ---------------------------------------------------------------- exam -->
+<main id="exam" class="hidden">
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <div>
+      <div class="k" id="examKind">Test</div>
+      <div class="big" id="examWhere" style="font-size:20px"></div>
+    </div>
+    <div style="text-align:right">
+      <div class="k">Time left</div>
+      <div class="timer" id="clock">--:--</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="hint" style="margin:0 0 12px">No hints, no help, no looking anything up. Answers stay hidden until you submit — that is the point of a test.</div>
+    <div class="qlist" id="examList"></div>
+    <div style="margin-top:16px"><button class="go" id="submitExam" onclick="submitExam()">Submit the test</button></div>
+    <div class="err" id="examErr"></div>
+  </div>
+</main>
+
+<!-- ------------------------------------------------------------- results -->
+<main id="results" class="hidden">
+  <div class="card">
+    <div class="k">Result</div>
+    <div class="big" id="resScore">—</div>
+    <div class="sub" id="resPct"></div>
+  </div>
+  <div class="card">
+    <div class="k">Question by question</div>
+    <table><tbody id="resItems"></tbody></table>
+  </div>
+  <div class="card"><button class="ghost" onclick="goHome()">← Back to the board</button></div>
+</main>
+
+<!-- -------------------------------------------------------------- parent -->
 <main id="parent" class="hidden">
   <div class="row">
     <div class="card">
@@ -175,21 +255,33 @@ button{-webkit-user-select:none;user-select:none;}
   </div>
 </main>
 
-<footer>Read-only board. Every number comes from Supabase: the chapter map from <code>v_chapter_map</code>, readiness from <code>v_exam_readiness</code>, weak areas from <code>v_weak_techniques</code>, tests from <code>exam_mocks</code>. Nothing here writes or marks.</footer>
+<footer>Marking, XP and scores are computed by the database, never by this page. Every number here comes from Supabase.</footer>
 
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (id) => document.getElementById(id);
+const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 
-const TITLES = ["Apprentice","Explorer","Challenger","Olympian","Grandmaster"];
-
-function tab(id, btn) {
-  document.querySelectorAll("main").forEach(m => m.classList.toggle("hidden", m.id !== id));
-  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b === btn));
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+const S = { qs: [], i: 0, chapter: null, lane: "Q", examId: null, timer: null, left: 0, exs: [], ei: 0, startedAt: 0 };
+
+function show(id) {
+  ["signin", "home", "session", "exam", "results", "parent"].forEach((m) => $(m).classList.add("hidden"));
+  $(id).classList.remove("hidden");
+  window.scrollTo(0, 0);
+}
+function tab(id, btn) {
+  show(id);
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b === btn));
+}
+
+/* ---------------------------------------------------------------- auth -- */
 async function signIn() {
   $("err").textContent = "";
   const { error } = await sb.auth.signInWithPassword({
@@ -198,61 +290,64 @@ async function signIn() {
   if (error) { $("err").textContent = error.message; return; }
   start();
 }
+async function signOut() { await sb.auth.signOut(); location.reload(); }
 
 async function start() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) {
-    $("signin").classList.remove("hidden");
+    show("signin");
     $("tabs").style.display = "none";
     $("signOut").style.display = "none";
     return;
   }
-  $("signin").classList.add("hidden");
   $("tabs").style.display = "flex";
   $("signOut").style.display = "inline-block";
-  tab("kid", document.querySelector("#tabs button"));
+  show("home");
   $("todayDate").textContent = new Date().toLocaleDateString("en-AU",
     { weekday: "long", day: "numeric", month: "short" });
-
   await Promise.all([loadProfile(), loadPlan(), loadMap(), loadWeak(), loadReadiness(), loadTests(), loadNextExam()]);
 }
 
+/* ---------------------------------------------------------------- home -- */
 async function loadProfile() {
   const { data } = await sb.from("profiles").select("*").limit(1).maybeSingle();
   if (!data) { $("levelLabel").textContent = "No profile row yet"; return; }
   const xp = data.xp ?? 0;
   const level = 1 + Math.floor(xp / 300);
-  const title = TITLES[Math.min(TITLES.length - 1, Math.floor((level - 1) / 3))];
-  $("levelLabel").textContent = `Level ${level} · ${title}`;
+  $("levelLabel").textContent = `Level ${level} · ${TITLES[Math.min(4, Math.floor((level - 1) / 3))]}`;
   $("xp").textContent = xp.toLocaleString();
   $("xpFill").style.width = `${Math.round((xp % 300) / 3)}%`;
   $("xpNext").textContent = `${300 - (xp % 300)} XP to Level ${level + 1}`;
   const streak = data.streak_days ?? 0;
   $("streakN").textContent = streak;
-  $("streakDots").innerHTML = Array.from({ length: 7 },
-    (_, i) => `<i class="${i < streak ? "y" : ""}"></i>`).join("");
+  $("streakDots").innerHTML = Array.from({ length: 7 }, (_, i) => `<i class="${i < streak ? "y" : ""}"></i>`).join("");
   $("parentOverall").textContent =
     `${xp.toLocaleString()} XP · level ${level} · streak ${streak} days · ` +
     `${data.days_per_week ?? "?"} sessions/week at ${data.session_min ?? 30} min`;
+
+  const { data: tp } = await sb.rpc("today_progress");
+  if (tp) $("todayProgress").textContent =
+    `Today: ${tp.answered} answered, ${tp.correct} right, ${tp.xp} XP.`;
 }
 
 async function loadPlan() {
-  const today = new Date().toISOString().slice(0, 10);
-  const { data } = await sb.from("plan_days").select("*").eq("day", today);
+  const { data } = await sb.from("plan_days").select("*").eq("day", todayISO()).order("seq");
   if (!data || !data.length) {
-    $("todayLane").textContent = "No plan yet";
-    $("todayNext").textContent = "The week-by-week plan has not been seeded.";
+    $("todayLane").textContent = "Rest day";
+    $("todayNext").textContent = "Nothing scheduled. A rest day is part of the plan.";
+    $("startBtn").style.display = "none";
     return;
   }
-  const lanes = data.map(d => `${d.lane}${d.chapter ? " · Ch " + d.chapter : ""} · ${d.minutes} min`);
+  const lanes = data.map((d) => `${d.lane}${d.chapter ? " · Ch " + d.chapter : ""} · ${d.minutes} min`);
   $("todayLane").textContent = lanes.join("  +  ");
   $("todayNext").textContent = data[0].note ?? "";
+  S.plan = data;
 }
 
 async function loadMap() {
   const { data } = await sb.from("v_chapter_map").select("*").order("chapter");
   if (!data) return;
-  $("grid").innerHTML = data.map(c => {
+  $("grid").innerHTML = data.map((c) => {
     const score = c.quiz_best ? `<small>${c.quiz_best}%</small>` : "";
     return `<div class="t ${c.status}" title="Ch ${c.chapter} · ${c.title} · ${c.status}">${c.chapter}${score}</div>`;
   }).join("");
@@ -261,73 +356,298 @@ async function loadMap() {
 async function loadWeak() {
   const { data } = await sb.from("v_weak_techniques").select("*").order("misses", { ascending: false }).limit(3);
   if (!data || !data.length) return;
-  const html = data.map(w =>
+  $("weakKid").innerHTML = data.map((w) =>
     `<li><b>${w.technique}</b><br><span class="sub">${w.open_items} open · ${w.misses} misses · next ${w.next_due ?? "—"}</span></li>`).join("");
-  $("weakKid").innerHTML = html;
-  $("weakParent").innerHTML = data.map(w =>
+  $("weakParent").innerHTML = data.map((w) =>
     `<li><b>${w.technique}</b> — ${w.open_items} open, ${w.misses} misses</li>`).join("");
 }
 
 async function loadReadiness() {
-  const { data, error } = await sb.from("v_exam_readiness").select("*");
-  if (error || !data) { $("readiness").textContent = "Readiness view not available."; return; }
-  $("readiness").textContent = data.map(r => r.message).join(" ");
-  $("readinessTable").innerHTML = data.map(r => {
+  const { data } = await sb.from("v_exam_readiness").select("*");
+  if (!data) { $("readiness").textContent = "Readiness view not available."; return; }
+  $("readiness").textContent = data.map((r) => r.message).join(" ");
+  $("readinessTable").innerHTML = data.map((r) => {
     const cls = r.verdict === "ready" ? "ok" : r.verdict === "too_early" ? "grey"
-              : r.verdict === "in_progress" ? "amber" : "red";
+      : r.verdict === "in_progress" ? "amber" : "red";
     const word = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
-                   thin: "Need more data", no_content: "Nothing uploaded" }[r.verdict] ?? r.verdict;
+      thin: "Need more data", no_content: "Nothing uploaded" }[r.verdict] ?? r.verdict;
     return `<tr><td>${r.exam}</td><td>${r.items}</td><td>${r.practised}</td>
             <td>${r.mastered}</td><td><span class="pill ${cls}">${word}</span></td></tr>`;
   }).join("");
   $("readinessNote").textContent =
-    "A verdict of “Need more data” means the question bank for that exam is too small to judge him on — upload more before reading anything into the score.";
+    "“Need more data” means the question bank for that exam is too small to judge him on — upload more before reading anything into the score.";
 }
 
 async function loadTests() {
   const { data } = await sb.from("exam_mocks").select("*").order("taken_at", { ascending: false }).limit(6);
   if (!data || !data.length) return;
-  $("recentTests").innerHTML = data.map(t => {
+  $("recentTests").innerHTML = data.map((t) => {
     const d = new Date(t.taken_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
     const cls = t.pct >= 80 ? "ok" : t.pct >= 60 ? "amber" : "red";
-    return `<tr><td>${d}</td><td>${t.kind}${t.scope ? " · " + t.scope : ""}</td>
-            <td>${t.score}/${t.total}</td><td><span class="pill ${cls}">${t.pct}%</span></td></tr>`;
+    return `<tr><td>${d}</td><td>${t.kind}${t.scope && t.scope !== "all" ? " · Ch " + t.scope : ""}</td>
+            <td>${t.score ?? 0}/${t.total ?? 0}</td><td><span class="pill ${cls}">${t.pct ?? 0}%</span></td></tr>`;
   }).join("");
 }
 
-// exam countdown from the calendar, if it has been seeded
 async function loadNextExam() {
-  const { data } = await sb.from("exam_calendar").select("*")
-    .gte("sits_on", new Date().toISOString().slice(0, 10))
-    .order("sits_on").limit(1).maybeSingle();
+  const { data } = await sb.from("exam_calendar").select("*").gte("sits_on", todayISO()).order("sits_on").limit(1).maybeSingle();
   if (!data) { $("nextExamWhen").textContent = "No exam dates seeded yet."; return; }
   const days = Math.ceil((new Date(data.sits_on) - new Date()) / 86400000);
   $("nextExam").textContent = data.exam;
   $("nextExamWhen").textContent =
-    `${new Date(data.sits_on).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}` +
-    ` · ${days} days · ${data.date_status}${data.target ? " · target " + data.target : ""}`;
+    `${new Date(data.sits_on).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" })} · ${days} days · ${data.date_status}`;
 }
 
-sb.auth.onAuthStateChange((_e, session) => { if (session) start(); else start(); });
+/* ------------------------------------------------------------- session -- */
+async function startToday() {
+  const rows = S.plan ?? [];
+  if (!rows.length) return;
+  const q = rows.find((r) => r.lane === "Q");
+  const d = rows.find((r) => r.lane === "D");
+  const m = rows.find((r) => r.lane === "M");
+  if (q) return startQuest(q.chapter, q.target_questions || 4, q.note || "");
+  if (d) return startDrill();
+  if (m) return startTest(m.chapter, m.minutes);
+}
+
+async function startQuest(chapter, count, note) {
+  S.lane = "Q"; S.chapter = chapter; S.qs = []; S.i = 0; S.exs = []; S.ei = 0;
+  show("session");
+  $("sessHead").textContent = "Quest";
+  $("sessWhere").textContent = `Chapter ${chapter}`;
+  $("exCard").style.display = "none";
+
+  if (/worked examples/i.test(note)) {
+    const { data } = await sb.from("examples").select("*").eq("chapter", chapter).order("n");
+    if (data && data.length) {
+      S.exs = data; S.ei = 0;
+      $("qCard").style.display = "none";
+      $("exCard").style.display = "block";
+      paintExample();
+      return;
+    }
+  }
+  await loadQuestions(chapter, count);
+}
+
+function paintExample() {
+  const e = S.exs[S.ei];
+  $("exQ").textContent = e.prompt;
+  $("exSol").textContent = e.solution;
+  $("sessCount").textContent = `Example ${S.ei + 1} of ${S.exs.length} · talk it through together`;
+}
+
+function nextExample() {
+  S.ei++;
+  if (S.ei < S.exs.length) { paintExample(); return; }
+  $("exCard").style.display = "none";
+  $("qCard").style.display = "block";
+  loadQuestions(S.chapter, 4);
+}
+
+async function loadQuestions(chapter, count) {
+  const { data, error } = await sb.rpc("next_in_chapter", { p_chapter: chapter, p_count: count });
+  if (error) { $("qText").textContent = "Could not load questions: " + error.message; return; }
+  S.qs = data ?? []; S.i = 0; S.startedAt = Date.now();
+  if (!S.qs.length) {
+    $("qHead").textContent = "Done";
+    $("qText").textContent = "Every question in this chapter has been answered. Take the quiz, or move on.";
+    $("answer").style.display = "none"; $("checkBtn").style.display = "none";
+    return;
+  }
+  paintQuestion();
+}
+
+function paintQuestion() {
+  const q = S.qs[S.i];
+  $("qHead").textContent = `Chapter ${q.chapter} · question ${q.idx}`;
+  $("qText").textContent = q.prompt;
+  $("sessCount").textContent = `${S.i + 1} of ${S.qs.length} · read it in the book if there is a diagram`;
+  $("answer").value = ""; $("answer").style.display = ""; $("checkBtn").style.display = "";
+  $("fb").className = "fb hidden"; $("coachOut").className = "fb hidden";
+  $("nextBtn").style.display = "none";
+  $("answer").focus();
+}
+
+async function checkAnswer() {
+  const q = S.qs[S.i];
+  const text = $("answer").value.trim();
+  if (!text) return;
+  $("checkBtn").disabled = true;
+  const secs = Math.round((Date.now() - S.startedAt) / 1000);
+  const { data, error } = await sb.rpc("submit_answer", {
+    p_chapter: q.chapter, p_idx: q.idx, p_answer: text, p_hints: 0,
+    p_working: false, p_mode: "quest", p_seconds: secs, p_exam_id: null,
+  });
+  $("checkBtn").disabled = false;
+  if (error) { $("fb").className = "fb wrong"; $("fb").textContent = error.message; return; }
+
+  const fb = $("fb");
+  if (data.correct === true) {
+    fb.className = "fb right";
+    fb.innerHTML = `<b>Right.</b> +${data.xp} XP<br><span class="sub">${data.method ?? ""}</span>`;
+  } else if (data.correct === false) {
+    fb.className = "fb wrong";
+    fb.innerHTML = `<b>Not yet.</b><br><span class="sub">${data.method ?? ""}</span>`;
+  } else {
+    fb.className = "fb manual";
+    fb.innerHTML = `<b>Written answer — this one needs a person to mark it.</b><br><span class="sub">${data.method ?? ""}</span>`;
+  }
+  $("nextBtn").style.display = "inline-block";
+  $("answer").style.display = "none"; $("checkBtn").style.display = "none";
+  loadProfile();
+}
+
+function nextQuestion() {
+  S.i++; S.startedAt = Date.now();
+  if (S.i < S.qs.length) paintQuestion();
+  else { $("qHead").textContent = "Session done"; $("qText").textContent = "That is the session. Well done."; $("answer").style.display = "none"; $("checkBtn").style.display = "none"; $("fb").className = "fb hidden"; $("nextBtn").style.display = "none"; }
+}
+function skipQuestion() { nextQuestion(); }
+
+async function startDrill() {
+  S.lane = "D"; S.chapter = null; S.i = 0;
+  show("session");
+  $("sessHead").textContent = "Drill";
+  $("sessWhere").textContent = "Things you got wrong";
+  $("exCard").style.display = "none"; $("qCard").style.display = "block";
+  const { data } = await sb.rpc("due_reviews", { p_count: 6 });
+  S.qs = data ?? []; S.startedAt = Date.now();
+  if (!S.qs.length) {
+    $("qHead").textContent = "Nothing due";
+    $("qText").textContent = "Nothing in the review queue today. Start the next chapter instead.";
+    $("answer").style.display = "none"; $("checkBtn").style.display = "none";
+    return;
+  }
+  paintQuestion();
+}
+
+async function startPractice() {
+  const { data } = await sb.from("v_chapter_map").select("chapter,status").order("chapter");
+  const open = (data ?? []).filter((c) => c.status !== "not_started");
+  const ch = open.length ? open[open.length - 1].chapter : 1;
+  await startQuest(ch, 4, "");
+}
+
+/* ---------------------------------------------------------------- test -- */
+async function startTest(chapter, minutes) {
+  const isQuiz = !!chapter;
+  const body = isQuiz
+    ? { p_kind: "quiz", p_chapters: [chapter], p_count: 5, p_minutes: 20, p_pass: 80 }
+    : { p_kind: "mock", p_chapters: null, p_count: 30, p_minutes: 60, p_pass: 70 };
+  const { data, error } = await sb.rpc("start_exam", body);
+  if (error) { alert(error.message); return; }
+
+  S.examId = data.exam_id; S.left = (data.minutes || 20) * 60;
+  show("exam");
+  $("examKind").textContent = isQuiz ? "Chapter quiz" : "AMC paper";
+  $("examWhere").textContent = isQuiz ? `Chapter ${chapter} · ${data.items.length} questions` : `${data.items.length} questions · 135 marks`;
+  $("examList").innerHTML = data.items.map((q, n) => `
+    <div class="qitem">
+      <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
+      <div>${q.prompt}</div>
+      <input data-chapter="${q.chapter}" data-idx="${q.idx}" placeholder="Your answer" autocomplete="off">
+    </div>`).join("");
+  startClock();
+}
+
+function startClock() {
+  clearInterval(S.timer);
+  const tick = () => {
+    const m = Math.floor(S.left / 60), s = S.left % 60;
+    $("clock").textContent = `${m}:${String(s).padStart(2, "0")}`;
+    $("clock").classList.toggle("low", S.left <= 120);
+    if (S.left <= 0) { clearInterval(S.timer); submitExam(); }
+    S.left--;
+  };
+  tick();
+  S.timer = setInterval(tick, 1000);
+}
+
+async function submitExam() {
+  clearInterval(S.timer);
+  $("submitExam").disabled = true;
+  $("examErr").textContent = "Marking…";
+  const inputs = [...document.querySelectorAll("#examList input")];
+  for (const el of inputs) {
+    if (!el.value.trim()) continue;
+    await sb.rpc("submit_answer", {
+      p_chapter: Number(el.dataset.chapter), p_idx: Number(el.dataset.idx),
+      p_answer: el.value.trim(), p_hints: 0, p_working: false,
+      p_mode: "mock", p_seconds: null, p_exam_id: S.examId,
+    });
+  }
+  const { data, error } = await sb.rpc("finish_exam", { p_exam_id: S.examId });
+  $("submitExam").disabled = false;
+  if (error) { $("examErr").textContent = error.message; return; }
+  $("examErr").textContent = "";
+  showResults(data);
+}
+
+function showResults(r) {
+  show("results");
+  $("resScore").textContent = `${r.score} / ${r.total}`;
+  $("resPct").textContent = `${r.pct}% · ${r.passed ? "passed" : "not passed yet"}`;
+  $("resItems").innerHTML = (r.items ?? []).map((it, n) => {
+    const mark = it.ok === true ? `<span class="pill ok">right</span>`
+      : it.ok === false ? `<span class="pill red">wrong</span>`
+      : `<span class="pill grey">to mark</span>`;
+    return `<tr><td style="width:44px">Q${n + 1}</td>
+      <td>${mark}<div class="sub">he wrote: ${it.answer_given ?? "—"}</div>
+      <div class="sub">${it.method ?? ""}</div></td></tr>`;
+  }).join("");
+}
+
+function goHome() { clearInterval(S.timer); start(); }
+
+/* --------------------------------------------------------------- photo -- */
+async function uploadWorking(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const q = S.qs[S.i];
+  const { data: { user } } = await sb.auth.getUser();
+  const path = `${user.id}/ch${q.chapter}-q${q.idx}-${Date.now()}.jpg`;
+  const out = $("coachOut");
+  out.className = "fb manual";
+  out.textContent = "Sending your working…";
+
+  const up = await sb.storage.from("working").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+  if (up.error) { out.textContent = "Upload failed: " + up.error.message; return; }
+
+  const { data, error } = await sb.functions.invoke("coach-work", {
+    body: { chapter: q.chapter, idx: q.idx, image_path: path, stage: "work" },
+  });
+  if (error) { out.textContent = "The coach could not read it: " + error.message; return; }
+  if (data && data.error) { out.textContent = "The coach could not read it: " + data.error; return; }
+
+  out.className = "fb";
+  out.style.background = "#f3f1ff";
+  out.style.border = "1px solid #d9d4ff";
+  out.innerHTML = `
+    <b>What is right</b><div class="sub" style="color:var(--ink)">${data.whats_right ?? "—"}</div>
+    <b style="display:block;margin-top:10px">Where it slipped</b><div class="sub" style="color:var(--ink)">${data.slip ?? "—"}</div>
+    <b style="display:block;margin-top:10px">Another way</b><div class="sub" style="color:var(--ink)">${data.alternative ?? "—"}</div>
+    <b style="display:block;margin-top:10px">Check yourself</b><div class="sub" style="color:var(--ink)">${data.check_question ?? "—"}</div>
+    <b style="display:block;margin-top:10px">Now explain it</b><div class="sub" style="color:var(--ink)">${data.ask_teachback ?? "—"}</div>`;
+  input.value = "";
+}
+
+/* ----------------------------------------------------------------- boot -- */
+sb.auth.onAuthStateChange(() => start());
 start();
-async function signOut() {
-  await sb.auth.signOut();
-  location.reload();
-}
-
-window.tab = tab; window.signIn = signIn; window.signOut = signOut;
 
 // keep the shell on the device; data still comes from the network
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js").catch(() => {});
-}
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-if (isIOS && !standalone) {
-  const hint = document.getElementById("iosHint");
-  if (hint) hint.style.display = "block";
-}
+if (isIOS && !standalone) { const h = $("iosHint"); if (h) h.style.display = "block"; }
 
+window.tab = tab; window.signIn = signIn; window.signOut = signOut;
+window.startToday = startToday; window.startPractice = startPractice;
+window.checkAnswer = checkAnswer; window.nextQuestion = nextQuestion;
+window.skipQuestion = skipQuestion; window.nextExample = nextExample;
+window.submitExam = submitExam; window.goHome = goHome;
+window.uploadWorking = uploadWorking;
 </script>
 </body>
 </html>
