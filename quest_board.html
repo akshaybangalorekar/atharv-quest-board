@@ -229,26 +229,22 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
 <main id="track" class="hidden">
   <div class="card">
     <div class="k" id="trackName">Olympiad</div>
-    <div class="big" style="font-size:21px" id="todayPlan">—</div>
+    <div class="big" style="font-size:20px" id="todayPlan">—</div>
     <div class="sub" id="todayNote"></div>
-    <div class="bar">
-      <button class="go" onclick="startSession()">Start with the coach →</button>
-      <button class="ghost" onclick="startMock()">Mock test</button>
-    </div>
     <div class="hint" id="trackHint"></div>
   </div>
 
   <div class="card">
-    <div class="tabs" id="subTabs" style="display:none">
+    <div class="tabs" id="subTabs">
       <button class="on" id="subBook" onclick="pickShelf('book',this)">The book</button>
       <button id="subDj" onclick="pickShelf('dj',this)">Division J</button>
+      <button onclick="startMock()">Mock test</button>
     </div>
-    <div class="chapterlist" id="shelf" style="margin-top:12px"></div>
+    <div class="sub" id="shelfNote" style="margin-top:10px"></div>
+    <div class="chapterlist" id="shelf" style="margin-top:6px"></div>
   </div>
 
-  <div class="card">
-    <div class="sub" id="trackStats"></div>
-  </div>
+  <div class="card"><div class="sub" id="trackStats"></div></div>
 </main>
 
 <!-- the session: a conversation -->
@@ -431,7 +427,7 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
       <summary class="sub" style="cursor:pointer">The book's own wording</summary>
       <div class="sub" id="chSummary" style="margin-top:8px"></div>
     </details>
-    <div class="bar"><button class="go small" onclick="practiseChapter()">Practise this chapter →</button></div>
+    <div class="bar"><button class="go small" onclick="startSolo(S.chapter)">Practise this chapter →</button></div>
   </div>
   <div class="card">
     <div class="k">Worked examples</div>
@@ -1094,11 +1090,11 @@ async function openTrack(id) {
     `${(S.ctx?.xp ?? 0).toLocaleString()} XP · streak ${S.ctx?.streak ?? 0} days · ` +
     `day ${S.ctx?.days_in ?? 1} of the programme`;
 
-  // olympiad has two shelves; the others have one
   const twoShelves = id === "olympiad";
-  $("subTabs").style.display = twoShelves ? "flex" : "none";
+  $("subDj").style.display = twoShelves ? "" : "none";
   $("subBook").classList.add("on"); $("subDj").classList.remove("on");
   $("subBook").textContent = id === "amc" ? "Questions" : "The book";
+  S.shelf = "book";
   await renderShelf();
 }
 
@@ -1120,6 +1116,7 @@ async function renderShelf() {
   box.innerHTML = `<div class="sub">Loading…</div>`;
 
   if (S.shelf === "dj") {
+    $("shelfNote").textContent = "Maths Olympiad Contest Problems Vol 2 · Division J · nine sets";
     const { data } = await sb.from("chapters").select("n,title,practice").eq("source", "apsmo").order("n");
     box.innerHTML = (data ?? []).map((c) => `
       <button class="ch" onclick="openChapter(${c.n})">
@@ -1131,6 +1128,7 @@ async function renderShelf() {
   }
 
   if (S.track === "olympiad" || S.track === "amc") {
+    $("shelfNote").textContent = "Maths Olympiad — Unleash the Maths Olympian in You! (Advanced) · Terry Chew";
     const { data } = await sb.from("chapters").select("n,title,pages,examples,practice").lte("n", 24).order("n");
     box.innerHTML = (data ?? []).map((c) => `
       <button class="ch" onclick="openChapter(${c.n})">
@@ -1142,6 +1140,7 @@ async function renderShelf() {
 
   // aas / edutest — whatever has been uploaded
   const kind = S.track;
+  $("shelfNote").textContent = kind === "aas" ? "Camberwell Grammar · AAS" : "Kilvington · Edutest";
   const { data } = await sb.from("chapters").select("n,title,practice").eq("source", kind).order("n");
   box.innerHTML = (data && data.length)
     ? data.map((c) => `<button class="ch" onclick="openChapter(${c.n})">
@@ -1221,6 +1220,23 @@ function practiseChapter() {
   startSession(S.chapter, null, "solo");
 }
 
+/* straight into the questions: the coach reads the results afterwards */
+async function startSolo(chapter) {
+  sb.rpc("log_visit", { p_chapter: chapter, p_source: "solo-practice" });
+  S.workMode = "solo";
+  S.chat = []; S.qs = []; S.i = 0;
+  $("chatWrap").innerHTML = "";
+  show("session");
+  S.chapter = chapter;
+  startBudget(30);
+  await buildScript({ lane: "Q", target_questions: 4 }, null);
+  if (!S.script.length) {
+    bubble("coach", "Nothing left to do in this chapter — every question is answered.");
+    return;
+  }
+  nextStep();
+}
+
 /* ----------------------------------------------------------- the session - */
 function bubble(role, text) {
   const d = document.createElement("div");
@@ -1243,6 +1259,7 @@ async function callCoach({ mode, note }) {
 
 async function startSession(chapterOverride, forceMode, mode) {
   S.workMode = mode === "solo" ? "solo" : "quest";
+  if (mode === "solo") return startSolo(chapterOverride);
   S.chat = []; S.qs = []; S.i = 0; S.nudged = false;
   $("chatWrap").innerHTML = "";
   show("session");
@@ -1610,7 +1627,7 @@ const api = {
   startQuiz, startPaper, submitTest,
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
-  openTrack, pickShelf, renderShelf, startMock, runExam, beginWork,
+  openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo,
   readPaper, extractOne, updateDest, buildScript
 };
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
