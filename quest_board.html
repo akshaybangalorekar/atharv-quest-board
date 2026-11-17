@@ -71,6 +71,8 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 .qcard{background:#fff;border:2px solid var(--acc);border-radius:16px;padding:16px}
 .qcard .n{font-size:12px;color:var(--mut);font-weight:700;letter-spacing:.06em}
 .qcard .q{font-size:19px;margin:6px 0 12px;line-height:1.5}
+.diagram{display:flex;justify-content:center;margin:10px 0;padding:8px;background:#fbfbfe;border:1px solid var(--line);border-radius:12px}
+.diagram svg{max-width:100%;height:auto}
 .qcard .timer{font-size:13px;color:var(--mut);margin-top:10px;font-variant-numeric:tabular-nums}
 .qcard .timer.warn{color:var(--amber);font-weight:600}
 .fb{margin-top:12px;padding:12px 14px;border-radius:12px;font-size:15px}
@@ -539,6 +541,23 @@ async function pdfToImages(file, maxPages) {
   return out;
 }
 
+async function solveBlanks() {
+  const exam = $("upBank").value;
+  $("upErr").textContent = "Working them out…";
+  const { data, error } = await sb.functions.invoke("solve-questions", {
+    body: { exam, limit: 8 },
+  });
+  if (error || data?.error) { $("upErr").textContent = "The solver could not run: " + (error?.message || data?.error); return; }
+  const n = (data.solved ?? []).length;
+  $("upErr").textContent = "";
+  $("upDone").className = "fb right";
+  $("upDone").innerHTML = n
+    ? `<b>${n} answer${n === 1 ? "" : "s"} worked out</b>
+       <div class="m">${data.solved.map((x) => `Ch${x.chapter} Q${x.idx}: ${esc(x.answer)}${x.confident ? "" : " (unsure)"}`).join("<br>")}</div>
+       <div class="m" style="margin-top:8px">These came from the model, not the book, so they are marked unverified. Run it again for the next batch.</div>`
+    : `<b>Nothing left to solve</b><div class="m">Every question in this exam already has an answer.</div>`;
+}
+
 async function submitUpload() {
   const rows = $("upRows").value.split("\n").map((line) => {
     const [q, ...rest] = line.split("|");
@@ -552,8 +571,11 @@ async function submitUpload() {
   });
   if (error) { $("upErr").textContent = error.message; return; }
   $("upDone").className = "fb right";
-  $("upDone").innerHTML = `<b>${data.added} question${data.added === 1 ? "" : "s"} added</b>
-    <div class="m">into ${esc(data.strand)}. The readiness panel has already updated.</div>`;
+  const dupes = data.skipped_duplicates ?? 0;
+  $("upDone").innerHTML = `<b>${data.added} question${data.added === 1 ? "" : "s"} added</b>` +
+    (dupes ? ` · <b>${dupes} already there, skipped</b>` : "") +
+    `<div class="m">into ${esc(data.strand)}. The readiness panel has already updated.</div>
+     <div class="bar"><button class="ghost small" onclick="solveBlanks()">Work out the missing answers</button></div>`;
   $("upRows").value = "";
   await goParent();
   show("upload");
@@ -842,6 +864,7 @@ function presentQuestion() {
   el.innerHTML = `
     <div class="n">CHAPTER ${q.chapter} · QUESTION ${q.idx} · ${S.i + 1} of ${S.qs.length}</div>
     <div class="q">${esc(q.prompt)}</div>
+    ${q.diagram_svg ? `<div class="diagram">${q.diagram_svg}</div>` : ""}
     <div style="display:flex;gap:8px">
       <input id="ans" placeholder="Your answer" autocomplete="off" onkeydown="if(event.key==='Enter')check()">
       <button class="go small" id="chk" onclick="check()">Check</button>
@@ -1038,7 +1061,7 @@ Object.assign(window, { signIn, signOut, goLanding, openTrack, openBook, openCha
   practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly,
   startQuiz, startPaper, submitTest,
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
-  readPaper, extractOne });
+  readPaper, extractOne, solveBlanks });
 </script>
 </body>
 </html>
