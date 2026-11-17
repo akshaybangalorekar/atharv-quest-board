@@ -113,6 +113,8 @@ button.ghost{background:#fff;border:1px solid var(--line);color:var(--ink);borde
     <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
       <button class="go" id="startBtn" onclick="startToday()">Start today's work →</button>
       <button class="ghost" onclick="startPractice()">Practise anything</button>
+      <button class="ghost" onclick="startQuiz()">Chapter quiz</button>
+      <button class="ghost" onclick="startPaper()">AMC paper</button>
     </div>
     <div class="hint" id="startMsg"></div>
   </div>
@@ -522,6 +524,13 @@ async function startDrill() {
   paintQuestion();
 }
 
+function currentChapter() {
+  const r = (S.plan ?? []).find((x) => x.chapter);
+  return r ? r.chapter : 1;
+}
+function startQuiz() { startTest(currentChapter(), 20); }
+function startPaper() { startTest(null, 60); }
+
 async function startPractice() {
   const { data } = await sb.from("v_chapter_map").select("chapter,status").order("chapter");
   const open = (data ?? []).filter((c) => c.status !== "not_started");
@@ -644,6 +653,7 @@ if (isIOS && !standalone) { const h = $("iosHint"); if (h) h.style.display = "bl
 
 window.tab = tab; window.signIn = signIn; window.signOut = signOut;
 window.startToday = startToday; window.startPractice = startPractice;
+window.startQuiz = startQuiz; window.startPaper = startPaper;
 window.checkAnswer = checkAnswer; window.nextQuestion = nextQuestion;
 window.skipQuestion = skipQuestion; window.nextExample = nextExample;
 window.submitExam = submitExam; window.goHome = goHome;
