@@ -227,6 +227,7 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
     <div class="bar">
       <button class="go" onclick="startSession()">Start with the coach →</button>
       <button class="ghost" onclick="openBook()">Look at the book</button>
+      <button class="ghost" onclick="openSelfLog()">I worked on my own</button>
       <button class="ghost" onclick="startQuiz()">Chapter quiz</button>
       <button class="ghost" onclick="startPaper()">AMC paper</button>
     </div>
@@ -401,6 +402,25 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
   </div>
 </main>
 
+<!-- logging work done away from the app -->
+<main id="selflog" class="hidden">
+  <div class="card">
+    <div class="k">Work you did away from the app</div>
+    <div class="sub" style="margin-bottom:12px">Did some questions on paper, or with a parent? Say so and the coach will count it and carry on from there.</div>
+    <div class="field"><label>Chapter</label><input id="slChapter" type="number" min="1" placeholder="1"></div>
+    <div class="field"><label>Questions, from and to</label>
+      <div style="display:flex;gap:8px"><input id="slFrom" type="number" placeholder="from"><input id="slTo" type="number" placeholder="to"></div>
+    </div>
+    <div class="field"><label>How long, in minutes</label><input id="slMins" type="number" min="1" placeholder="25"></div>
+    <div class="field"><label>Anything to remember</label><input id="slNote" placeholder="did it at the kitchen table"></div>
+    <div class="bar">
+      <button class="go small" onclick="saveSelfLog()">Save it</button>
+      <button class="ghost small" onclick="goLanding()">Cancel</button>
+    </div>
+    <div class="err" id="slErr"></div>
+  </div>
+</main>
+
 <!-- the book -->
 <main id="book" class="hidden">
   <div class="card">
@@ -459,7 +479,7 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function show(id) {
-  ["signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat"].forEach((m) => $(m).classList.add("hidden"));
+  ["signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat", "selflog"].forEach((m) => $(m).classList.add("hidden"));
   document.body.classList.toggle("signing", id === "signin");
   $(id).classList.remove("hidden");
   $("homeBtn").classList.toggle("hidden", id === "landing" || id === "signin");
@@ -1027,6 +1047,30 @@ function runCoachPlan() {
   return startSession(p.chapter || null);
 }
 
+function openSelfLog() {
+  show("selflog");
+  ["slChapter","slFrom","slTo","slMins","slNote"].forEach((id) => { $(id).value = ""; });
+  $("slErr").textContent = "";
+  const lane = (S.plan ?? []).find((p) => p.chapter);
+  if (lane) $("slChapter").value = lane.chapter;
+}
+
+async function saveSelfLog() {
+  const ch = Number($("slChapter").value) || null;
+  const mins = Number($("slMins").value) || 0;
+  if (!ch && !mins) { $("slErr").textContent = "Give at least the chapter or the minutes."; return; }
+  const { error } = await sb.rpc("log_self_study", {
+    p_chapter: ch,
+    p_minutes: mins,
+    p_from: Number($("slFrom").value) || null,
+    p_to: Number($("slTo").value) || null,
+    p_note: $("slNote").value.trim() || null,
+  });
+  if (error) { $("slErr").textContent = error.message; return; }
+  await loadContext();
+  goLanding();
+}
+
 async function weekly() {
   $("weeklyOut").className = "fb";
   $("weeklyOut").textContent = "Thinking about your week…";
@@ -1455,6 +1499,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").ca
 const api = {
   signIn, signOut, goLanding, openTrack, openBook, openChapter,
   practiseChapter, startSession, check, advance, nextStep, drawFigure, revealExample, sendMe, endSession, uploadWorking,
+  openSelfLog, saveSelfLog,
   startQuiz, startPaper, submitTest,
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
