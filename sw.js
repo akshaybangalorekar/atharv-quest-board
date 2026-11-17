@@ -1,9 +1,9 @@
-// Keeps the shell on the device so the app opens instantly, and opens at all
-// when the wifi drops. Data always comes from the network: a stale score is
-// worse than no score.
-const CACHE = "quest-shell-v1";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest",
-               "./icon-180.png", "./icon-192.png", "./icon-512.png"];
+// The shell is cached so the app opens instantly and works offline.
+// The page itself is fetched network-first, so a fix on the site reaches the
+// installed app on the next launch instead of being frozen in the cache.
+// Data always comes from the network: a stale score is worse than no score.
+const CACHE = "quest-shell-v2";
+const SHELL = ["./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -18,15 +18,30 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  const url = new URL(e.request.url);
-  if (e.request.method !== "GET" || url.origin !== self.location.origin) return; // Supabase goes straight to the network
-  e.respondWith(
-    caches.match(e.request).then((hit) =>
-      hit || fetch(e.request).then((res) => {
+  const req = e.request;
+  const url = new URL(req.url);
+  if (req.method !== "GET" || url.origin !== self.location.origin) return; // Supabase goes straight out
+
+  // the page: network first, cache only as a fallback
+  if (req.mode === "navigate" || url.pathname.endsWith("/") || url.pathname.endsWith("index.html")) {
+    e.respondWith(
+      fetch(req).then((res) => {
         const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        caches.open(CACHE).then((c) => c.put("./index.html", copy));
         return res;
-      }).catch(() => caches.match("./index.html"))
+      }).catch(() => caches.match("./index.html").then((hit) => hit || caches.match("./")))
+    );
+    return;
+  }
+
+  // everything else: cache first
+  e.respondWith(
+    caches.match(req).then((hit) =>
+      hit || fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(req, copy));
+        return res;
+      })
     )
   );
 });
