@@ -246,7 +246,14 @@ h1{font-size:17px;letter-spacing:-.01em}
 
   <div class="exams" id="examCards"></div>
 
-
+  <div class="card" style="padding:14px 20px">
+    <div class="k">Look back</div>
+    <div class="bar">
+      <button class="ghost small" onclick="openDash()">Progress</button>
+      <button class="ghost small" onclick="openJournal()">Journal</button>
+      <button class="ghost small" onclick="openFormula()">Formula board</button>
+    </div>
+  </div>
 </main>
 
 <!-- track home -->
@@ -325,7 +332,7 @@ h1{font-size:17px;letter-spacing:-.01em}
     <div class="sub" id="pSummary"></div>
     <div class="bar">
       <button class="go small" onclick="openParentChat()">Ask the coach →</button>
-      <button class="ghost small" onclick="openDash()">Dashboard</button>
+      <button class="ghost small" onclick="openDash()">Progress</button>
       <button class="ghost small" onclick="parentWeekly()">This week's summary</button>
     </div>
   </div>
@@ -460,7 +467,7 @@ h1{font-size:17px;letter-spacing:-.01em}
 <!-- how it is going -->
 <main id="dash" class="hidden">
   <div class="card">
-    <div class="k">How it is going</div>
+    <div class="k">Progress</div>
     <div class="big" style="font-size:22px" id="dashHead">—</div>
     <div class="sub" id="dashSub"></div>
   </div>
@@ -489,7 +496,7 @@ h1{font-size:17px;letter-spacing:-.01em}
   <div class="card">
     <div class="k">Go back to</div>
     <div class="bar">
-      <button class="ghost" onclick="openJournal()">Journal — what we have done</button>
+      <button class="ghost" onclick="openJournal()">Journal</button>
       <button class="ghost" onclick="openFormula()">Formula board</button>
     </div>
   </div>
