@@ -614,8 +614,8 @@ const TRACK_LOOK = {
   amc:      { name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Thirty questions, sixty minutes" },
   aas:      { name: "AAS", school: "Camberwell Grammar School", note: "Scholarship test · February 2027" },
   edutest:  { name: "Edutest", school: "Kilvington Grammar", note: "Scholarship test · February 2027" },
-  icas:     { name: "ICAS", school: "ICAS Mathematics · August 2027", note: "Forty questions, sixty minutes" },
-  elms:     { name: "ELMS", school: "Early September 2027", note: "Selection test · McKinnon" },
+  icas:     { name: "ICAS", school: "ICAS Mathematics · 23–27 August 2027", note: "Paper D · 40 questions, 60 minutes" },
+  elms:     { name: "ELMS", school: "McKinnon Secondary College · early September 2027", note: "Enhanced Learning in Maths · Year 6 standard" },
 };
 
 let TRACKS = [
@@ -1596,9 +1596,17 @@ async function startMock() {
     const { data } = await sb.from("chapters").select("n").eq("source", id);
     const chs = (data ?? []).map((c) => c.n);
     if (!chs.length) { alert("Nothing uploaded for this exam yet — add questions first."); return; }
-    body = { p_kind: "mock", p_chapters: chs, p_count: Math.min(30, chs.length * 5), p_minutes: 45, p_pass: 60 };
+    const shape = id === "icas" ? { p_count: 40, p_minutes: 60 }
+                : id === "elms" ? { p_count: 30, p_minutes: 45 }
+                : { p_count: Math.min(30, chs.length * 5), p_minutes: 45 };
+    body = { p_kind: "mock", p_chapters: chs, p_pass: 60, ...shape };
   }
-  await runExam(body, id === "olympiad" ? "Division J mock · 5 questions, 30 minutes" : id === "amc" ? "AMC paper · 30 questions, 60 minutes" : "Mock test");
+  const label = id === "olympiad" ? "Division J mock · 5 questions, 30 minutes"
+    : id === "amc" ? "AMC paper · 30 questions, 60 minutes"
+    : id === "icas" ? "ICAS paper · 40 questions, 60 minutes"
+    : id === "elms" ? "ELMS paper · 30 questions, 45 minutes"
+    : "Mock test";
+  await runExam(body, label);
 }
 
 /* -------------------------------------------------------------- the book - */
