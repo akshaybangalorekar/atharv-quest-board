@@ -89,8 +89,11 @@ why answers live in a table with no policy for the client at all.
 
 ## The live board
 
-Published at **https://akshaybangalorekar.github.io/atharv-olympiad-quest/**
+Published at **https://akshaybangalorekar.github.io/atharv-quest-board/**
 (from the `gh-pages` branch, which holds only `index.html`).
+
+The documents — the study guide, the plan, the design review — live in a separate
+private repository and are not served anywhere.
 
 To make it work, the publishable key has to be on line 2 of that file:
 edit `index.html` on the `gh-pages` branch in the GitHub web editor, replace
