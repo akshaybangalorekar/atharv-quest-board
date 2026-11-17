@@ -585,7 +585,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.4.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.4.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1932,10 +1932,18 @@ function tickQuestion() {
   const step = NUDGES[n];
   if (step && s >= step.at && !$("qfb")?.textContent) {
     S.nudged = n + 1;
-    bubble("coach", step.said());
+    const b = bubble("coach", step.said());
+    if (b) {
+      const talk = document.createElement("button");
+      talk.className = "go small";
+      talk.style.cssText = "margin-top:10px;display:block";
+      talk.textContent = "Talk to Ananya";
+      talk.onclick = () => { micArmed = true; startListening(); talk.remove(); };
+      b.appendChild(talk);
+    }
     micArmed = true;
     paintMic();
-    $("micState").textContent = "She is asking you to think out loud — tap Talk and say what you are trying.";
+    $("micState").textContent = "She is asking you to think out loud — tap “Talk to Ananya” and say what you are trying.";
   }
 }
 
