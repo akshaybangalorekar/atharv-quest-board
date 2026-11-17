@@ -85,7 +85,9 @@ Reply with JSON only:
 
 const MODES: Record<string, string> = {
   greet: `Open the session in four short lines at most (this is the "say" field):
-1. Hello, by name — "Hi Atharv, it's Ananya" — and if it is his first day, say so in a clause.
+1. Hello, by name — "Hi Atharv, it's Ananya". If he has never been placed (see "placement due"), say in
+   one clause that today you find out where he is, and that it is short — twelve questions, twenty
+   minutes — and that it is not a test to worry about.
 2. What today's topic is, from the plan, and how long you have together.
 3. Then ask the check-in question in your own words, something like: "Before we start — what have
    you been doing in maths since we last met? School, TopScope, your tutor, anything?"
@@ -131,6 +133,7 @@ once, kindly, and make it the last thing — "Before you go, put the ten-minus-o
  "say":"one or two sentences to him, in your own voice, saying what you are doing and why"}
 
 How to choose:
+- If "placement needed" is yes, action "placement" — that comes before anything else.
 - If there is no evidence at all yet — no attempts, no tests — action "placement": twelve questions
   across the book so you can see where he stands before you plan anything else. Say why in one line.
 - If he has done four or more sessions since his last test, action "mock" — a timed paper in the
@@ -141,6 +144,8 @@ How to choose:
 - If three or more weak items are due today, action "drill", 20 minutes — clear the debt first.
 - If the planned chapter's questions are all answered and its quiz is under 80, action "quiz" on it.
 - Otherwise action "quest" on the planned chapter, minutes from the plan, default 30.
+  In "say", name the chapter and tell him to tap the chapter button below your message and come back
+  to you when he has finished it.
 Keep "say" short and concrete. Never mention JSON, plans or lanes to him.`,
 
   parent: `Answer the parent's question about how he is doing and what to do next.
@@ -233,6 +238,7 @@ Deno.serve(async (req) => {
       `Work he reported doing on paper: ${JSON.stringify(c.self_reports ?? [])}`,
       `What he did in the app on his own: ${JSON.stringify(solo ?? {})}`,
       `Still missing from his formula board: ${JSON.stringify(boardPending ?? [])}`,
+      `Placement needed: ${c.placement_due ? "yes — he has never been placed, or a parent reset the app" : "no"}`,
       `His last check-in: ${JSON.stringify(c.self_reports?.[0] ?? {})}`,
       `Your last messages with him: ${JSON.stringify(c.recent_chat ?? []).slice(0, 1200)}`,
       `Today's plan: ${JSON.stringify(c.plan ?? [])}`,
