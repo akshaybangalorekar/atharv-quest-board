@@ -223,40 +223,25 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
 <main id="track" class="hidden">
   <div class="card">
     <div class="k" id="trackName">Olympiad</div>
-    <div class="big" style="font-size:22px" id="todayPlan">—</div>
+    <div class="big" style="font-size:21px" id="todayPlan">—</div>
     <div class="sub" id="todayNote"></div>
     <div class="bar">
       <button class="go" onclick="startSession()">Start with the coach →</button>
-      <button class="ghost" onclick="openBook()">Look at the book</button>
-      <button class="ghost" onclick="openSelfLog()">I worked on my own</button>
-      <button class="ghost" onclick="startQuiz()">Chapter quiz</button>
-      <button class="ghost" onclick="startPaper()">AMC paper</button>
+      <button class="ghost" onclick="startMock()">Mock test</button>
     </div>
     <div class="hint" id="trackHint"></div>
   </div>
 
-  <div class="row">
-    <div class="card">
-      <div class="k">Level</div>
-      <div class="big" id="xpBig">0</div>
-      <div class="xpbar"><i id="xpFill" style="width:0%"></i></div>
-      <div class="sub" id="xpNext"></div>
+  <div class="card">
+    <div class="tabs" id="subTabs" style="display:none">
+      <button class="on" id="subBook" onclick="pickShelf('book',this)">The book</button>
+      <button id="subDj" onclick="pickShelf('dj',this)">Division J</button>
     </div>
-    <div class="card">
-      <div class="k">Is the content enough?</div>
-      <div class="sub" id="readinessLine">—</div>
-    </div>
+    <div class="chapterlist" id="shelf" style="margin-top:12px"></div>
   </div>
 
   <div class="card">
-    <div class="k">Chapter map</div>
-    <div class="grid" id="grid"></div>
-    <div class="leg"><span class="mastered">Mastered</span><span class="cleared">Cleared</span><span class="in_progress">In progress</span><span class="needs_work">Needs work</span><span class="not_started">Not started</span></div>
-  </div>
-
-  <div class="card">
-    <div class="k">Work on these next</div>
-    <ul id="weakList" style="margin:6px 0 0;padding-left:18px"><li class="sub">Nothing queued yet.</li></ul>
+    <div class="sub" id="trackStats"></div>
   </div>
 </main>
 
@@ -494,9 +479,8 @@ const S = {
 };
 
 const TRACKS = [
-  { id: "olympiad", name: "Olympiad", school: "AMC Upper Primary & APSMO Division J", note: "The book, 24 chapters" },
-  { id: "amc", name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Book chapters + AMC papers" },
-  { id: "apsmo", name: "APSMO", school: "Division J · five questions, thirty minutes", note: "School practice set — 200 questions in nine sets" },
+  { id: "olympiad", name: "Olympiad", school: "The book and the Division J sets", note: "24 chapters · 200 Division J questions" },
+  { id: "amc", name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Thirty questions, sixty minutes" },
   { id: "aas", name: "AAS", school: "Camberwell Grammar School", note: "Scholarship test" },
   { id: "edutest", name: "Edutest", school: "Kilvington Grammar", note: "Scholarship test" },
 ];
@@ -1043,6 +1027,7 @@ async function askCoachWhatNow() {
 function runCoachPlan() {
   const p = S.planAction;
   if (!p) return;
+  if (p.action === "mock") return startMock();
   if (p.action === "paper") return startTest(null, 60);
   if (p.action === "quiz") return startTest(p.chapter || currentChapter(), 20);
   if (p.action === "drill") return startSession(null, "drill");
@@ -1075,6 +1060,7 @@ async function saveSelfLog() {
 }
 
 async function weekly() {
+  if (!$("weeklyOut")) return;
   $("weeklyOut").className = "fb";
   $("weeklyOut").textContent = "Thinking about your week…";
   const r = await callCoach({ mode: "weekly" });
@@ -1084,35 +1070,96 @@ async function weekly() {
 /* --------------------------------------------------------------- track -- */
 async function openTrack(id) {
   S.track = id;
+  S.shelf = "book";
   show("track");
   const t = TRACKS.find((x) => x.id === id);
-  $("trackName").textContent = `${t.name} · ${t.school}`;
+  $("trackName").textContent = t.name;
   const lane = S.plan.find((p) => p.lane !== "R");
   $("todayPlan").textContent = lane
     ? `${lane.lane === "Q" ? "Quest" : lane.lane === "M" ? "Test" : lane.lane === "D" ? "Drill" : lane.lane}${lane.chapter ? " · Chapter " + lane.chapter : ""} · ${lane.minutes} min`
     : "Rest day";
   $("todayNote").textContent = lane ? (lane.note ?? "") : "Nothing scheduled today.";
 
-  const ready = S.readiness.find((r) => (r.exam || "").toLowerCase().includes(id === "olympiad" ? "olympiad" : id));
-  $("readinessLine").textContent = ready ? ready.message : "No questions uploaded for this exam yet.";
-  $("trackHint").textContent = (id === "aas" || id === "edutest")
-    ? "There is no question bank for this exam yet. Send me the paper and I'll load it — until then the coach can still talk him through the olympiad work, but it cannot report readiness honestly."
-    : "";
+  const ready = S.readiness.find((r) => (r.exam || "").toLowerCase().includes(bankFor(id).toLowerCase().split(" ")[0]));
+  $("trackHint").textContent = ready ? ready.message : "";
+  $("trackStats").textContent =
+    `${(S.ctx?.xp ?? 0).toLocaleString()} XP · streak ${S.ctx?.streak ?? 0} days · ` +
+    `day ${S.ctx?.days_in ?? 1} of the programme`;
 
-  const xp = S.ctx?.xp ?? 0, level = 1 + Math.floor(xp / 300);
-  $("xpBig").textContent = `${xp.toLocaleString()} XP · level ${level}`;
-  $("xpFill").style.width = `${Math.round((xp % 300) / 3)}%`;
-  $("xpNext").textContent = `${300 - (xp % 300)} XP to level ${level + 1} · streak ${S.ctx?.streak ?? 0} days`;
+  // olympiad has two shelves; the others have one
+  const twoShelves = id === "olympiad";
+  $("subTabs").style.display = twoShelves ? "flex" : "none";
+  $("subBook").classList.add("on"); $("subDj").classList.remove("on");
+  $("subBook").textContent = id === "amc" ? "Questions" : "The book";
+  await renderShelf();
+}
 
-  const { data: map } = await sb.from("v_chapter_map").select("*").order("chapter");
-  $("grid").innerHTML = (map ?? []).map((c) =>
-    `<div class="t ${c.status}" onclick="openChapter(${c.chapter})">${c.chapter}${c.quiz_best ? `<small>${c.quiz_best}%</small>` : ""}</div>`).join("");
+function bankFor(id) {
+  return id === "aas" ? "AAS numerical reasoning"
+       : id === "edutest" ? "Edutest numerical reasoning"
+       : id === "amc" ? "Olympiad book"
+       : "Olympiad book";
+}
 
-  const { data: weak } = await sb.from("v_weak_techniques").select("*").order("misses", { ascending: false }).limit(3);
-  if (weak && weak.length) {
-    $("weakList").innerHTML = weak.map((w) =>
-      `<li><b>${w.technique}</b> <span class="sub">· ${w.open_items} open, ${w.misses} misses</span></li>`).join("");
+function pickShelf(which, btn) {
+  S.shelf = which;
+  document.querySelectorAll("#subTabs button").forEach((b) => b.classList.toggle("on", b === btn));
+  renderShelf();
+}
+
+async function renderShelf() {
+  const box = $("shelf");
+  box.innerHTML = `<div class="sub">Loading…</div>`;
+
+  if (S.shelf === "dj") {
+    const { data } = await sb.from("chapters").select("n,title,practice").eq("source", "apsmo").order("n");
+    box.innerHTML = (data ?? []).map((c) => `
+      <button class="ch" onclick="openChapter(${c.n})">
+        <span><b>${esc(c.title.replace("APSMO Division J · ", ""))}</b>
+          <div class="sub">${c.practice} questions${c.n === 141 ? " · the first set" : ""}</div></span>
+        <span class="sub">›</span></button>`).join("")
+      || `<div class="sub">No Division J questions loaded.</div>`;
+    return;
   }
+
+  if (S.track === "olympiad" || S.track === "amc") {
+    const { data } = await sb.from("chapters").select("n,title,pages,examples,practice").lte("n", 24).order("n");
+    box.innerHTML = (data ?? []).map((c) => `
+      <button class="ch" onclick="openChapter(${c.n})">
+        <span><b>${c.n}. ${esc(c.title)}</b>
+          <div class="sub">pages ${c.pages ?? "—"} · ${c.examples} examples · ${c.practice} questions</div></span>
+        <span class="sub">›</span></button>`).join("");
+    return;
+  }
+
+  // aas / edutest — whatever has been uploaded
+  const kind = S.track;
+  const { data } = await sb.from("chapters").select("n,title,practice").eq("source", kind).order("n");
+  box.innerHTML = (data && data.length)
+    ? data.map((c) => `<button class="ch" onclick="openChapter(${c.n})">
+        <span><b>${esc(c.title)}</b><div class="sub">${c.practice} questions</div></span>
+        <span class="sub">›</span></button>`).join("")
+    : `<div class="sub">Nothing uploaded for this exam yet. Add questions from the parent view and they appear here.</div>`;
+}
+
+/* one mock, shaped like the real thing for that exam */
+async function startMock() {
+  const id = S.track;
+  let body;
+  if (id === "olympiad") {
+    const { data } = await sb.from("chapters").select("n").eq("source", "apsmo");
+    const chs = (data ?? []).map((c) => c.n);
+    if (!chs.length) { alert("No Division J questions loaded yet."); return; }
+    body = { p_kind: "mock", p_chapters: chs, p_count: 5, p_minutes: 30, p_pass: 60 };
+  } else if (id === "amc") {
+    body = { p_kind: "mock", p_chapters: Array.from({ length: 24 }, (_, i) => i + 1), p_count: 30, p_minutes: 60, p_pass: 60 };
+  } else {
+    const { data } = await sb.from("chapters").select("n").eq("source", id);
+    const chs = (data ?? []).map((c) => c.n);
+    if (!chs.length) { alert("Nothing uploaded for this exam yet — add questions first."); return; }
+    body = { p_kind: "mock", p_chapters: chs, p_count: Math.min(30, chs.length * 5), p_minutes: 45, p_pass: 60 };
+  }
+  await runExam(body, id === "olympiad" ? "Division J mock · 5 questions, 30 minutes" : id === "amc" ? "AMC paper · 30 questions, 60 minutes" : "Mock test");
 }
 
 /* -------------------------------------------------------------- the book - */
@@ -1415,6 +1462,30 @@ async function uploadWorking(input) {
 /* ---------------------------------------------------------------- test -- */
 let T = { id: null, left: 0, timer: null };
 
+async function runExam(body, label) {
+  const { data, error } = await sb.rpc("start_exam", body);
+  if (error) { alert(error.message); return; }
+  T.id = data.exam_id; T.left = (data.minutes || 20) * 60;
+  show("exam");
+  $("examKind").textContent = label || "Test";
+  $("examWhere").textContent = `${data.items.length} questions`;
+  $("examList").innerHTML = data.items.map((q, n) => `
+    <div class="qcard" style="border-width:1px;border-color:var(--line)">
+      <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
+      <div class="q" style="font-size:17px">${esc(q.prompt)}</div>
+      ${q.diagram_svg ? `<div class="diagram">${q.diagram_svg}</div>` : ""}
+      <input data-chapter="${q.chapter}" data-idx="${q.idx}" placeholder="Your answer" autocomplete="off">
+    </div>`).join("");
+  clearInterval(T.timer);
+  const tick = () => {
+    const m = Math.floor(T.left / 60), sec = T.left % 60;
+    $("clock").textContent = `${m}:${String(sec).padStart(2, "0")}`;
+    if (T.left <= 0) { clearInterval(T.timer); submitTest(); }
+    T.left--;
+  };
+  tick(); T.timer = setInterval(tick, 1000);
+}
+
 async function startTest(chapter, minutes) {
   const isQuiz = !!chapter;
   const { data, error } = await sb.rpc("start_exam", isQuiz
@@ -1510,10 +1581,10 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").ca
 const api = {
   signIn, signOut, goLanding, openTrack, openBook, openChapter,
   practiseChapter, startSession, check, advance, nextStep, drawFigure, revealExample, sendMe, endSession, uploadWorking,
-  openSelfLog, saveSelfLog,
   startQuiz, startPaper, submitTest,
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
+  openTrack, pickShelf, renderShelf, startMock, runExam,
   readPaper, extractOne, updateDest, buildScript
 };
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
