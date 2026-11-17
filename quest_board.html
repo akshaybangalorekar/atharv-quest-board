@@ -98,8 +98,9 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 .ex.open .sol{display:block}
 
 /* ---- sign-in: full-bleed art with the form floating on it ---- */
-.art{position:fixed;inset:0;z-index:0;overflow:hidden;line-height:0}
-.art svg{width:100%;height:100%;display:block}
+.art{position:fixed;inset:0;z-index:0;overflow:hidden;background-repeat:repeat}
+.art .frame{position:absolute;inset:14px;border:6px solid;border-radius:10px;opacity:.85;pointer-events:none}
+.art .frame.inner{inset:26px;border-width:2px;opacity:.6}
 #signin{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:14px;padding:24px;box-sizing:border-box}
 #signin .card{background:rgba(255,255,255,.95);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
@@ -451,58 +452,52 @@ const TRACKS = [
 ];
 
 /* ---------------------------------------------------------------- art --- */
-function warliBand() {
-  const fig = (x, y, sc) => `<g transform="translate(${x} ${y}) scale(${sc})" stroke="#f6efe3" fill="none" stroke-width="2.4" stroke-linecap="round">
-    <path d="M0 0 L-10 30 L10 30 Z" fill="#f6efe3" stroke="none"/>
-    <circle cx="0" cy="-9" r="6" fill="#f6efe3" stroke="none"/>
-    <path d="M-10 30 L-15 54 M10 30 L15 54 M-10 9 L-22 18 M10 9 L22 18"/>
-  </g>`;
-  const sun = `<g transform="translate(200 120)" stroke="#f6efe3" fill="none" stroke-width="2.4">
-    <circle r="26" fill="#e8b23a" stroke="#f6efe3"/><circle r="16" fill="#f6efe3" opacity=".85"/>
-    ${Array.from({ length: 16 }, (_, i) => `<path d="M0 -34 L0 -46" transform="rotate(${i * 22.5})"/>`).join("")}</g>`;
-  const tree = (x, y, sc) => `<g transform="translate(${x} ${y}) scale(${sc})" stroke="#f6efe3" fill="none" stroke-width="2.4">
-    <path d="M0 46 V6"/><path d="M-16 8 L0 -16 L16 8 Z" fill="#f6efe3" stroke="none"/></g>`;
-  const hut = (x, y) => `<g transform="translate(${x} ${y})" stroke="#f6efe3" fill="none" stroke-width="2.4">
-    <path d="M-24 26 V0 L0 -18 L24 0 V26 Z"/><path d="M-7 26 V10 H7 V26"/></g>`;
-  const rows = [0, 1, 2, 3].map((r) =>
-    Array.from({ length: 4 }, (_, i) => fig(58 + i * 82 + (r % 2) * 24, 520 + r * 84, 1.15)).join("")).join("");
-  const border = `<path d="M0 22 H400 M0 778 H400" stroke="#f6efe3" stroke-width="3" opacity=".8"/>
-    ${Array.from({ length: 16 }, (_, i) => `<path d="M${i * 25} 30 l12 14 l-12 14 l-12 -14 Z" fill="#f6efe3" opacity=".35"/>`).join("")}`;
-  return `<svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-    <rect width="400" height="800" fill="#8c3b1e"/>${border}${sun}
-    ${tree(60, 250, 1.2)}${tree(330, 210, 1)}${hut(200, 300)}${rows}
+function warliTile() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
+    <rect width="160" height="160" fill="#8c3b1e"/>
+    <g stroke="#f6efe3" fill="none" stroke-width="2" stroke-linecap="round" opacity=".95">
+      <path d="M80 62 L68 96 L92 96 Z" fill="#f6efe3" stroke="none"/>
+      <circle cx="80" cy="52" r="6" fill="#f6efe3" stroke="none"/>
+      <path d="M68 96 L62 120 M92 96 L98 120 M70 72 L58 82 M90 72 L102 82"/>
+      <path d="M18 18 l10 12 l-10 12 l-10 -12 Z" fill="#f6efe3" opacity=".22" stroke="none"/>
+      <path d="M142 18 l10 12 l-10 12 l-10 -12 Z" fill="#f6efe3" opacity=".22" stroke="none"/>
+      <path d="M18 142 l10 12 l-10 12 l-10 -12 Z" fill="#f6efe3" opacity=".22" stroke="none"/>
+      <path d="M142 142 l10 12 l-10 12 l-10 -12 Z" fill="#f6efe3" opacity=".22" stroke="none"/>
+      <circle cx="80" cy="132" r="3" fill="#e8b23a" stroke="none"/>
+    </g>
   </svg>`;
 }
 
-function madhubaniBand() {
-  const lotus = (x, y, sc) => `<g transform="translate(${x} ${y}) scale(${sc})" fill="none" stroke="#1b3a6b" stroke-width="2.2">
-    <path d="M0 0 C-10 -18 -10 -34 0 -44 C10 -34 10 -18 0 0 Z" fill="#c0392b"/>
-    <path d="M0 0 C-20 -10 -34 -24 -38 -40 M0 0 C20 -10 34 -24 38 -40"/>
-    <path d="M-38 -40 C-26 -46 -13 -44 0 -44 M38 -40 C26 -46 13 -44 0 -44"/></g>`;
-  const fish = (x, y, sc) => `<g transform="translate(${x} ${y}) scale(${sc})" fill="none" stroke="#1b3a6b" stroke-width="2.2">
-    <path d="M-24 0 C-14 -12 14 -12 24 0 C14 12 -14 12 -24 0 Z" fill="#e8b23a"/>
-    <path d="M24 0 L36 -10 L36 10 Z" fill="#c0392b"/>
-    <circle cx="-12" cy="-2" r="2" fill="#1b3a6b"/>
-    <path d="M-6 -6 C0 -2 0 2 -6 6"/></g>`;
-  const sun = `<g transform="translate(200 110)" fill="none" stroke="#1b3a6b" stroke-width="2.2">
-    <circle r="30" fill="#e8b23a"/><circle r="18" fill="#c0392b"/><circle r="8" fill="#f7f1e3"/>
-    ${Array.from({ length: 16 }, (_, i) => `<path d="M0 -38 L0 -52" transform="rotate(${i * 22.5})"/>`).join("")}</g>`;
-  const fishRows = [0, 1, 2].map((r) =>
-    Array.from({ length: 2 }, (_, i) => fish(110 + i * 180 + (r % 2) * 40, 330 + r * 110, 1.3)).join("")).join("");
-  const border = `<rect x="10" y="10" width="380" height="780" fill="none" stroke="#c0392b" stroke-width="4"/>
-    <rect x="20" y="20" width="360" height="760" fill="none" stroke="#1b3a6b" stroke-width="1.6"/>
-    ${Array.from({ length: 18 }, (_, i) => `<circle cx="${30 + i * 20}" cy="30" r="3" fill="#c0392b"/><circle cx="${30 + i * 20}" cy="770" r="3" fill="#c0392b"/>`).join("")}`;
-  return `<svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-    <rect width="400" height="800" fill="#f7f1e3"/>${border}${sun}${fishRows}
-    ${lotus(80, 700, 1.5)}${lotus(320, 700, 1.5)}${lotus(200, 660, 1.1)}
+function madhubaniTile() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
+    <rect width="160" height="160" fill="#f7f1e3"/>
+    <g stroke="#1b3a6b" stroke-width="2" fill="none" opacity=".95">
+      <path d="M52 80 C64 66 96 66 108 80 C96 94 64 94 52 80 Z" fill="#e8b23a"/>
+      <path d="M108 80 L122 68 L122 92 Z" fill="#c0392b"/>
+      <circle cx="66" cy="77" r="2.4" fill="#1b3a6b"/>
+      <path d="M72 72 C80 77 80 83 72 88"/>
+      <circle cx="30" cy="30" r="4" fill="#c0392b" stroke="none"/>
+      <circle cx="130" cy="30" r="4" fill="#c0392b" stroke="none"/>
+      <circle cx="30" cy="130" r="4" fill="#c0392b" stroke="none"/>
+      <circle cx="130" cy="130" r="4" fill="#c0392b" stroke="none"/>
+      <path d="M20 140 q10 -14 20 0" stroke="#c0392b"/>
+    </g>
   </svg>`;
 }
 
 function paintArt() {
   const day = Math.floor(Date.now() / 86400000);
   const warli = day % 2 === 0;
-  $("artBand").innerHTML = warli ? warliBand() : madhubaniBand();
-  $("artBand").style.background = warli ? "#8c3b1e" : "#f7f1e3";
+  const svg = warli ? warliTile() : madhubaniTile();
+  const uri = "url(\"data:image/svg+xml," + encodeURIComponent(svg) + "\")";
+
+  const band = $("artBand");
+  band.style.background = (warli ? "#8c3b1e" : "#f7f1e3");
+  band.style.backgroundImage = uri;
+  band.style.backgroundSize = "160px 160px";
+  band.style.backgroundRepeat = "repeat";
+  band.innerHTML = `<div class="frame" style="border-color:${warli ? "#f6efe3" : "#c0392b"}"></div>
+                    <div class="frame inner" style="border-color:${warli ? "#e8b23a" : "#1b3a6b"}"></div>`;
   document.body.style.background = warli ? "#8c3b1e" : "#f7f1e3";
 }
 
