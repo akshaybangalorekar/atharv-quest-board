@@ -1145,7 +1145,7 @@ async function openTrack(id) {
 function bankFor(id) {
   return id === "aas" ? "AAS numerical reasoning"
        : id === "edutest" ? "Edutest numerical reasoning"
-       : id === "amc" ? "Olympiad book"
+       : id === "amc" ? "AMC Upper Primary"
        : "Olympiad book";
 }
 
@@ -1172,7 +1172,7 @@ async function renderShelf() {
     return;
   }
 
-  if (S.track === "olympiad" || S.track === "amc") {
+  if (S.track === "olympiad") {
     $("shelfNote").textContent = "Maths Olympiad — Unleash the Maths Olympian in You! (Advanced) · Terry Chew";
     const { data } = await sb.from("chapters").select("n,title,pages,examples,practice").lte("n", 24).order("n");
     box.innerHTML = (data ?? []).map((c) => `
@@ -1185,7 +1185,9 @@ async function renderShelf() {
 
   // aas / edutest — whatever has been uploaded
   const kind = S.track;
-  $("shelfNote").textContent = kind === "aas" ? "Camberwell Grammar · AAS" : "Kilvington · Edutest";
+  $("shelfNote").textContent = kind === "aas" ? "Camberwell Grammar · AAS"
+    : kind === "edutest" ? "Kilvington · Edutest"
+    : "AMC Upper Primary · 30 questions in 60 minutes for 135 marks";
   const { data } = await sb.from("chapters").select("n,title,practice").eq("source", kind).order("n");
   box.innerHTML = (data && data.length)
     ? data.map((c) => `<button class="ch" onclick="openChapter(${c.n})">
@@ -1204,7 +1206,13 @@ async function startMock() {
     if (!chs.length) { alert("No Division J questions loaded yet."); return; }
     body = { p_kind: "mock", p_chapters: chs, p_count: 5, p_minutes: 30, p_pass: 60 };
   } else if (id === "amc") {
-    body = { p_kind: "mock", p_chapters: Array.from({ length: 24 }, (_, i) => i + 1), p_count: 30, p_minutes: 60, p_pass: 60 };
+    const { data } = await sb.from("chapters").select("n").eq("source", "amc");
+    const chs = (data ?? []).map((c) => c.n);
+    if (!chs.length) {
+      alert("No AMC papers uploaded yet.\n\nUpload an AMC paper from the parent view and the mock will be built from it. The book is under Olympiad.");
+      return;
+    }
+    body = { p_kind: "mock", p_chapters: chs, p_count: 30, p_minutes: 60, p_pass: 60 };
   } else {
     const { data } = await sb.from("chapters").select("n").eq("source", id);
     const chs = (data ?? []).map((c) => c.n);
