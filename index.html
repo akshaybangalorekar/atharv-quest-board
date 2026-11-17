@@ -206,6 +206,24 @@ h1{font-size:17px;letter-spacing:-.01em}
 .gauge{height:8px;border-radius:99px;background:#eceaf6;overflow:hidden;min-width:180px}
 .gauge span{display:block;height:100%;border-radius:99px;
   background:linear-gradient(90deg,#6d5ef0,#a99bff)}
+.pad{position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(255,255,255,.97);
+  backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:8px 10px 14px;
+  box-shadow:0 -6px 24px rgba(23,26,38,.10)}
+.padTop{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--mut);
+  padding:2px 4px 8px}
+#padKeys{display:grid;gap:6px}
+.pkRow{display:flex;gap:6px}
+.pkGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.pkRow .pk{flex:1}
+.pk{background:#f6f5fb;border:1px solid var(--line);border-radius:9px;padding:0;height:42px;min-width:0;
+  font:inherit;font-size:16px;font-weight:600;color:var(--ink);cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+.pk:active{background:#eceaf6}
+.pk.del,.pk.on{background:#efedff;color:#4b3fc4}
+.pk.space{flex:3}
+.pk.wide{flex:1.6;background:var(--acc);color:#fff;border-color:transparent}
+#padKeys > .pkRow > .pk{flex:1}
+body:has(.pad:not(.hidden)) footer{margin-bottom:220px}
 </style>
 </head>
 <body>
@@ -326,7 +344,8 @@ h1{font-size:17px;letter-spacing:-.01em}
   <div class="card" style="position:sticky;bottom:0;padding:12px">
     <div style="display:flex;gap:8px;align-items:center">
       <input type="file" id="doubt" accept="image/*" capture="environment" multiple class="hidden" onchange="handlePhoto(this)">
-      <input id="say" placeholder="Say something to Ananya…" onkeydown="if(event.key==='Enter')sendMe()">
+      <input id="say" placeholder="Say something to Ananya…" inputmode="none" autocomplete="off"
+             onfocus="openPad(this,'text')" onkeydown="if(event.key==='Enter')sendMe()">
       <button class="go small" onclick="sendMe()">Send</button>
     </div>
     <div class="row3">
@@ -596,6 +615,14 @@ h1{font-size:17px;letter-spacing:-.01em}
   </div>
 </main>
 
+<div id="pad" class="pad hidden" aria-hidden="true">
+  <div class="padTop">
+    <span id="padWho">Typing</span>
+    <button class="link" onclick="padDone()">Done</button>
+  </div>
+  <div id="padKeys"></div>
+</div>
+
 <footer>
   <span>Marking, XP and scores are computed by the database, never by this page.</span>
   <span id="ver" style="white-space:nowrap"></span>
@@ -649,7 +676,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.9.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.10.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -876,6 +903,93 @@ function journeyChart(j) {
     </div>
   </div>`;
 }
+
+
+/* ------------------------------------------------------------- the pad --- */
+/* The iPad's own keyboard covers the whole screen, so we bring our own: three
+   short rows, half the height, and the question stays visible above it. */
+let padTarget = null, padKind = "num", padShift = false;
+
+const PAD_KEYS = {
+  num: [
+    ["7", "8", "9", "⌫"],
+    ["4", "5", "6", "/"],
+    ["1", "2", "3", "."],
+    ["0", "-", ":", "done"],
+  ],
+  text: [
+    ["q","w","e","r","t","y","u","i","o","p"],
+    ["a","s","d","f","g","h","j","k","l"],
+    ["z","x","c","v","b","n","m","'"],
+  ],
+};
+
+function openPad(el, kind) {
+  padTarget = el;
+  padKind = kind ?? "num";
+  $("pad").classList.remove("hidden");
+  $("pad").setAttribute("aria-hidden", "false");
+  $("padWho").textContent = kind === "num" ? "Your answer" : "Type to Ananya";
+  paintPad();
+  // keep the box he is typing into on screen above the pad
+  setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 60);
+}
+
+function closePad() {
+  $("pad")?.classList.add("hidden");
+  $("pad")?.setAttribute("aria-hidden", "true");
+  padTarget = null;
+}
+
+function paintPad() {
+  const rows = PAD_KEYS[padKind].map((row) => row.map((k) => {
+    const label = k === "⌫" ? "⌫" : k === "done" ? "Done" : k === " " ? "space" : (padShift && /^[a-z]$/.test(k) ? k.toUpperCase() : k);
+    const wide = k === "done" ? " wide" : k === "⌫" ? " del" : "";
+    return `<button class="pk${wide}" onclick="padKey('${k === "'" ? "\\'" : k}')">${esc(label)}</button>`;
+  }).join(""));
+
+  const extras = padKind === "text"
+    ? [`<button class="pk space" onclick="padKey(' ')">space</button>`,
+       `<button class="pk${padShift ? " on" : ""}" onclick="padShift=!padShift;paintPad()">⇧</button>`,
+       `<button class="pk del" onclick="padKey('⌫')">⌫</button>`,
+       `<button class="pk wide" onclick="padDone()">Done</button>`]
+    : [];
+
+  const body = padKind === "num"
+    ? `<div class="pkGrid">${rows.join("")}</div>`
+    : rows.map((r) => `<div class="pkRow">${r}</div>`).join("");
+  $("padKeys").innerHTML = body + (extras.length ? `<div class="pkRow">${extras.join("")}</div>` : "");
+}
+
+function padKey(k) {
+  if (!padTarget) return;
+  if (k === "⌫") {
+    padTarget.value = padTarget.value.slice(0, -1);
+  } else if (k === "done") {
+    return padDone();
+  } else {
+    const ch = padShift && /^[a-z]$/.test(k) ? k.toUpperCase() : k;
+    padTarget.value += ch;
+    if (padShift) { padShift = false; paintPad(); }
+  }
+  padTarget.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function padDone() {
+  const el = padTarget;
+  closePad();
+  if (!el) return;
+  if (el.id === "say") sendMe();
+  else if (el.id === "ans") check();
+  el.blur();
+}
+
+/* tapping anywhere else puts the pad away */
+document.addEventListener("pointerdown", (e) => {
+  if (!$("pad") || $("pad").classList.contains("hidden")) return;
+  if (e.target.closest("#pad") || e.target.closest("input")) return;
+  closePad();
+});
 
 /* ---------------------------------------------------------- formatting --- */
 /* Turns a method into steps: numbers in a tinted chip, operators in colour,
@@ -2147,7 +2261,8 @@ function showQuestion(q) {
     <div class="q">${esc(q.prompt)}</div>
     <div id="qFig"></div>
     <div style="display:flex;gap:8px">
-      <input id="ans" placeholder="Your answer" autocomplete="off" onkeydown="if(event.key==='Enter')check()">
+      <input id="ans" placeholder="Your answer" inputmode="none" autocomplete="off"
+             onfocus="openPad(this,'num')" onkeydown="if(event.key==='Enter')check()">
       <button class="go small" id="chk" onclick="check()">Check</button>
     </div>
     <div class="timer" id="qtimer">0:00</div>
@@ -2668,7 +2783,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, paintPad, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
