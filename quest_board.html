@@ -1596,22 +1596,26 @@ async function startSession(chapterOverride, forceMode, mode) {
   bubble("coach", greet ?? `Hello. Today we are on chapter ${S.chapter}. Tell me when you are ready.`, replySpoken);
   S.chat.push({ role: "coach", text: greet ?? "" });
 
-  // wait for his answer to the check-in before the work appears
-  S.pendingStart = { lane, forceMode };
-  const bar = document.createElement("div");
-  bar.className = "qcard";
-  bar.style.borderColor = "var(--line)";
-  bar.id = "startBar";
-  bar.innerHTML = `<div class="q" style="font-size:16px">Tell me above, or jump straight in.</div>
-    <button class="go small" onclick="beginWork()">Let's start →</button>`;
-  $("chatWrap").appendChild(bar);
-  bar.scrollIntoView({ behavior: "smooth", block: "end" });
+  // he does not have to type hello: the session opens itself
+  await new Promise((r) => setTimeout(r, 350));
+  bubble("me", "Hi Meera 👋");
+  S.chat.push({ role: "atharv", text: "Hi Meera" });
+
+  const hi = await callCoach({
+    mode: "reply",
+    note: "He has just said hello. Greet him back in one line, then ask your check-in question in one line. Keep it to two lines.",
+  });
+  if (hi) {
+    bubble("coach", hi, replySpoken);
+    S.chat.push({ role: "coach", text: hi });
+  }
+
+  // and straight into the work; he can still say anything he likes first
+  await beginWork();
 }
 
-/* one thing on the board at a time, in the order a teacher would do it */
 async function beginWork() {
-  const p = S.pendingStart;
-  if (!p) return;
+  const p = S.pendingStart ?? { lane: (S.plan ?? []).find((x) => x.lane !== "R"), forceMode: null };
   S.pendingStart = null;
   document.getElementById("startBar")?.remove();
   await buildScript(p.lane, p.forceMode);
