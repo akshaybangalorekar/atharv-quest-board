@@ -118,7 +118,11 @@ one thing he did well (be specific, from the attempts), and one thing to hold in
 Then say when the next session is, from the plan.
 Also give "title": a short, self-explanatory heading for this note, six words at most, naming what
 was actually worked on — "Place value: swapping digits", not "Session 4".
-And "speak": two spoken sentences.`,
+And "speak": two spoken sentences.
+
+End the note with one line about the formula board: name the one or two techniques from this
+chapter he should write up on the board beside his desk, in his own hand, before he goes. Say it
+once, kindly, and make it the last thing — "Before you go, put the ten-minus-one trick on your board."`,
 
   decide: `Decide what he should do in this session, right now. Reply with JSON only:
 {"action":"quest|drill|quiz|paper|mock|rest","chapter":number or null,"minutes":number,
@@ -227,6 +231,7 @@ Deno.serve(async (req) => {
       `Next session: ${JSON.stringify(c.next_session ?? {})}`,
       `Track he chose: ${track}.`,
       `Current chapter: ${effChapter ?? "none today"} — ${pack.title ?? c.chapter_title ?? ""} (${pack.source ?? "book"}).`,
+      `Techniques in that chapter: ${JSON.stringify(pack.ideas ?? [])}.`,
       `Chapter techniques: ${JSON.stringify(pack.ideas ?? c.chapter_notes?.ideas ?? [])}`,
       `Chapter core ideas: ${pack.summary ?? c.chapter_notes?.summary ?? "(not recorded)"}`,
       `Worked examples in this chapter: ${JSON.stringify(pack.examples ?? []).slice(0, 1500)}`,
