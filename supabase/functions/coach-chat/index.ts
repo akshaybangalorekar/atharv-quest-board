@@ -34,6 +34,18 @@ Voice rules, always:
 - If he asks for the answer, offer the next step instead.
 - One question at a time. End most messages with a single short question.`;
 
+const PARENT_PERSONA = `You are the coach writing to Atharv's parents — Pooja and Akshay.
+They run the sessions and they are deciding what to do next. You are direct, specific and brief.
+
+Rules:
+- Answer the question they asked, in the first sentence.
+- Use their son's numbers, not adjectives. "He has answered 34 questions this week, 26 right" beats "great progress".
+- If they ask what data to add, say which exam, which strand, and how many questions would
+  make the readiness verdict meaningful (about 30 minimum, 60-100 to judge properly).
+- Never invent a score, a date or a fact that is not in the context you were given.
+- If something is not recorded, say "that is not in the log yet".
+- Three short paragraphs at most. No lists of platitudes. British/Australian spelling.`;
+
 const MODES: Record<string, string> = {
   greet: `Open the session. Say hello in one line, name today's topic from the plan, and say
 what you are doing together in one line. Then ask him to turn to the book page and tell you when
@@ -45,6 +57,14 @@ sentences, then give him the next single step or ask one question.`,
   summary: `The session is ending. Give him a three-line closing card: what he did today,
 one thing he did well (be specific, from the attempts), and one thing to hold in mind next time.
 Then say when the next session is, from the plan.`,
+
+  parent: `Answer the parent's question about how he is doing and what to do next.
+If they have not asked anything yet, open with a two-line status: what he has done this week,
+and the single weakest area, then offer to go deeper.`,
+
+  "parent-weekly": `Write the parent's weekly summary: what the week contained, the accuracy
+figure, the weakest technique with the question numbers behind it, and one concrete instruction
+for next week. Three short paragraphs.`,
 
   weekly: `Write his weekly note, for him to read. Three short paragraphs at most:
 how the week went (from the attempts and tests), the one technique costing him the most marks,
@@ -70,8 +90,21 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "not signed in" }, 401);
 
     const { mode = "reply", track = "olympiad", chapter, messages = [], note } = await req.json();
-    const { data: ctx } = await asUser.rpc("coach_context");
+    const toParent = mode === "parent" || mode === "parent-weekly";
+    const { data: ctx } = await asUser.rpc(toParent ? "parent_context" : "coach_context");
     const c = ctx ?? {};
+
+    const parentFacts = [
+      `Child: ${c.student ?? "Atharv"}. XP ${c.xp ?? 0}, streak ${c.streak ?? 0} days.`,
+      `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
+      `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
+      `Exam readiness: ${JSON.stringify(c.readiness ?? [])}`,
+      `Question banks registered: ${JSON.stringify(c.banks ?? [])}`,
+      `Weakest techniques: ${JSON.stringify(c.weak ?? [])}`,
+      `Recent tests: ${JSON.stringify(c.recent_tests ?? [])}`,
+      `Chapter progress: ${JSON.stringify(c.chapters ?? [])}`,
+      note ? `They asked: ${note}` : "",
+    ].filter(Boolean).join("\n");
 
     const facts = [
       `Today is ${c.today}. His name is ${c.name ?? "Atharv"}.`,
@@ -97,7 +130,9 @@ Deno.serve(async (req) => {
       temperature: 0.5,
       max_tokens: 400,
       messages: [
-        { role: "system", content: `${PERSONA}\n\nWHAT YOU KNOW RIGHT NOW:\n${facts}` },
+        { role: "system", content: toParent
+            ? `${PARENT_PERSONA}\n\nWHAT YOU KNOW RIGHT NOW:\n${parentFacts}`
+            : `${PERSONA}\n\nWHAT YOU KNOW RIGHT NOW:\n${facts}` },
         { role: "system", content: MODES[mode] ?? MODES.reply },
         ...history,
       ],
@@ -122,7 +157,7 @@ Deno.serve(async (req) => {
       meta: { mode, track, chapter: chapter ?? c.chapter ?? null },
     });
 
-    if (mode === "weekly") {
+    if (mode === "weekly" || mode === "parent-weekly") {
       const { data: prof } = await admin.from("profiles").select("student_id").eq("student_id", user.id).single();
       if (prof) {
         const d = new Date();
