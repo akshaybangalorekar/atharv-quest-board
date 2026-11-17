@@ -979,6 +979,7 @@ async function loadBanks() {
 }
 
 async function loadContext() {
+  await loadBanks();                     // which exams exist decides which cards appear
   const { data } = await sb.rpc("coach_context");
   S.ctx = data ?? {};
   const { data: prof } = await sb.from("profiles").select("*").limit(1).maybeSingle();
