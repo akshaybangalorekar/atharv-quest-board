@@ -141,6 +141,24 @@ how the week went (from the attempts and tests), the one technique costing him t
 and one concrete thing to do differently next week. Plain words, no jargon, no flattery.`,
 };
 
+// Models emit JSON with raw newlines inside strings, which JSON.parse rejects.
+// This reads it anyway, and never returns a string starting with a brace.
+function looseParse(raw: string): Record<string, any> {
+  const a = raw.indexOf("{"), b = raw.lastIndexOf("}");
+  if (a < 0 || b <= a) return {};
+  const body = raw.slice(a, b + 1);
+
+  try { return JSON.parse(body); } catch { /* keep going */ }
+  try { return JSON.parse(body.replace(/[\u0000-\u001f]+/g, " ")); } catch { /* keep going */ }
+
+  const pick = (key: string) => {
+    const m = new RegExp('"' + key + '"\\s*:\\s*"([\\s\\S]*?)"\\s*(?:,|})').exec(body);
+    if (!m) return "";
+    return m[1].replace(/\\n/g, " ").replace(/\\"/g, '"').replace(/\s+/g, " ").trim();
+  };
+  return { say: pick("say"), speak: pick("speak") };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -247,23 +265,21 @@ Deno.serve(async (req) => {
     // any JSON reply carries a spoken version alongside the written one
     let spoken = "";
     if (reply.trim().startsWith("{")) {
-      try {
-        const j = JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1));
-        if (j.speak) spoken = String(j.speak).trim();
-        if (j.say) reply = String(j.say).trim();
-        if (mode !== "reply" && mode !== "decide" && j.say) {
-          await admin.from("chat_messages").insert({
-            student_id: user.id, role: "coach", body: String(j.say), meta: { mode, track },
-          });
-          return json({ reply: String(j.say), speak: spoken });
-        }
-      } catch { /* plain text after all */ }
+      const j = looseParse(reply);
+      if (j.speak) spoken = String(j.speak).trim();
+      if (j.say) reply = String(j.say).trim();
+      if (mode !== "reply" && mode !== "decide" && j.say) {
+        await admin.from("chat_messages").insert({
+          student_id: user.id, role: "coach", body: String(j.say), meta: { mode, track },
+        });
+        return json({ reply: String(j.say), speak: spoken });
+      }
     }
 
     // a reply may carry a note about work done away from the app
     if (mode === "reply" && reply.trim().startsWith("{")) {
-      try {
-        const j = JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1));
+      {
+        const j = looseParse(reply);
         if (j.say) {
           if (j.log && (j.log.note || j.log.minutes || j.log.confidence)) {
             await admin.from("self_reports").insert({
@@ -279,13 +295,13 @@ Deno.serve(async (req) => {
           });
           return json({ reply: String(j.say), speak: String(j.speak ?? ""), logged: !!j.log });
         }
-      } catch { /* not JSON: fall through and use it as words */ }
+      }
     }
 
     // the decision comes back as JSON: hand the app both the instruction and the words
     if (mode === "decide") {
-      try {
-        const j = JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1));
+      {
+        const j = looseParse(reply);
         const action = ["quest", "drill", "quiz", "paper", "mock", "rest"].includes(j.action) ? j.action : "quest";
         const plan = {
           action,
@@ -298,9 +314,6 @@ Deno.serve(async (req) => {
           meta: { mode, track, plan },
         });
         return json({ reply: say, speak: String(j.speak ?? ""), plan });
-      } catch {
-        const plan = { action: "quest", chapter: c.chapter ?? null, minutes: 30 };
-        return json({ reply, speak: "", plan });
       }
     }
 
@@ -322,6 +335,11 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (reply.trim().startsWith("{")) {
+      const j = looseParse(reply);
+      if (j.say) reply = String(j.say).trim();
+      else reply = reply.replace(/^\{|\}$/g, "").replace(/"(say|speak|log)"\s*:\s*/g, "").replace(/"/g, "").trim();
+    }
     return json({ reply, speak: spoken });
   } catch (e) {
     return json({ error: String(e) }, 500);
