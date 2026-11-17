@@ -58,7 +58,7 @@ button.go{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:1
      ====================================================================== -->
 <script>
   const SUPABASE_URL = "https://qjynqcbhyctisptciblp.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_u9waWMPmL79A9TRhmct-Zg_MXiG3Uj_";
+  const SUPABASE_KEY = "PASTE_PUBLISHABLE_KEY_HERE";
 </script>
 
 <div class="top">
@@ -160,6 +160,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (id) => document.getElementById(id);
 
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const TITLES = ["Apprentice","Explorer","Challenger","Olympian","Grandmaster"];
 
 function tab(id, btn) {
@@ -208,7 +213,7 @@ async function loadProfile() {
 }
 
 async function loadPlan() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const { data } = await sb.from("plan_days").select("*").eq("day", today);
   if (!data || !data.length) {
     $("todayLane").textContent = "No plan yet";
@@ -269,7 +274,7 @@ async function loadTests() {
 // exam countdown from the calendar, if it has been seeded
 async function loadNextExam() {
   const { data } = await sb.from("exam_calendar").select("*")
-    .gte("sits_on", new Date().toISOString().slice(0, 10))
+    .gte("sits_on", todayISO())
     .order("sits_on").limit(1).maybeSingle();
   if (!data) { $("nextExamWhen").textContent = "No exam dates seeded yet."; return; }
   const days = Math.ceil((new Date(data.sits_on) - new Date()) / 86400000);
