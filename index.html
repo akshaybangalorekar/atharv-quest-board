@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atharv's Quest Board</title>
+<style>
+:root{--ink:#1c1e2b;--mut:#6b6e85;--line:#e6e6ef;--bg:#f7f7fb;--card:#fff;--acc:#5b4fcf;--ok:#1f8a5b;--amber:#c7780a;--red:#c43d3d;--chip:#efedff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.45}
+.top{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;max-width:960px;margin:0 auto;gap:10px;flex-wrap:wrap}
+.top h1{font-size:20px;margin:0;font-weight:650}
+.tabs{display:flex;gap:6px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px}
+.tabs button{border:0;background:transparent;padding:6px 14px;border-radius:999px;font:inherit;font-size:14px;color:var(--mut);cursor:pointer}
+.tabs button.on{background:var(--acc);color:#fff}
+main{max-width:960px;margin:0 auto;padding:0 22px 60px;display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.row{grid-template-columns:1fr}}
+.k{font-size:12.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.big{font-size:34px;font-weight:700;line-height:1.1}
+.sub{color:var(--mut);font-size:14px;margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:8px}
+@media(max-width:700px){.grid{grid-template-columns:repeat(6,1fr)}}
+.t{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;position:relative}
+.t.mastered{background:var(--ok)}.t.cleared{background:#7fc3a3}.t.in_progress{background:var(--acc)}
+.t.needs_work{background:var(--amber)}.t.not_started{background:#d9d9e6;color:#8a8aa0}
+.t small{position:absolute;bottom:2px;right:4px;font-size:9px;font-weight:500;opacity:.85}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--mut);margin-top:10px}
+.leg span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.leg .mastered::before{background:var(--ok)}.leg .cleared::before{background:#7fc3a3}
+.leg .in_progress::before{background:var(--acc)}.leg .needs_work::before{background:var(--amber)}
+.leg .not_started::before{background:#d9d9e6}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td,th{padding:9px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12.5px;font-weight:600}
+.pill.ok{background:#e7f6ee;color:var(--ok)}.pill.amber{background:#fff4e3;color:var(--amber)}
+.pill.red{background:#fdeaea;color:var(--red)}.pill.grey{background:#eeeef4;color:var(--mut)}
+.weak li{margin:6px 0}
+.hint{font-size:13.5px;color:var(--mut);margin-top:8px}
+.streak{display:flex;gap:4px;margin-top:8px}
+.streak i{width:14px;height:14px;border-radius:4px;background:#e1e1ec}.streak i.y{background:var(--ok)}
+.xpbar{height:8px;background:#ececf5;border-radius:999px;overflow:hidden;margin-top:8px}.xpbar i{display:block;height:100%;background:var(--acc)}
+footer{max-width:960px;margin:0 auto;padding:0 22px 30px;font-size:12.5px;color:var(--mut)}
+.hidden{display:none}
+input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;width:100%}
+button.go{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:12px 20px;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
+.err{color:var(--red);font-size:14px;margin-top:8px}
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     CONFIG — the only two lines to edit.
+     url: your project URL.  key: the PUBLISHABLE key (sb_publishable_...).
+     Never put the service_role / secret key in this file.
+     ====================================================================== -->
+<script>
+  const SUPABASE_URL = "https://qjynqcbhyctisptciblp.supabase.co";
+  const SUPABASE_KEY = "PASTE_PUBLISHABLE_KEY_HERE";
+</script>
+
+<div class="top">
+  <h1>Atharv's Quest Board</h1>
+  <div class="tabs" id="tabs" style="display:none">
+    <button class="on" onclick="tab('kid',this)">Atharv</button>
+    <button onclick="tab('parent',this)">Parent</button>
+  </div>
+</div>
+
+<main id="signin">
+  <div class="card">
+    <div class="k">Sign in</div>
+    <div style="display:grid;gap:10px;max-width:360px;margin-top:8px">
+      <input id="email" type="email" placeholder="email" autocomplete="username">
+      <input id="pw" type="password" placeholder="password" autocomplete="current-password">
+      <button class="go" onclick="signIn()">Sign in</button>
+    </div>
+    <div class="err" id="err"></div>
+    <div class="hint">Atharv, Pooja and Akshay each sign in with their own account. The parent sees the same data, read-only.</div>
+  </div>
+</main>
+
+<main id="kid" class="hidden">
+  <div class="card">
+    <div class="k">Today · <span id="todayDate"></span></div>
+    <div class="big" id="todayLane" style="font-size:22px">No plan yet</div>
+    <div class="sub" id="todayNext"></div>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <div class="k" id="levelLabel">Level 1 · Apprentice</div>
+      <div class="big"><span id="xp">0</span> <span style="font-size:16px;color:var(--mut);font-weight:500">XP</span></div>
+      <div class="xpbar"><i id="xpFill" style="width:0%"></i></div>
+      <div class="sub" id="xpNext">300 XP to Level 2</div>
+      <div class="k" style="margin-top:14px">Streak · <span id="streakN">0</span> days</div>
+      <div class="streak" id="streakDots"></div>
+    </div>
+    <div class="card">
+      <div class="k">Is the content enough?</div>
+      <div id="readiness" class="sub">Loading…</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="k">Chapter map · 24 chapters, in book order</div>
+    <div class="grid" id="grid"></div>
+    <div class="leg"><span class="mastered">Mastered</span><span class="cleared">Cleared</span><span class="in_progress">In progress</span><span class="needs_work">Needs work</span><span class="not_started">Not started</span></div>
+  </div>
+
+  <div class="card">
+    <div class="k">Work on these next</div>
+    <ul class="weak" id="weakKid"><li class="sub">Nothing queued yet.</li></ul>
+  </div>
+</main>
+
+<main id="parent" class="hidden">
+  <div class="row">
+    <div class="card">
+      <div class="k">Overall</div>
+      <div class="sub" id="parentOverall">Loading…</div>
+    </div>
+    <div class="card">
+      <div class="k">Next real exam</div>
+      <div class="big" style="font-size:24px" id="nextExam">—</div>
+      <div class="sub" id="nextExamWhen"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="k">Exam readiness</div>
+    <table>
+      <tr><th>Exam</th><th>Questions</th><th>Practised</th><th>Mastered</th><th>Verdict</th></tr>
+      <tbody id="readinessTable"></tbody>
+    </table>
+    <div class="hint" id="readinessNote"></div>
+  </div>
+
+  <div class="card">
+    <div class="k">Weakest techniques</div>
+    <ul class="weak" id="weakParent"><li class="sub">Nothing queued yet.</li></ul>
+  </div>
+
+  <div class="card">
+    <div class="k">Recent tests</div>
+    <table>
+      <tr><th>Date</th><th>Test</th><th>Score</th><th>Result</th></tr>
+      <tbody id="recentTests"><tr><td colspan="4" class="sub">No tests yet.</td></tr></tbody>
+    </table>
+  </div>
+</main>
+
+<footer>Read-only board. Every number comes from Supabase: the chapter map from <code>v_chapter_map</code>, readiness from <code>v_exam_readiness</code>, weak areas from <code>v_weak_techniques</code>, tests from <code>exam_mocks</code>. Nothing here writes or marks.</footer>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = (id) => document.getElementById(id);
+
+const TITLES = ["Apprentice","Explorer","Challenger","Olympian","Grandmaster"];
+
+function tab(id, btn) {
+  document.querySelectorAll("main").forEach(m => m.classList.toggle("hidden", m.id !== id));
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b === btn));
+}
+
+async function signIn() {
+  $("err").textContent = "";
+  const { error } = await sb.auth.signInWithPassword({
+    email: $("email").value.trim(), password: $("pw").value,
+  });
+  if (error) { $("err").textContent = error.message; return; }
+  start();
+}
+
+async function start() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) { $("signin").classList.remove("hidden"); $("tabs").style.display = "none"; return; }
+  $("signin").classList.add("hidden");
+  $("tabs").style.display = "flex";
+  tab("kid", document.querySelector("#tabs button"));
+  $("todayDate").textContent = new Date().toLocaleDateString("en-AU",
+    { weekday: "long", day: "numeric", month: "short" });
+
+  await Promise.all([loadProfile(), loadPlan(), loadMap(), loadWeak(), loadReadiness(), loadTests(), loadNextExam()]);
+}
+
+async function loadProfile() {
+  const { data } = await sb.from("profiles").select("*").limit(1).maybeSingle();
+  if (!data) { $("levelLabel").textContent = "No profile row yet"; return; }
+  const xp = data.xp ?? 0;
+  const level = 1 + Math.floor(xp / 300);
+  const title = TITLES[Math.min(TITLES.length - 1, Math.floor((level - 1) / 3))];
+  $("levelLabel").textContent = `Level ${level} · ${title}`;
+  $("xp").textContent = xp.toLocaleString();
+  $("xpFill").style.width = `${Math.round((xp % 300) / 3)}%`;
+  $("xpNext").textContent = `${300 - (xp % 300)} XP to Level ${level + 1}`;
+  const streak = data.streak_days ?? 0;
+  $("streakN").textContent = streak;
+  $("streakDots").innerHTML = Array.from({ length: 7 },
+    (_, i) => `<i class="${i < streak ? "y" : ""}"></i>`).join("");
+  $("parentOverall").textContent =
+    `${xp.toLocaleString()} XP · level ${level} · streak ${streak} days · ` +
+    `${data.days_per_week ?? "?"} sessions/week at ${data.session_min ?? 30} min`;
+}
+
+async function loadPlan() {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data } = await sb.from("plan_days").select("*").eq("day", today);
+  if (!data || !data.length) {
+    $("todayLane").textContent = "No plan yet";
+    $("todayNext").textContent = "The week-by-week plan has not been seeded.";
+    return;
+  }
+  const lanes = data.map(d => `${d.lane}${d.chapter ? " · Ch " + d.chapter : ""} · ${d.minutes} min`);
+  $("todayLane").textContent = lanes.join("  +  ");
+  $("todayNext").textContent = data[0].note ?? "";
+}
+
+async function loadMap() {
+  const { data } = await sb.from("v_chapter_map").select("*").order("chapter");
+  if (!data) return;
+  $("grid").innerHTML = data.map(c => {
+    const score = c.quiz_best ? `<small>${c.quiz_best}%</small>` : "";
+    return `<div class="t ${c.status}" title="Ch ${c.chapter} · ${c.title} · ${c.status}">${c.chapter}${score}</div>`;
+  }).join("");
+}
+
+async function loadWeak() {
+  const { data } = await sb.from("v_weak_techniques").select("*").order("misses", { ascending: false }).limit(3);
+  if (!data || !data.length) return;
+  const html = data.map(w =>
+    `<li><b>${w.technique}</b><br><span class="sub">${w.open_items} open · ${w.misses} misses · next ${w.next_due ?? "—"}</span></li>`).join("");
+  $("weakKid").innerHTML = html;
+  $("weakParent").innerHTML = data.map(w =>
+    `<li><b>${w.technique}</b> — ${w.open_items} open, ${w.misses} misses</li>`).join("");
+}
+
+async function loadReadiness() {
+  const { data, error } = await sb.from("v_exam_readiness").select("*");
+  if (error || !data) { $("readiness").textContent = "Readiness view not available."; return; }
+  $("readiness").textContent = data.map(r => r.message).join(" ");
+  $("readinessTable").innerHTML = data.map(r => {
+    const cls = r.verdict === "ready" ? "ok" : r.verdict === "too_early" ? "grey"
+              : r.verdict === "in_progress" ? "amber" : "red";
+    const word = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
+                   thin: "Need more data", no_content: "Nothing uploaded" }[r.verdict] ?? r.verdict;
+    return `<tr><td>${r.exam}</td><td>${r.items}</td><td>${r.practised}</td>
+            <td>${r.mastered}</td><td><span class="pill ${cls}">${word}</span></td></tr>`;
+  }).join("");
+  $("readinessNote").textContent =
+    "A verdict of “Need more data” means the question bank for that exam is too small to judge him on — upload more before reading anything into the score.";
+}
+
+async function loadTests() {
+  const { data } = await sb.from("exam_mocks").select("*").order("taken_at", { ascending: false }).limit(6);
+  if (!data || !data.length) return;
+  $("recentTests").innerHTML = data.map(t => {
+    const d = new Date(t.taken_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+    const cls = t.pct >= 80 ? "ok" : t.pct >= 60 ? "amber" : "red";
+    return `<tr><td>${d}</td><td>${t.kind}${t.scope ? " · " + t.scope : ""}</td>
+            <td>${t.score}/${t.total}</td><td><span class="pill ${cls}">${t.pct}%</span></td></tr>`;
+  }).join("");
+}
+
+// exam countdown from the calendar, if it has been seeded
+async function loadNextExam() {
+  const { data } = await sb.from("exam_calendar").select("*")
+    .gte("sits_on", new Date().toISOString().slice(0, 10))
+    .order("sits_on").limit(1).maybeSingle();
+  if (!data) { $("nextExamWhen").textContent = "No exam dates seeded yet."; return; }
+  const days = Math.ceil((new Date(data.sits_on) - new Date()) / 86400000);
+  $("nextExam").textContent = data.exam;
+  $("nextExamWhen").textContent =
+    `${new Date(data.sits_on).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}` +
+    ` · ${days} days · ${data.date_status}${data.target ? " · target " + data.target : ""}`;
+}
+
+sb.auth.onAuthStateChange((_e, session) => { if (session) start(); else start(); });
+start();
+window.tab = tab; window.signIn = signIn;
+</script>
+</body>
+</html>
