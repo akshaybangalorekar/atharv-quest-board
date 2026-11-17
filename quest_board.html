@@ -607,7 +607,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.6.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.6.2";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -765,7 +765,7 @@ function paintActions() {
   if (c.mock?.due) btns.push(`<button class="go small" onclick="startMock()">Paper is due — sit it</button>`);
 
   if (S.script && S.si < S.script.length) btns.push(`<button class="ghost small" onclick="advance()">Skip this one</button>`);
-  if (S.chapter && S.script?.length) btns.push(`<button class="ghost small" onclick="startQuiz()">Chapter quiz</button>`);
+  if (S.chapter && S.script?.length && S.si >= S.script.length) btns.push(`<button class="ghost small" onclick="startQuiz()">Chapter quiz</button>`);
   box.innerHTML = btns.join("");
 }
 
@@ -2182,7 +2182,9 @@ async function endSession() {
     });
     // the conversation stays: he resumes here next time
     saveSession();
-    await showBoardReminder(S.chapter);
+    const finished = !S.script?.length || S.si >= S.script.length;
+    if (finished) await showBoardReminder(S.chapter);
+    else bubble("coach", "We have not finished this chapter yet, so leave your board for now — we will write it up when the chapter is done.");
   }
   document.querySelector(".msg.think")?.remove();
   if (reply) bubble("coach", reply);
