@@ -159,6 +159,8 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
   transition:background .15s,color .15s,border-color .15s}
 .shelfTabs button:active{transform:translateY(1px)}
 .shelfTabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.actions:empty{display:none}
 .composer{padding:12px 14px;border-radius:16px;backdrop-filter:blur(8px);background:rgba(255,255,255,.94)}
 .composer input#say{border-radius:11px;background:#fbfbfd}
 .composer .attach{white-space:nowrap;padding:11px 14px;flex:0 0 auto}
@@ -270,7 +272,7 @@ h1{font-size:17px;letter-spacing:-.01em}
     <div class="shelfTabs" id="subTabs">
       <button class="on" id="subBook" onclick="pickShelf('book',this)">The book</button>
       <button id="subDj" onclick="pickShelf('dj',this)">Division J</button>
-      <button onclick="startMock()">Mock test</button>
+      <button id="mockTab" onclick="startMock()" style="display:none">Mock test</button>
     </div>
     <div class="sub" id="shelfNote" style="margin-top:10px"></div>
     <div class="chapterlist" id="shelf" style="margin-top:6px"></div>
@@ -284,6 +286,7 @@ h1{font-size:17px;letter-spacing:-.01em}
   <div class="budget hidden" id="budgetBar">
     <span id="budgetLabel">Session</span><b id="budgetClock">--:--</b>
   </div>
+  <div class="actions" id="chatActions"></div>
   <div id="chatWrap"></div>
   <div class="card" style="position:sticky;bottom:0;padding:12px">
     <div style="display:flex;gap:8px;align-items:center">
@@ -719,6 +722,19 @@ function toggleVoice() {
   localStorage.setItem(VOICE_KEY, voiceOn ? "1" : "0");
   if (!voiceOn) window.speechSynthesis?.cancel();
   paintVoice();
+}
+
+/* everything he might need, in the conversation itself */
+function paintActions() {
+  const box = $("chatActions");
+  if (!box) return;
+  const due = S.ctx?.mock?.due;
+  const btns = [];
+  if (S.script && S.si < S.script.length) btns.push(`<button class="ghost small" onclick="advance()">Skip this one</button>`);
+  if (S.chapter) btns.push(`<button class="ghost small" onclick="startQuiz()">Chapter quiz</button>`);
+  if (due) btns.push(`<button class="go small" onclick="startMock()">Paper is due — sit it</button>`);
+  btns.push(`<button class="ghost small" onclick="openJournal()">Journal</button>`);
+  box.innerHTML = btns.join("");
 }
 
 function paintVoice() {
@@ -1521,6 +1537,7 @@ async function openTrack(id) {
   $("subDj").style.display = twoShelves ? "" : "none";
   if (!S.restoring) saveRoute();
   $("subBook").classList.add("on"); $("subDj").classList.remove("on");
+  $("mockTab").style.display = (S.ctx?.mock?.due) ? "" : "none";
   $("subBook").textContent = id === "amc" ? "From the book" : "The book";
   $("subDj").textContent = id === "amc" ? "AMC papers" : "Division J";
   S.shelf = "book";
@@ -1705,6 +1722,7 @@ async function startSolo(chapterArg) {
   S.chat = []; S.qs = []; S.i = 0;
   $("chatWrap").innerHTML = "";
   show("session");
+  paintActions();
   S.chapter = chapter;
   startBudget(30);
   try {
@@ -1858,6 +1876,7 @@ function clearBoard() {
 function nextStep() {
   clearBoard();
   saveSession();
+  paintActions();
   if (S.si >= S.script.length) {
     bubble("coach", "That is the whole set done. Say “call it a day” when you want to stop, or ask me anything about what we just did.");
     S.finished = true;
