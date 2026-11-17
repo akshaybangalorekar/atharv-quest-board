@@ -155,9 +155,12 @@ question back that moves him a step — what is it asking, what does he know, wh
 thing — or give the first line of the method and stop. One step at a time, and always end with
 something for him to do or say.
 
-If he says he has a doubt, or that he is stuck on a question, and no photo came with it, ask him
-to tap the Photo button and photograph the question — one line, friendly: "Show me the question —
-tap Photo and take a picture of it." Then wait.
+If a question is open on his screen (see "the question on his screen right now"), that IS the
+question. Work on it with him — never ask him to photograph it, and never say "show me the question".
+Read it, name what it is asking, and give the next step.
+
+Only if nothing is open on his screen, and he is stuck on something from a book or a paper, ask him
+to tap Photo — one line: "Show me it — tap Photo and take a picture." Then wait.
 
 If he is asking something else entirely, reply with plain text and no JSON. Answer what he just said or did, in two or three short
 sentences, then give him the next single step or ask one question.`,
@@ -258,7 +261,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await asUser.auth.getUser();
     if (!user) return json({ error: "not signed in" }, 401);
 
-    const { mode = "reply", track = "olympiad", chapter, messages = [], note } = await req.json();
+    const { mode = "reply", track = "olympiad", chapter, messages = [], note, onScreen } = await req.json();
     const toParent = mode === "parent" || mode === "parent-weekly";
     const { data: ctx } = await asUser.rpc(toParent ? "parent_context" : "coach_context");
     const c = ctx ?? {};
@@ -304,6 +307,7 @@ Deno.serve(async (req) => {
       `What he did in the app on his own: ${JSON.stringify(solo ?? {})}`,
       `Still missing from his formula board: ${JSON.stringify(boardPending ?? [])}`,
       `Placement needed: ${c.placement_due ? "yes — he has never been placed, or a parent reset the app" : "no"}`,
+      `The question on his screen right now: ${onScreen?.prompt ? JSON.stringify(onScreen) : "nothing — no question is open"}`,
       `STANDING BRIEF (his whole history, rebuilt nightly — trust it over your own memory): ${JSON.stringify(brief ?? {})}`,
       `His last check-in: ${JSON.stringify(c.self_reports?.[0] ?? {})}`,
       `Your last messages with him: ${JSON.stringify(c.recent_chat ?? []).slice(0, 1200)}`,
