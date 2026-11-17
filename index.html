@@ -296,6 +296,7 @@ h1{font-size:17px;letter-spacing:-.01em}
   </div>
 
   <div class="card">
+    <div class="bar" style="margin-bottom:10px"><button class="ghost small" onclick="goLanding()">← Home</button></div>
     <div class="shelfTabs" id="subTabs">
       <button class="on" id="subBook" onclick="pickShelf('book',this)">The book</button>
       <button id="subDj" onclick="pickShelf('dj',this)">Division J</button>
@@ -348,7 +349,10 @@ h1{font-size:17px;letter-spacing:-.01em}
   <div class="card">
     <div class="hint" style="margin:0 0 12px">No hints, no help. Nothing is revealed until you submit.</div>
     <div id="examList" style="display:grid;gap:12px"></div>
-    <div class="bar"><button class="go" id="subBtn" onclick="submitTest()">Submit the test</button></div>
+    <div class="bar">
+      <button class="go" id="subBtn" onclick="submitTest()">Submit the test</button>
+      <button class="ghost small" onclick="leavePaper()">Leave this paper</button>
+    </div>
     <div class="err" id="examErr"></div>
   </div>
 </main>
@@ -360,7 +364,10 @@ h1{font-size:17px;letter-spacing:-.01em}
     <div class="sub" id="resPct"></div>
   </div>
   <div class="card"><div class="k">Question by question</div><table><tbody id="resItems"></tbody></table></div>
-  <div class="card"><button class="ghost" onclick="goLanding()">← Back</button></div>
+  <div class="card"><div class="bar">
+    <button class="ghost" onclick="returnToSession()">← Back to Ananya</button>
+    <button class="ghost" onclick="goLanding()">Home</button>
+  </div></div>
 </main>
 
 <!-- parent landing -->
@@ -523,6 +530,7 @@ h1{font-size:17px;letter-spacing:-.01em}
       <button class="ghost" onclick="openFormula()">Formula board</button>
     </div>
   </div>
+  <div class="card"><button class="ghost" onclick="returnToSession()">← Back to Ananya</button></div>
 </main>
 
 <main id="chapter" class="hidden">
@@ -535,7 +543,10 @@ h1{font-size:17px;letter-spacing:-.01em}
       <summary class="sub" style="cursor:pointer">The book's own wording</summary>
       <div class="sub" id="chSummary" style="margin-top:8px"></div>
     </details>
-    <div class="bar"><button class="go small" onclick="startSolo()">Practise this chapter →</button></div>
+    <div class="bar">
+      <button class="go small" onclick="startSolo()">Practise this chapter →</button>
+      <button class="ghost small" onclick="openTrack(S.track)">← Back</button>
+    </div>
   </div>
   <div class="card">
     <div class="k">Worked examples</div>
@@ -596,7 +607,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.6.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.6.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2274,6 +2285,13 @@ async function uploadWorking(input) {
 /* ---------------------------------------------------------------- test -- */
 let T = { id: null, left: 0, timer: null };
 
+function leavePaper() {
+  const answered = [...document.querySelectorAll("#examList input")].filter((i) => i.value.trim()).length;
+  if (answered && !confirm("Leave this paper? What you have written will not be marked.")) return;
+  clearInterval(T.timer);
+  returnToSession();
+}
+
 async function startPlacement() {
   const { data, error } = await sb.rpc("start_placement", { p_count: 12 });
   if (error) { alert(error.message); return; }
@@ -2445,7 +2463,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton
+  openJournal, openFormula, tickFormula, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
