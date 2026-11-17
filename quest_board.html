@@ -308,6 +308,7 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
     <div class="sub" id="pSummary"></div>
     <div class="bar">
       <button class="go small" onclick="openParentChat()">Ask the coach →</button>
+      <button class="ghost small" onclick="openDash()">Dashboard</button>
       <button class="ghost small" onclick="parentWeekly()">This week's summary</button>
     </div>
   </div>
@@ -419,6 +420,36 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
   </div>
 </main>
 
+<!-- how it is going -->
+<main id="dash" class="hidden">
+  <div class="card">
+    <div class="k">How it is going</div>
+    <div class="big" style="font-size:22px" id="dashHead">—</div>
+    <div class="sub" id="dashSub"></div>
+  </div>
+
+  <div class="card">
+    <div class="k">Through the plan</div>
+    <div id="planBar"></div>
+  </div>
+
+  <div class="card">
+    <div class="k">The book · 24 chapters</div>
+    <div id="chapBar"></div>
+  </div>
+
+  <div class="card">
+    <div class="k">Each exam</div>
+    <div id="examBars"></div>
+    <div class="hint">Coverage is how much of that exam's question bank he has answered correctly and not since forgotten. Below 30 questions loaded, the verdict stays “Need more data” — that is honest, not a bug.</div>
+  </div>
+
+  <div class="card">
+    <div class="k">The last six weeks</div>
+    <div id="weekBars"></div>
+  </div>
+</main>
+
 <!-- the book -->
 <main id="book" class="hidden">
   <div class="card">
@@ -488,7 +519,7 @@ function saveRoute() {
 function show(id) {
   S.view = id;
   if (!S.restoring) saveRoute();
-  ["boot", "signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat", "selflog"].forEach((m) => $(m).classList.add("hidden"));
+  ["boot", "signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat", "selflog", "dash"].forEach((m) => $(m).classList.add("hidden"));
   const signing = id === "signin";
   document.body.classList.toggle("signing", signing);
   if (!signing) document.body.style.background = "";   // back to plain white
@@ -1106,6 +1137,55 @@ async function saveSelfLog() {
   goLanding();
 }
 
+async function openDash() {
+  show("dash");
+  const { data, error } = await sb.rpc("progress_dashboard");
+  if (error || !data) { $("dashHead").textContent = "Could not load the numbers."; return; }
+  const d = data;
+  const behind = (d.planned_questions || 0) - (d.done_questions || 0);
+  $("dashHead").textContent = `Day ${d.days_in} · ${d.chapters_mastered} of 24 chapters mastered`;
+  $("dashSub").textContent = behind > 10
+    ? `${behind} questions behind the plan — not a crisis, but worth a longer session.`
+    : behind < -10
+      ? `${-behind} questions ahead of the plan.`
+      : "On plan.";
+
+  const pct = Math.max(0, Math.min(100, Math.round(100 * (d.done_questions || 0) / Math.max(1, d.planned_questions || 1))));
+  $("planBar").innerHTML = barRow("Questions done", `${d.done_questions} of ${d.planned_questions}`, pct, "var(--acc)");
+
+  const started = d.chapters_started || 0, cleared = d.chapters_cleared || 0, mastered = d.chapters_mastered || 0;
+  $("chapBar").innerHTML =
+    barRow("Mastered", `${mastered}`, Math.round(mastered / 24 * 100), "var(--ok)") +
+    barRow("Cleared", `${cleared}`, Math.round(cleared / 24 * 100), "#7fc3a3") +
+    barRow("Started", `${started}`, Math.round(started / 24 * 100), "var(--acc)");
+
+  const words = { ready: "enough", too_early: "too early", in_progress: "going", thin: "need more data", no_content: "nothing loaded" };
+  $("examBars").innerHTML = (d.exams || []).map((e) => {
+    const p = Math.min(100, e.items ? Math.round(100 * e.practised / e.items) : 0);
+    return barRow(`${esc(e.exam)} · ${e.items} loaded`, `${e.practised} practised · ${e.mastered} mastered · ${words[e.verdict] ?? e.verdict}`, p,
+      e.verdict === "ready" ? "var(--ok)" : e.verdict === "in_progress" ? "var(--acc)" : "var(--amber)");
+  }).join("") || `<div class="sub">No exams registered.</div>`;
+
+  const weeks = d.weeks || [];
+  $("weekBars").innerHTML = `<div style="display:flex;gap:10px;align-items:flex-end;height:110px">` +
+    weeks.map((w) => {
+      const h = Math.max(4, Math.round((w.accuracy || 0) * 0.9));
+      return `<div style="flex:1;text-align:center">
+        <div style="height:${h}px;background:${w.attempts ? "var(--acc)" : "#e6e6ef"};border-radius:6px 6px 0 0"></div>
+        <div class="sub" style="font-size:11.5px;margin-top:4px">${(w.accuracy || 0)}%</div>
+        <div class="sub" style="font-size:11px">${w.attempts || 0}q</div>
+      </div>`;
+    }).join("") + `</div><div class="sub" style="margin-top:8px">Accuracy each week, oldest on the left.</div>`;
+}
+
+function barRow(label, value, pct, colour) {
+  return `<div style="margin:10px 0">
+    <div style="display:flex;justify-content:space-between;font-size:14px"><b>${label}</b><span class="sub">${value}</span></div>
+    <div style="height:9px;background:#ececf5;border-radius:999px;overflow:hidden;margin-top:5px">
+      <div style="height:100%;width:${pct}%;background:${colour};border-radius:999px"></div>
+    </div></div>`;
+}
+
 async function weekly() {
   if (!$("weeklyOut")) return;
   $("weeklyOut").className = "fb";
@@ -1133,11 +1213,12 @@ async function openTrack(id) {
     `${(S.ctx?.xp ?? 0).toLocaleString()} XP · streak ${S.ctx?.streak ?? 0} days · ` +
     `day ${S.ctx?.days_in ?? 1} of the programme`;
 
-  const twoShelves = id === "olympiad";
+  const twoShelves = id === "olympiad" || id === "amc";
   $("subDj").style.display = twoShelves ? "" : "none";
   if (!S.restoring) saveRoute();
   $("subBook").classList.add("on"); $("subDj").classList.remove("on");
-  $("subBook").textContent = id === "amc" ? "Questions" : "The book";
+  $("subBook").textContent = id === "amc" ? "From the book" : "The book";
+  $("subDj").textContent = id === "amc" ? "AMC papers" : "Division J";
   S.shelf = "book";
   await renderShelf();
 }
@@ -1161,18 +1242,21 @@ async function renderShelf() {
   box.innerHTML = `<div class="sub">Loading…</div>`;
 
   if (S.shelf === "dj") {
-    $("shelfNote").textContent = "Maths Olympiad Contest Problems Vol 2 · Division J · nine sets";
-    const { data } = await sb.from("chapters").select("n,title,practice").eq("source", "apsmo").order("n");
+    const src = S.track === "amc" ? "amc" : "apsmo";
+    $("shelfNote").textContent = src === "amc"
+      ? "AMC Upper Primary papers — nothing uploaded yet"
+      : "Maths Olympiad Contest Problems Vol 2 · Division J · nine sets";
+    const { data } = await sb.from("chapters").select("n,title,practice").eq("source", src).order("n");
     box.innerHTML = (data ?? []).map((c) => `
       <button class="ch" onclick="openChapter(${c.n})">
         <span><b>${esc(c.title.replace("APSMO Division J · ", ""))}</b>
           <div class="sub">${c.practice} questions${c.n === 141 ? " · the first set" : ""}</div></span>
         <span class="sub">›</span></button>`).join("")
-      || `<div class="sub">No Division J questions loaded.</div>`;
+      || `<div class="sub">${src === "amc" ? "No AMC papers uploaded yet. Upload one from the parent view." : "No Division J questions loaded."}</div>`;
     return;
   }
 
-  if (S.track === "olympiad") {
+  if (S.track === "olympiad" || S.track === "amc") {
     $("shelfNote").textContent = "Maths Olympiad — Unleash the Maths Olympian in You! (Advanced) · Terry Chew";
     const { data } = await sb.from("chapters").select("n,title,pages,examples,practice").lte("n", 24).order("n");
     box.innerHTML = (data ?? []).map((c) => `
@@ -1209,7 +1293,9 @@ async function startMock() {
     const { data } = await sb.from("chapters").select("n").eq("source", "amc");
     const chs = (data ?? []).map((c) => c.n);
     if (!chs.length) {
-      alert("No AMC papers uploaded yet.\n\nUpload an AMC paper from the parent view and the mock will be built from it. The book is under Olympiad.");
+      // no AMC papers yet: build the paper from the book, and say so plainly
+      body = { p_kind: "mock", p_chapters: Array.from({ length: 24 }, (_, i) => i + 1), p_count: 30, p_minutes: 60, p_pass: 60 };
+      await runExam(body, "AMC-style paper · 30 questions, 60 minutes · drawn from the book");
       return;
     }
     body = { p_kind: "mock", p_chapters: chs, p_count: 30, p_minutes: 60, p_pass: 60 };
@@ -1695,7 +1781,7 @@ const api = {
   startQuiz, startPaper, submitTest,
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
-  openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo,
+  openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript
 };
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
