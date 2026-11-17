@@ -666,7 +666,42 @@ async function startSession(chapterOverride) {
   bubble("coach", greet ?? `Hello. Today we are on chapter ${S.chapter}. Open the book and tell me when you are ready.`);
   S.chat.push({ role: "coach", text: greet ?? "" });
 
+  await showExamples();
   await loadQuestions(lane);
+}
+
+async function showExamples() {
+  const { data } = await sb.from("examples").select("*").eq("chapter", S.chapter).order("n");
+  const { data: ch } = await sb.from("chapters").select("pages,title").eq("n", S.chapter).single();
+  if (!data || !data.length) return;
+
+  const head = document.createElement("div");
+  head.className = "sub";
+  head.style.margin = "6px 0 0";
+  head.textContent = `${data.length} worked example${data.length === 1 ? "" : "s"} · book pages ${ch?.pages ?? "—"}`;
+  $("chatWrap").appendChild(head);
+
+  data.forEach((e) => {
+    const el = document.createElement("div");
+    el.className = "qcard";
+    el.style.borderColor = "var(--line)";
+    el.innerHTML = `
+      <div class="n">WORKED EXAMPLE ${e.n}</div>
+      <div class="q">${esc(e.prompt)}</div>
+      <button class="ghost small" onclick="this.style.display='none';this.nextElementSibling.style.display='block'">Show me how</button>
+      <div class="fb" style="display:none;background:#f7f7fb;border:1px solid var(--line)">
+        <b>How it goes</b><div class="m" style="color:var(--ink)">${esc(e.solution)}</div>
+      </div>`;
+    $("chatWrap").appendChild(el);
+  });
+
+  const bar = document.createElement("div");
+  bar.className = "qcard";
+  bar.style.borderColor = "var(--acc)";
+  bar.innerHTML = `<div class="q" style="font-size:16px">Read those through, then we'll do some ourselves.</div>
+    <button class="go small" onclick="this.closest('.qcard').remove()">Ready for the questions →</button>`;
+  $("chatWrap").appendChild(bar);
+  bar.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
 async function loadQuestions(lane) {
