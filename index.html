@@ -473,6 +473,7 @@ h1{font-size:17px;letter-spacing:-.01em}
     <div class="sub">One note per session, newest first. Tap one to read it again.</div>
   </div>
   <div class="card"><div id="journalList"><div class="sub">Loading…</div></div></div>
+  <div class="card"><button class="ghost" onclick="returnToSession()">← Back to Ananya</button></div>
 </main>
 
 <!-- the formula board -->
@@ -483,6 +484,7 @@ h1{font-size:17px;letter-spacing:-.01em}
     <div class="sub">The board beside your desk. Tick a card once you have written it there, in your own hand.</div>
   </div>
   <div class="card"><div id="formulaList"><div class="sub">Loading…</div></div></div>
+  <div class="card"><button class="ghost" onclick="returnToSession()">← Back to Ananya</button></div>
 </main>
 
 <!-- how it is going -->
@@ -594,7 +596,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.5.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.6.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1023,22 +1025,7 @@ async function start() {
     S.restoring = false;
     return;
   }
-  const st = restorableSession();
-  if (st) {
-    S.restoring = true;
-    S.track = st.track ?? S.track;
-    S.chapter = st.chapter; S.workMode = st.workMode ?? "quest";
-    S.script = st.script; S.si = st.si ?? 0; S.chat = st.chat ?? [];
-    $("chatWrap").innerHTML = "";
-    show("session");
-    S.chat.forEach((m) => bubble(m.role === "atharv" ? "me" : "coach", m.text));
-    if (S.si < S.script.length) {
-      const step = S.script[S.si];
-      if (step.type === "example") showExample(step.data); else showQuestion(step.data);
-    }
-    S.restoring = false;
-    return;
-  }
+  if (restorableSession()) { resumeSession(); return; }
 
   if (route && route.view === "chapter" && route.chapter) {
     S.restoring = true;
@@ -1411,6 +1398,27 @@ function goHome() {
   return goLanding();
 }
 
+/* picking up exactly where he stopped */
+function resumeSession() {
+  const st = restorableSession();
+  if (!st) return false;
+  S.restoring = true;
+  S.track = st.track ?? S.track;
+  S.chapter = st.chapter; S.workMode = st.workMode ?? "quest";
+  S.script = st.script; S.si = st.si ?? 0; S.chat = st.chat ?? [];
+  $("chatWrap").innerHTML = "";
+  show("session");
+  S.chat.forEach((m) => bubble(m.role === "atharv" ? "me" : "coach", m.text));
+  if (S.si < S.script.length) {
+    const step = S.script[S.si];
+    if (step.type === "example") showExample(step.data); else showQuestion(step.data);
+  } else {
+    paintActions();
+  }
+  S.restoring = false;
+  return true;
+}
+
 function goLanding() {
   show("landing");
   const c = S.ctx ?? {};
@@ -1473,10 +1481,14 @@ async function askCoachWhatNow() {
     ? "A rest day is part of the plan."
     : `${S.planAction.action === "paper" ? "A full paper" : S.planAction.action === "quiz" ? "A chapter quiz" : S.planAction.action === "drill" ? "Drill on what you got wrong" : "Chapter " + S.planAction.chapter} · about ${S.planAction.minutes} minutes`;
   go.disabled = S.planAction.action === "rest";
-  go.textContent = S.planAction.action === "rest" ? "Nothing to start" : "Start →";
+  const half = restorableSession();
+  go.textContent = half ? "Resume where you left off →"
+    : S.planAction.action === "rest" ? "Nothing to start" : "Start →";
+  go.dataset.mode = half ? "resume" : "plan";
 }
 
 function runCoachPlan() {
+  if (restorableSession()) return resumeSession();     // never throw away a half-finished session
   const p = S.planAction;
   if (!p) return;
   if (p.action === "mock") return startMock();
@@ -2088,6 +2100,15 @@ async function showBoardReminder(chapter) {
   el.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
+function backButton() {
+  return `<div class="card"><button class="ghost" onclick="returnToSession()">← Back to ${COACH}</button></div>`;
+}
+
+function returnToSession() {
+  if (restorableSession()) { resumeSession(); return; }
+  goLanding();
+}
+
 async function openJournal() {
   show("journal");
   const { data } = await sb.from("session_notes").select("*").order("day", { ascending: false }).limit(60);
@@ -2424,7 +2445,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking
+  openJournal, openFormula, tickFormula, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
