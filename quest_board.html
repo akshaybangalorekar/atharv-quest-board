@@ -171,6 +171,15 @@ input:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0
 h1{font-size:17px;letter-spacing:-.01em}
 .top{border-bottom:1px solid var(--line);background:rgba(255,255,255,.86);backdrop-filter:blur(10px);
   position:sticky;top:0;z-index:20}
+.work{font-size:15px;line-height:1.7;color:var(--ink);margin-top:8px}
+.steps{margin:10px 0 0;padding-left:0;list-style:none;counter-reset:st;display:grid;gap:8px}
+.steps li{counter-increment:st;position:relative;padding-left:30px;font-size:15px;line-height:1.65;color:var(--ink)}
+.steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:21px;height:21px;border-radius:50%;
+  background:var(--acc-soft);color:var(--acc);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.num{font-family:ui-monospace,Menlo,monospace;background:#f3f1fd;color:#3f34a8;border-radius:5px;padding:1px 5px;
+  font-size:14px;white-space:nowrap}
+.op{color:var(--acc);font-weight:700;padding:0 1px}
+.fb .work,.fb .steps{margin-top:10px}
 </style>
 </head>
 <body>
@@ -199,8 +208,8 @@ h1{font-size:17px;letter-spacing:-.01em}
     <p class="authSub">Welcome back. Your session is waiting.</p>
 
     <div class="field">
-      <label for="email">Email</label>
-      <input id="email" type="email" placeholder="you@example.com" autocomplete="username" autocapitalize="off" spellcheck="false">
+      <label for="email">Name or email</label>
+      <input id="email" type="text" placeholder="atharv" autocomplete="username" autocapitalize="none" spellcheck="false">
     </div>
     <div class="field">
       <label for="pw">Password</label>
@@ -527,6 +536,29 @@ window.addEventListener("unhandledrejection", (e) => {
 });
 
 const REMEMBER_KEY = "quest.remember";
+const LAST_KEY = "quest.lastUser";        // email or short name, filled in for him
+const NAMES_KEY = "quest.names";          // { shortname: email } for this device
+
+function readNames() {
+  try { return JSON.parse(localStorage.getItem(NAMES_KEY) || "{}"); } catch (_) { return {}; }
+}
+
+function rememberUser(email) {
+  try {
+    localStorage.setItem(LAST_KEY, email);
+    const names = readNames();
+    const short = email.split("@")[0].split(".")[0].toLowerCase();
+    if (short && !names[short]) { names[short] = email; localStorage.setItem(NAMES_KEY, JSON.stringify(names)); }
+  } catch (_) {}
+}
+
+/* "atharv" is enough if this device has seen that name before */
+function resolveUser(input) {
+  const v = (input || "").trim();
+  if (!v || v.includes("@")) return v;
+  const names = readNames();
+  return names[v.toLowerCase()] ?? v;
+}
 const remember = localStorage.getItem(REMEMBER_KEY) !== "0";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: remember, autoRefreshToken: remember, detectSessionInUrl: true },
@@ -622,6 +654,28 @@ function buildTracks(banks) {
   out.sort((a, b) => (order.indexOf(a.id) + 99 * (order.indexOf(a.id) < 0)) - (order.indexOf(b.id) + 99 * (order.indexOf(b.id) < 0)));
   if (out.length) TRACKS = out;
   return TRACKS;
+}
+
+/* ---------------------------------------------------------- formatting --- */
+/* Turns a method into steps: numbers in a tinted chip, operators in colour,
+   one line per step, indented under a small number. */
+function rich(text) {
+  let t = String(text ?? "").trim();
+  if (!t) return "";
+
+  // escape first, then turn numeric entities back into characters so the
+  // number highlighter cannot eat "&#39;" and mangle it
+  t = esc(t).replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)));
+
+  // operators first, then numbers: the tags the second pass adds contain "=" and
+  // would otherwise be mangled by the first
+  const decorate = (x) => x
+    .replace(/([×÷+\-−=≈%])/g, '<span class="op">$1</span>')
+    .replace(/(\d{1,2}:\d{2}|\d[\d,\s]*\d|\d)/g, (m) => `<span class="num">${m.trim()}</span>`);
+
+  const parts = t.split(/\s*(?:→|=>|;\s+|\.\s+(?=[A-Z0-9£$]))\s*/).filter(Boolean);
+  if (parts.length <= 1) return `<div class="work">${decorate(t)}</div>`;
+  return `<ol class="steps">${parts.map((x) => `<li>${decorate(x)}</li>`).join("")}</ol>`;
 }
 
 /* --------------------------------------------------------------- voice --- */
@@ -868,8 +922,9 @@ async function signIn() {
   const btn = document.querySelector("#signin button.go");
   $("err").textContent = "";
   if (!createClient) { $("err").textContent = "The app has no database library loaded. Reload the page."; return; }
-  const email = $("email").value.trim(), password = $("pw").value;
-  if (!email || !password) { $("err").textContent = "Type the email and the password."; return; }
+  const email = resolveUser($("email").value), password = $("pw").value;
+  if (!email || !password) { $("err").textContent = "Type your name and the password."; return; }
+  if (!email.includes("@")) { $("err").textContent = "I do not know that name on this device. Use the full email once."; return; }
 
   const wantRemember = $("remember")?.checked !== false;
   localStorage.setItem(REMEMBER_KEY, wantRemember ? "1" : "0");
@@ -890,10 +945,8 @@ async function signIn() {
       : error.message;
     return;
   }
-  if (!wantRemember) {
-    // keep this session only while the app is open
-    sessionStorage.setItem("quest.mem-only", "1");
-  }
+  rememberUser(email);
+  if (!wantRemember) sessionStorage.setItem("quest.mem-only", "1");
   start();
 }
 
@@ -1852,7 +1905,7 @@ function showExample(e) {
       <button class="ghost small" onclick="drawFigure('example', ${e.n}, 'exFig')">Draw it</button>
     </div>
     <div class="fb hidden" id="exSol" style="background:#f7f7fb;border:1px solid var(--line)">
-      <b>How it goes</b><div class="m" style="color:var(--ink)">${esc(e.solution)}</div>
+      <b>How it goes</b>${rich(e.solution)}
     </div>
     <div class="bar hidden" id="exNext"><button class="go small" onclick="advance()">Next →</button></div>`;
   $("chatWrap").appendChild(el);
@@ -1929,15 +1982,15 @@ async function check() {
 
   const fb = $("qfb");
   if (data.correct === true) {
-    fb.innerHTML = `<div class="fb right"><b>Right.</b> +${data.xp} XP<div class="m">${esc(data.method ?? "")}</div></div>`;
+    fb.innerHTML = `<div class="fb right"><b>Right.</b> +${data.xp} XP${rich(data.method ?? "")}</div>`;
   } else if (data.correct === false) {
-    fb.innerHTML = `<div class="fb wrong"><b>Not yet.</b><div class="m">${esc(data.method ?? "")}</div></div>`;
+    fb.innerHTML = `<div class="fb wrong"><b>Not yet.</b>${rich(data.method ?? "")}</div>`;
     bubble("think", "…");
     const reply = await callCoach({ mode: "reply", note: `He answered chapter ${q.chapter} question ${q.idx} with "${val}", which was wrong. The book method is: ${data.method}. Give him the next step only, not the answer.` });
     document.querySelector(".msg.think")?.remove();
     if (reply) bubble("coach", reply);
   } else {
-    fb.innerHTML = `<div class="fb manual"><b>Written answer — a person marks this one.</b><div class="m">${esc(data.method ?? "")}</div></div>`;
+    fb.innerHTML = `<div class="fb manual"><b>Written answer — a person marks this one.</b>${rich(data.method ?? "")}</div>`;
   }
   S.chat.push({ role: "atharv", text: `Chapter ${q.chapter} Q${q.idx}: ${val}` });
   saveSession();
@@ -2293,6 +2346,13 @@ if (localStorage.getItem(REMEMBER_KEY) === "0") {
 
 paintArt();
 $("remember").checked = remember;
+try {
+  const last = localStorage.getItem(LAST_KEY);
+  if (last && $("email")) {
+    $("email").value = last.includes("@") ? last.split("@")[0] : last;   // short name is enough
+    setTimeout(() => $("pw")?.focus(), 300);
+  }
+} catch (_) {}
 paintVoice();
 let booted = false;
 sb.auth.onAuthStateChange((event, session) => {
@@ -2321,7 +2381,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, toggleVoice, speak, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula
+  openJournal, openFormula, tickFormula, startPlacement, solveBlanks, paintActions, rich
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
