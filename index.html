@@ -271,6 +271,8 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
     <div class="bar">
       <button class="ghost small" id="micBtn" onclick="toggleMic()">🎤 Talk</button>
       <button class="ghost small" id="voiceBtn" onclick="toggleVoice()">🔊 ${COACH}'s voice</button>
+      <button class="ghost small" onclick="document.getElementById('doubt').click()">❓ I'm stuck</button>
+      <input type="file" id="doubt" accept="image/*" capture="environment" class="hidden" onchange="askDoubt(this)">
       <button class="ghost small" onclick="document.getElementById('photo').click()">📷 My working</button>
       <input type="file" id="photo" accept="image/*" capture="environment" class="hidden" onchange="uploadWorking(this)">
       <button class="ghost small" onclick="endSession()">Call it a day</button>
@@ -1805,6 +1807,57 @@ async function endSession() {
 }
 
 /* --------------------------------------------------------------- photo -- */
+/* a question he cannot do: read it, help with it, and keep it */
+function examForDoubt() {
+  if (S.track === "edutest") return "Edutest numerical reasoning";
+  if (S.track === "icas") return "ICAS Maths";
+  return "AAS numerical reasoning";
+}
+
+async function askDoubt(input) {
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+
+  if (!S.chat) S.chat = [];
+  show("session");
+  bubble("me", "📷 Here is one I'm stuck on");
+  const think = bubble("think", "Reading it…");
+
+  try {
+    const { data: { user } } = await sb.auth.getUser();
+    const path = `${user.id}/doubt-${Date.now()}.jpg`;
+    const up = await sb.storage.from("working").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+    if (up.error) throw new Error(up.error.message);
+
+    const { data, error } = await sb.functions.invoke("doubt", { body: { path, exam: examForDoubt() } });
+    think.remove();
+    if (error || data?.error) {
+      bubble("coach", "I could not read that one clearly. Try again in better light, with the page flat and the camera square to it.");
+      return;
+    }
+
+    const lines = [];
+    lines.push(`**${data.strand ?? "This one"}**`);
+    if (data.idea) lines.push(`The thing to notice: ${data.idea}`);
+    if (data.method) lines.push(data.method);
+    if (data.answer) lines.push(`**Answer: ${data.answer}**`);
+    bubble("coach", lines.join("\n\n"));
+
+    if (data.saved) {
+      bubble("coach", "I have put it in your bank too, so we can come back to this kind of question later.");
+    }
+    if (data.confident === false) {
+      bubble("coach", "I am not certain I read every part of that correctly — check the question against the photo before you trust my answer.");
+    }
+    S.chat.push({ role: "atharv", text: "I was stuck on: " + (data.question ?? "") });
+    S.chat.push({ role: "coach", text: data.method ?? "" });
+  } catch (e) {
+    think.remove();
+    bubble("coach", "That did not work: " + e.message);
+  }
+}
+
 async function uploadWorking(input) {
   const file = input.files?.[0];
   if (!file) return;
@@ -1970,7 +2023,7 @@ const api = {
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
-  readPaper, extractOne, updateDest, buildScript, toggleMic, toggleVoice, speak
+  readPaper, extractOne, updateDest, buildScript, toggleMic, toggleVoice, speak, askDoubt
 };
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
 
