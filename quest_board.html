@@ -656,6 +656,28 @@ function buildTracks(banks) {
   return TRACKS;
 }
 
+/* a figure is drawn without being asked for, when the words need one */
+function needsFigure(text) {
+  return /diagram in the paper|\b(diagram|figure|shape|grid|triangle|square|circle|rectangle|graph|table|number line|shaded|pattern of)\b/i
+    .test(String(text ?? ""));
+}
+
+async function autoFigure(kind, key, targetId, prompt, existing) {
+  const box = $(targetId);
+  if (!box) return;
+  if (existing) { box.innerHTML = `<div class="diagram">${existing}</div>`; return; }
+  if (!needsFigure(prompt)) return;
+
+  box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13.5px">Drawing the figure…</div>`;
+  try {
+    const { data, error } = await sb.functions.invoke("draw-figure", {
+      body: { chapter: S.chapter, kind, n: kind === "example" ? key : null, idx: kind === "question" ? key : null },
+    });
+    if (error || data?.error) { box.innerHTML = ""; return; }
+    box.innerHTML = data.svg ? `<div class="diagram">${data.svg}</div>` : "";
+  } catch (_) { box.innerHTML = ""; }
+}
+
 /* ---------------------------------------------------------- formatting --- */
 /* Turns a method into steps: numbers in a tinted chip, operators in colour,
    one line per step, indented under a small number. */
@@ -1902,7 +1924,6 @@ function showExample(e) {
     <div id="exFig"></div>
     <div class="bar">
       <button class="go small" id="exShow" onclick="revealExample(this)">Show me how</button>
-      <button class="ghost small" onclick="drawFigure('example', ${e.n}, 'exFig')">Draw it</button>
     </div>
     <div class="fb hidden" id="exSol" style="background:#f7f7fb;border:1px solid var(--line)">
       <b>How it goes</b>${rich(e.solution)}
@@ -1910,7 +1931,7 @@ function showExample(e) {
     <div class="bar hidden" id="exNext"><button class="go small" onclick="advance()">Next →</button></div>`;
   $("chatWrap").appendChild(el);
   el.scrollIntoView({ behavior: "smooth", block: "end" });
-  if (e.diagram_svg) $("exFig").innerHTML = `<div class="diagram">${e.diagram_svg}</div>`;
+  autoFigure("example", e.n, "exFig", e.prompt, e.diagram_svg);
 }
 
 function revealExample(btn) {
@@ -1925,16 +1946,16 @@ function showQuestion(q) {
   el.innerHTML = `
     <div class="n">CHAPTER ${q.chapter} · QUESTION ${q.idx} · ${S.si + 1} of ${S.script.length}</div>
     <div class="q">${esc(q.prompt)}</div>
-    <div id="qFig">${q.diagram_svg ? `<div class="diagram">${q.diagram_svg}</div>` : ""}</div>
+    <div id="qFig"></div>
     <div style="display:flex;gap:8px">
       <input id="ans" placeholder="Your answer" autocomplete="off" onkeydown="if(event.key==='Enter')check()">
       <button class="go small" id="chk" onclick="check()">Check</button>
     </div>
-    <div class="bar"><button class="ghost small" onclick="drawFigure('question', ${q.idx}, 'qFig')">Draw it</button></div>
     <div class="timer" id="qtimer">0:00</div>
     <div id="qfb"></div>`;
   $("chatWrap").appendChild(el);
   el.scrollIntoView({ behavior: "smooth", block: "end" });
+  autoFigure("question", q.idx, "qFig", q.prompt, q.diagram_svg);
   S.startedAt = Date.now(); S.nudged = false;
   clearInterval(S.ticker);
   S.ticker = setInterval(tickQuestion, 1000);
