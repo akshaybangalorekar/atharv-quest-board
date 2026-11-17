@@ -676,7 +676,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.10.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.10.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -987,7 +987,7 @@ function padDone() {
 /* tapping anywhere else puts the pad away */
 document.addEventListener("pointerdown", (e) => {
   if (!$("pad") || $("pad").classList.contains("hidden")) return;
-  if (e.target.closest("#pad") || e.target.closest("input")) return;
+  if (e.target.closest("#pad") || e.target.closest("input") || e.target.closest("#micBtn")) return;
   closePad();
 });
 
@@ -1083,7 +1083,11 @@ function paintMic() {
 
 function startListening(asThink) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { $("micState").textContent = "This browser cannot listen — type instead."; return; }
+  if (!SR) {
+    $("micState").textContent = "This browser cannot listen. Type instead — the pad is ready.";
+    openPad($("say"), "text");
+    return;
+  }
   if (listening) { if (asThink && !thinkMode) { thinkMode = true; paintMic(); } return; }
 
   thinkMode = !!asThink;
@@ -1122,10 +1126,34 @@ function startListening(asThink) {
     }
   };
 
-  recog.onerror = () => stopListening(true);
-  recog.onend = () => { if (listening) { try { recog.start(); } catch (_) {} } };
+  recog.onstart = () => { $("micState").textContent = "Listening — go ahead."; };
 
-  try { recog.start(); } catch (_) { listening = false; paintMic(); return; }
+  // say plainly why it did not work, instead of going quiet
+  recog.onerror = (e) => {
+    const why = e?.error ?? "";
+    const said = {
+      "not-allowed": "I am not allowed to use the microphone. On the iPad: Settings → Safari → Microphone, allow it, then tap Talk again.",
+      "service-not-allowed": "The microphone is blocked for this site. Check Settings → Safari → Microphone.",
+      "audio-capture": "I cannot find a microphone on this device.",
+      "no-speech": "I did not hear anything. Tap Talk, then speak.",
+      "network": "The microphone needs a working connection.",
+      "aborted": "",
+    }[why] ?? ("The microphone stopped: " + why);
+    stopListening(true);
+    if (said) $("micState").textContent = said;
+  };
+  recog.onend = () => {
+    if (!listening) return;
+    try { recog.start(); } catch (_) { /* it will restart on the next tap */ }
+  };
+
+  try {
+    recog.start();
+  } catch (e) {
+    listening = false; paintMic();
+    $("micState").textContent = "The microphone would not start (" + e.message + "). Tap Talk again, or type.";
+    return;
+  }
   setTimeout(() => { if (listening) stopListening(true); }, MAX_LISTEN_MS);
 }
 
