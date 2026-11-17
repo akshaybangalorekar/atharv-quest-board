@@ -134,6 +134,13 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
     <div class="sub" id="todayLine"></div>
   </div>
 
+  <div class="card" style="border:2px solid var(--acc)">
+    <div class="k">Your coach says</div>
+    <div class="q" id="coachSay" style="font-size:18px">Thinking about today…</div>
+    <div class="bar"><button class="go" id="coachGo" onclick="runCoachPlan()" disabled>Start →</button></div>
+    <div class="hint" id="coachWhy"></div>
+  </div>
+
   <div class="exams" id="examCards"></div>
 
   <div class="card">
@@ -707,10 +714,48 @@ function goLanding() {
     </button>`;
   }).join("");
 
+  askCoachWhatNow();
+
   const done = (c.today_attempts ?? []).length;
   $("weekLine").textContent = done
     ? `${done} question${done === 1 ? "" : "s"} answered today · streak ${c.streak ?? 0} days · ${(c.xp ?? 0).toLocaleString()} XP`
     : `Nothing answered yet today · streak ${c.streak ?? 0} days · ${(c.xp ?? 0).toLocaleString()} XP`;
+}
+
+async function askCoachWhatNow() {
+  const say = $("coachSay"), go = $("coachGo");
+  say.textContent = "Thinking about today…";
+  go.disabled = true;
+  const { data, error } = await sb.functions.invoke("coach-chat", { body: { mode: "decide", track: S.track } });
+  if (error || data?.error || !data?.plan) {
+    // fall back to the timetable rather than leaving him with nothing
+    const lane = (S.plan ?? []).find((p) => p.lane !== "R");
+    S.planAction = lane
+      ? { action: lane.lane === "M" ? (lane.chapter ? "quiz" : "paper") : lane.lane === "D" ? "drill" : "quest",
+          chapter: lane.chapter ?? null, minutes: lane.minutes ?? 30 }
+      : { action: "rest", chapter: null, minutes: 0 };
+    say.textContent = lane
+      ? `Today is ${S.planAction.action === "quest" ? "a quest on chapter " + lane.chapter : S.planAction.action}. Ready?`
+      : "Today is a rest day. Nothing to do.";
+  } else {
+    S.planAction = data.plan;
+    say.textContent = data.reply;
+  }
+  $("coachWhy").textContent = S.planAction.action === "rest"
+    ? "A rest day is part of the plan."
+    : `${S.planAction.action === "paper" ? "A full paper" : S.planAction.action === "quiz" ? "A chapter quiz" : S.planAction.action === "drill" ? "Drill on what you got wrong" : "Chapter " + S.planAction.chapter} · about ${S.planAction.minutes} minutes`;
+  go.disabled = S.planAction.action === "rest";
+  go.textContent = S.planAction.action === "rest" ? "Nothing to start" : "Start →";
+}
+
+function runCoachPlan() {
+  const p = S.planAction;
+  if (!p) return;
+  if (p.action === "paper") return startTest(null, 60);
+  if (p.action === "quiz") return startTest(p.chapter || currentChapter(), 20);
+  if (p.action === "drill") return startSession(null, "drill");
+  if (p.action === "rest") return;
+  return startSession(p.chapter || null);
 }
 
 async function weekly() {
@@ -821,7 +866,7 @@ async function callCoach({ mode, note }) {
   return data?.reply ?? null;
 }
 
-async function startSession(chapterOverride) {
+async function startSession(chapterOverride, forceMode) {
   S.chat = []; S.qs = []; S.i = 0; S.nudged = false;
   $("chatWrap").innerHTML = "";
   show("session");
@@ -841,8 +886,8 @@ async function startSession(chapterOverride) {
   bubble("coach", greet ?? `Hello. Today we are on chapter ${S.chapter}. Open the book and tell me when you are ready.`);
   S.chat.push({ role: "coach", text: greet ?? "" });
 
-  await showExamples();
-  await loadQuestions(lane);
+  if (forceMode !== "drill") await showExamples();
+  await loadQuestions(lane, forceMode === "drill");
 }
 
 async function showExamples() {
@@ -885,8 +930,8 @@ async function pickChapterForTrack() {
   return data && data.length ? data[0].n : null;
 }
 
-async function loadQuestions(lane) {
-  const isDrill = lane?.lane === "D";
+async function loadQuestions(lane, forceDrill) {
+  const isDrill = forceDrill || lane?.lane === "D";
   const { data } = isDrill
     ? await sb.rpc("due_reviews", { p_count: 6 })
     : await sb.rpc("next_in_chapter", { p_chapter: S.chapter, p_count: lane?.target_questions || 4 });
@@ -1103,6 +1148,7 @@ Object.assign(window, { signIn, signOut, goLanding, openTrack, openBook, openCha
   practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly,
   startQuiz, startPaper, submitTest,
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
+  askCoachWhatNow, runCoachPlan,
   readPaper, extractOne, solveBlanks, updateDest });
 </script>
 </body>
