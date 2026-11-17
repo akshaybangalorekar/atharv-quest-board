@@ -143,6 +143,8 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
     <div class="bar">
       <button class="go" onclick="startSession()">Start with the coach →</button>
       <button class="ghost" onclick="openBook()">Look at the book</button>
+      <button class="ghost" onclick="startQuiz()">Chapter quiz</button>
+      <button class="ghost" onclick="startPaper()">AMC paper</button>
     </div>
     <div class="hint" id="trackHint"></div>
   </div>
@@ -188,6 +190,30 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
   </div>
 </main>
 
+<!-- a test -->
+<main id="exam" class="hidden">
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <div><div class="k" id="examKind">Test</div><div class="big" style="font-size:20px" id="examWhere"></div></div>
+    <div style="text-align:right"><div class="k">Time left</div><div class="big" id="clock" style="font-size:24px">--:--</div></div>
+  </div>
+  <div class="card">
+    <div class="hint" style="margin:0 0 12px">No hints, no help. Nothing is revealed until you submit.</div>
+    <div id="examList" style="display:grid;gap:12px"></div>
+    <div class="bar"><button class="go" id="subBtn" onclick="submitTest()">Submit the test</button></div>
+    <div class="err" id="examErr"></div>
+  </div>
+</main>
+
+<main id="results" class="hidden">
+  <div class="card">
+    <div class="k">Result</div>
+    <div class="big" id="resScore">—</div>
+    <div class="sub" id="resPct"></div>
+  </div>
+  <div class="card"><div class="k">Question by question</div><table><tbody id="resItems"></tbody></table></div>
+  <div class="card"><button class="ghost" onclick="goLanding()">← Back</button></div>
+</main>
+
 <!-- the book -->
 <main id="book" class="hidden">
   <div class="card">
@@ -224,7 +250,7 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function show(id) {
-  ["signin", "landing", "track", "session", "book", "chapter"].forEach((m) => $(m).classList.add("hidden"));
+  ["signin", "landing", "track", "session", "book", "chapter", "exam", "results"].forEach((m) => $(m).classList.add("hidden"));
   $(id).classList.remove("hidden");
   $("homeBtn").classList.toggle("hidden", id === "landing" || id === "signin");
   window.scrollTo(0, 0);
@@ -559,6 +585,70 @@ async function uploadWorking(input) {
   input.value = "";
 }
 
+/* ---------------------------------------------------------------- test -- */
+let T = { id: null, left: 0, timer: null };
+
+async function startTest(chapter, minutes) {
+  const isQuiz = !!chapter;
+  const { data, error } = await sb.rpc("start_exam", isQuiz
+    ? { p_kind: "quiz", p_chapters: [chapter], p_count: 5, p_minutes: 20, p_pass: 80 }
+    : { p_kind: "mock", p_chapters: null, p_count: 30, p_minutes: 60, p_pass: 70 });
+  if (error) { alert(error.message); return; }
+  T.id = data.exam_id; T.left = (data.minutes || 20) * 60;
+  show("exam");
+  $("examKind").textContent = isQuiz ? "Chapter quiz" : "AMC paper";
+  $("examWhere").textContent = isQuiz ? `Chapter ${chapter} · ${data.items.length} questions` : `${data.items.length} questions · 135 marks`;
+  $("examList").innerHTML = data.items.map((q, n) => `
+    <div class="qcard" style="border-width:1px;border-color:var(--line)">
+      <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
+      <div class="q" style="font-size:17px">${esc(q.prompt)}</div>
+      <input data-chapter="${q.chapter}" data-idx="${q.idx}" placeholder="Your answer" autocomplete="off">
+    </div>`).join("");
+  clearInterval(T.timer);
+  const tick = () => {
+    const m = Math.floor(T.left / 60), sec = T.left % 60;
+    $("clock").textContent = `${m}:${String(sec).padStart(2, "0")}`;
+    if (T.left <= 0) { clearInterval(T.timer); submitTest(); }
+    T.left--;
+  };
+  tick(); T.timer = setInterval(tick, 1000);
+}
+
+function currentChapter() {
+  const r = (S.plan ?? []).find((x) => x.chapter);
+  return r ? r.chapter : (S.chapter || 1);
+}
+function startQuiz() { startTest(currentChapter(), 20); }
+function startPaper() { startTest(null, 60); }
+
+async function submitTest() {
+  clearInterval(T.timer);
+  $("subBtn").disabled = true; $("examErr").textContent = "Marking…";
+  for (const el of [...document.querySelectorAll("#examList input")]) {
+    if (!el.value.trim()) continue;
+    await sb.rpc("submit_answer", {
+      p_chapter: Number(el.dataset.chapter), p_idx: Number(el.dataset.idx),
+      p_answer: el.value.trim(), p_hints: 0, p_working: false,
+      p_mode: "mock", p_seconds: null, p_exam_id: T.id,
+    });
+  }
+  const { data, error } = await sb.rpc("finish_exam", { p_exam_id: T.id });
+  $("subBtn").disabled = false;
+  if (error) { $("examErr").textContent = error.message; return; }
+  $("examErr").textContent = "";
+  show("results");
+  $("resScore").textContent = `${data.score} / ${data.total}`;
+  $("resPct").textContent = `${data.pct}% · ${data.passed ? "passed" : "not passed yet"}`;
+  $("resItems").innerHTML = (data.items ?? []).map((it, n) => {
+    const mark = it.ok === true ? `<span class="pill ok">right</span>` : it.ok === false
+      ? `<span class="pill red">wrong</span>` : `<span class="pill grey">to mark</span>`;
+    return `<tr><td style="width:44px">Q${n + 1}</td><td>${mark}
+      <div class="sub">he wrote: ${esc(it.answer_given ?? "—")}</div>
+      <div class="sub">${esc(it.method ?? "")}</div></td></tr>`;
+  }).join("");
+  loadContext();
+}
+
 /* ---------------------------------------------------------------- util -- */
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
@@ -569,7 +659,8 @@ start();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 
 Object.assign(window, { signIn, signOut, goLanding, openTrack, openBook, openChapter,
-  practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly });
+  practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly,
+  startQuiz, startPaper, submitTest });
 </script>
 </body>
 </html>
