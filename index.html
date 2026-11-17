@@ -199,6 +199,8 @@ h1{font-size:17px;letter-spacing:-.01em}
 .row3{display:flex;gap:8px;flex-wrap:nowrap}
 .row3 button{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   padding:11px 8px;font-size:13.5px}
+.timer.warn{color:var(--amber)}
+.timer.over{color:var(--red)}
 </style>
 </head>
 <body>
@@ -632,7 +634,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.7.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.8.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1759,7 +1761,12 @@ function startBudget(mins) {
   const bar = $("budgetBar");
   if (!bar) return;
   bar.classList.remove("hidden");
-  $("budgetLabel").textContent = `${mins} minutes · work on your own, then come back`;
+  const sit = S.sitting;
+  $("budgetLabel").textContent = sit
+    ? `${sit.minutes} minutes · chapter ${sit.chapter}` +
+      (sit.parts > 1 ? ` · part ${sit.part} of ${sit.parts}` : "") +
+      (sit.topup_questions ? ` · then ${sit.topup_questions} from chapter ${sit.topup_chapter}` : "")
+    : `${mins} minutes · work on your own, then come back`;
   const tick = () => {
     const m = Math.floor(left / 60), sec = left % 60;
     $("budgetClock").textContent = `${m}:${String(sec).padStart(2, "0")}`;
@@ -1786,9 +1793,10 @@ async function startSolo(chapterArg) {
   show("session");
   paintActions();
   S.chapter = chapter;
-  startBudget(30);
+  await planSitting(60);
+  startBudget(S.sitting?.minutes ?? 60);
   try {
-    await buildScript({ lane: "Q", target_questions: 4 }, null);
+    await buildScript({ lane: "Q", target_questions: S.sitting?.questions ?? 8 }, null);
   } catch (e) {
     bubble("coach", "Something went wrong loading the questions: " + e.message);
     return;
@@ -1857,8 +1865,9 @@ async function startSession(chapterOverride, forceMode, mode) {
   $("chatWrap").innerHTML = "";
   show("session");
 
-  const mins = S.planAction?.minutes ?? (S.plan.find((p) => p.lane !== "R")?.minutes) ?? 30;
-  startBudget(mins);
+  const mins = S.planAction?.minutes ?? (S.plan.find((p) => p.lane !== "R")?.minutes) ?? 60;
+  await planSitting(mins);
+  startBudget(S.sitting?.minutes ?? mins);
 
   const lane = S.plan.find((p) => p.lane !== "R");
   const bankChapter = await pickChapterForTrack();
@@ -1903,6 +1912,14 @@ async function beginWork() {
   nextStep();
 }
 
+/* how this hour is spent: what fits, whether it is part of a chapter, and what
+   fills the tail if the chapter is nearly done */
+async function planSitting(minutes) {
+  const { data } = await sb.rpc("sitting_plan", { p_minutes: minutes ?? 60 });
+  S.sitting = data ?? null;
+  return S.sitting;
+}
+
 async function buildScript(lane, forceMode) {
   const { data: exs } = await sb.from("examples").select("*").eq("chapter", S.chapter).order("n");
 
@@ -1925,6 +1942,15 @@ async function buildScript(lane, forceMode) {
     ...(forceMode === "drill" ? [] : (exs ?? [])).map((e) => ({ type: "example", data: e })),
     ...(qs ?? []).map((q) => ({ type: "question", data: q })),
   ];
+
+  // if the chapter is nearly done, the rest of the hour goes to the next one
+  if (S.sitting?.topup_chapter && S.sitting?.topup_questions > 0) {
+    const { data: extra } = await sb.rpc("next_in_chapter", {
+      p_chapter: S.sitting.topup_chapter, p_count: S.sitting.topup_questions,
+    });
+    S.script.push(...(extra ?? []).map((q) => ({ type: "question", data: q })));
+    S.topupFrom = S.sitting.topup_chapter;
+  }
   S.si = 0;
 }
 
@@ -1999,6 +2025,15 @@ function showQuestion(q) {
   el.scrollIntoView({ behavior: "smooth", block: "end" });
   autoFigure("question", q.idx, "qFig", q.prompt, q.diagram_svg);
   S.startedAt = Date.now(); S.nudged = 0;
+  S.qBudget = 150;
+  sb.rpc("question_budget", { p_chapter: q.chapter, p_idx: q.idx }).then(({ data }) => {
+    if (typeof data === "number" && data > 0) {
+      S.qBudget = data;
+      const t = $("qtimer");
+      if (t && !$("qfb")?.textContent) t.dataset.budget = String(data);
+      paintQuestionClock();
+    }
+  });
   clearInterval(S.ticker);
   S.ticker = setInterval(tickQuestion, 1000);
   setTimeout(() => $("ans")?.focus(), 250);
@@ -2008,24 +2043,36 @@ function showQuestion(q) {
    answer. She asks him to talk while he works, and gives him one thing to think
    about. Three check-ins at most, each later than the last. */
 const NUDGES = [
-  { at: 100, said: () =>
+  { at: 1.0, said: () =>
     "You are taking your time, which is fine. Talk to me while you work — tap Talk and say what you are trying, out loud. Saying it usually shows you the next step." },
-  { at: 240, said: (q) =>
+  { at: 1.8, said: (q) =>
     `Still on it. Three questions, answer any one out loud: What is it asking for? What do you already know? What is the first small thing you could work out?${q ? "" : ""}` },
-  { at: 420, said: () =>
+  { at: 3.0, said: () =>
     "Do not sit and stare at it. Tell me the bit you are stuck on — the start, the middle, or the sum at the end — and I will take you from there. Or tap Photo and show me your working." },
 ];
+
+/* the clock shows how long he has, not just how long he has taken */
+function paintQuestionClock() {
+  const el = $("qtimer");
+  if (!el) return;
+  const s = Math.floor((Date.now() - S.startedAt) / 1000);
+  const budget = S.qBudget ?? 150;
+  const mm = (x) => `${Math.floor(x / 60)}:${String(x % 60).padStart(2, "0")}`;
+  el.textContent = `${mm(s)} / ${mm(budget)}`;
+  el.classList.toggle("warn", s >= budget);
+  el.classList.toggle("over", s >= budget * 2);
+}
 
 function tickQuestion() {
   const s = Math.floor((Date.now() - S.startedAt) / 1000);
   const el = $("qtimer");
   if (!el) { clearInterval(S.ticker); return; }
-  el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-  el.classList.toggle("warn", s >= 240);
+  paintQuestionClock();
 
   const n = S.nudged ?? 0;
   const step = NUDGES[n];
-  if (step && s >= step.at && !$("qfb")?.textContent) {
+  const due = step && s >= Math.round(step.at * (S.qBudget ?? 150));
+  if (due && !$("qfb")?.textContent) {
     S.nudged = n + 1;
     const b = bubble("coach", step.said());
     if (b) {
