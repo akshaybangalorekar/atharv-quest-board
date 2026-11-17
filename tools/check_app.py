@@ -43,8 +43,9 @@ i = js.find("api = {"); j = js.find("} catch", i)
 if i > 0 and j > i:
     api_names = {x.strip() for x in re.split(r'[,\n]', js[i:j].replace("try {", "").replace("api = {", ""))
                  if x.strip() and x.strip() not in ("}", ";", "};")}
-unknown = sorted(handlers - defined - api_names)
-if unknown: fails.append(f"onclick handlers not defined: {unknown}")
+# inline HTML can only call globals, so every handler must be exported
+not_exported = sorted(h for h in handlers if h not in api_names and h not in ("alert","confirm","prompt"))
+if not_exported: fails.append(f"onclick handlers not reachable from HTML (not exported): {not_exported}")
 
 # 4b. functions called but never defined (the bug that broke the app twice)
 BUILTIN = {"if","for","while","switch","catch","return","typeof","Number","String","Boolean","Array","Object",
