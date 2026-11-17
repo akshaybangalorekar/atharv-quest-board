@@ -1126,6 +1126,7 @@ async function openBook() {
 async function openChapter(n) {
   show("chapter");
   S.chapter = n;
+  sb.rpc("log_visit", { p_chapter: n, p_source: "book" });
   const { data: c } = await sb.from("chapters").select("*").eq("n", n).single();
   const { data: note } = await sb.from("chapter_notes").select("*").eq("chapter", n).maybeSingle();
   const { data: exs } = await sb.from("examples").select("*").eq("chapter", n).order("n");
@@ -1157,7 +1158,10 @@ async function openChapter(n) {
     </div>`).join("") || `<div class="sub">No worked examples in this chapter — the book goes straight to questions.</div>`;
 }
 
-function practiseChapter() { startSession(S.chapter); }
+function practiseChapter() {
+  sb.rpc("log_visit", { p_chapter: S.chapter, p_source: "solo-practice" });
+  startSession(S.chapter, null, "solo");
+}
 
 /* ----------------------------------------------------------- the session - */
 function bubble(role, text) {
@@ -1179,7 +1183,8 @@ async function callCoach({ mode, note }) {
   return data?.reply ?? null;
 }
 
-async function startSession(chapterOverride, forceMode) {
+async function startSession(chapterOverride, forceMode, mode) {
+  S.workMode = mode === "solo" ? "solo" : "quest";
   S.chat = []; S.qs = []; S.i = 0; S.nudged = false;
   $("chatWrap").innerHTML = "";
   show("session");
@@ -1197,7 +1202,10 @@ async function startSession(chapterOverride, forceMode) {
   }
 
   bubble("think", "…");
-  const greet = await callCoach({ mode: "greet" });
+  const greet = await callCoach({
+    mode: "greet",
+    note: mode === "solo" ? "He chose this chapter himself rather than following the plan. Acknowledge that." : undefined,
+  });
   document.querySelector(".msg.think")?.remove();
   bubble("coach", greet ?? `Hello. Today we are on chapter ${S.chapter}. Open the book and tell me when you are ready.`);
   S.chat.push({ role: "coach", text: greet ?? "" });
@@ -1321,7 +1329,7 @@ async function check() {
   const secs = Math.round((Date.now() - S.startedAt) / 1000);
   const { data, error } = await sb.rpc("submit_answer", {
     p_chapter: q.chapter, p_idx: q.idx, p_answer: val, p_hints: 0,
-    p_working: false, p_mode: "quest", p_seconds: secs, p_exam_id: null,
+    p_working: false, p_mode: S.workMode || "quest", p_seconds: secs, p_exam_id: null,
   });
   $("chk").disabled = false;
   if (error) { $("qfb").innerHTML = `<div class="fb wrong">${esc(error.message)}</div>`; return; }
