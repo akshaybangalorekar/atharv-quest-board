@@ -249,6 +249,7 @@ h1{font-size:17px;letter-spacing:-.01em}
   <div class="card" style="padding:14px 20px">
     <div class="k">Look back</div>
     <div class="bar">
+      <button class="ghost small" onclick="startPlacement()">Placement check</button>
       <button class="ghost small" onclick="openDash()">Progress</button>
       <button class="ghost small" onclick="openJournal()">Journal</button>
       <button class="ghost small" onclick="openFormula()">Formula board</button>
@@ -332,6 +333,7 @@ h1{font-size:17px;letter-spacing:-.01em}
     <div class="sub" id="pSummary"></div>
     <div class="bar">
       <button class="go small" onclick="openParentChat()">Ask the coach →</button>
+      <button class="ghost small" onclick="startPlacement()">Placement check</button>
       <button class="ghost small" onclick="openDash()">Progress</button>
       <button class="ghost small" onclick="parentWeekly()">This week's summary</button>
     </div>
@@ -1413,6 +1415,7 @@ function runCoachPlan() {
   unlockAudio();
   speak("Right, let's begin.");        // said inside the tap, so iOS allows it
   if (p.action === "mock") return startMock();
+  if (p.action === "placement") return startPlacement();
   if (p.action === "paper") return startTest(null, 60);
   if (p.action === "quiz") return startTest(p.chapter || currentChapter(), 20);
   if (p.action === "drill") return startSession(null, "drill");
@@ -2184,6 +2187,30 @@ async function uploadWorking(input) {
 
 /* ---------------------------------------------------------------- test -- */
 let T = { id: null, left: 0, timer: null };
+
+async function startPlacement() {
+  const { data, error } = await sb.rpc("start_placement", { p_count: 12 });
+  if (error) { alert(error.message); return; }
+  T.id = data.exam_id; T.left = (data.minutes || 20) * 60;
+  show("exam");
+  $("examKind").textContent = "Placement check · 12 questions, 20 minutes";
+  $("examWhere").textContent = "Twelve questions from across the book, easiest first";
+  $("examList").innerHTML = data.items.map((q, n) => `
+    <div class="qcard" style="border-width:1px;border-color:var(--line)">
+      <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
+      <div class="q" style="font-size:17px">${esc(q.prompt)}</div>
+      ${q.diagram_svg ? `<div class="diagram">${q.diagram_svg}</div>` : ""}
+      <input data-chapter="${q.chapter}" data-idx="${q.idx}" placeholder="Your answer" autocomplete="off">
+    </div>`).join("");
+  clearInterval(T.timer);
+  const tick = () => {
+    const m = Math.floor(T.left / 60), sec = T.left % 60;
+    $("clock").textContent = `${m}:${String(sec).padStart(2, "0")}`;
+    if (T.left <= 0) { clearInterval(T.timer); submitTest(); }
+    T.left--;
+  };
+  tick(); T.timer = setInterval(tick, 1000);
+}
 
 async function runExam(body, label) {
   const { data, error } = await sb.rpc("start_exam", body);
