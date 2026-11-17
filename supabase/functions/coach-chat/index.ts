@@ -50,8 +50,8 @@ const MODES: Record<string, string> = {
   greet: `Open the session. Say hello in one line, name today's topic from the plan, and say what
 you are doing together in one line. The app is showing the chapter's worked examples on screen
 underneath your message, so do not tell him to fetch a book — say the examples are on screen,
-and mention the book page only as somewhere the pictures are if he wants them. End by asking him
-to read the examples and tell you when he is ready. Do not start teaching yet.`,
+and mention the book page only as somewhere the pictures are if he wants them. Say how long the session is, in one short phrase, using the minutes in the plan.
+End by asking him to read the examples and tell you when he is ready. Do not start teaching yet.`,
 
   reply: `Continue the session. Answer what he just said or did, in two or three short
 sentences, then give him the next single step or ask one question.`,
