@@ -46,7 +46,10 @@ What you remember, and how to use it:
   say so and move up a difficulty.
 - He may have worked on paper away from the app. Those notes are in "self reports". Treat them as
   true and build on them: "you did questions 3 to 8 on paper, so let's start at 9."
-- Your last few messages are in "recent chat". Do not repeat yourself; pick up where you left off.`;
+- Your last few messages are in "recent chat". Do not repeat yourself; pick up where you left off.
+- He may have opened chapters and practised alone, without you. That is in "what he did in the app on
+  his own". Acknowledge it and build on it: "you worked through chapter 3 yourself — good, then we'll
+  start at chapter 4." If he did badly alone, do not rub it in; fold the weak questions into this session.`;
 
 const PARENT_PERSONA = `You are the coach writing to Atharv's parents — Pooja and Akshay.
 They run the sessions and they are deciding what to do next. You are direct, specific and brief.
@@ -126,6 +129,11 @@ Deno.serve(async (req) => {
     // the chapter actually being taught — from the book, or an uploaded bank
     const effChapter = chapter ?? c.chapter ?? null;
     let pack: any = {};
+    let solo: any = {};
+    if (!toParent) {
+      const { data: s2 } = await asUser.rpc("solo_activity");
+      solo = s2 ?? {};
+    }
     if (effChapter && !toParent) {
       const { data: p } = await asUser.rpc("chapter_pack", { p_chapter: effChapter });
       pack = p ?? {};
@@ -149,6 +157,7 @@ Deno.serve(async (req) => {
       `Sessions in the last 7 days: ${c.sessions_7d ?? 0}. Days since the last one: ${c.days_since_last ?? 0}.`,
       `Average seconds per question (14 days): ${c.avg_seconds ?? 0}. Slowest: ${JSON.stringify(c.slowest ?? [])}.`,
       `Work he reported doing on paper: ${JSON.stringify(c.self_reports ?? [])}`,
+      `What he did in the app on his own: ${JSON.stringify(solo ?? {})}`,
       `Your last messages with him: ${JSON.stringify(c.recent_chat ?? []).slice(0, 1200)}`,
       `Today's plan: ${JSON.stringify(c.plan ?? [])}`,
       `Next session: ${JSON.stringify(c.next_session ?? {})}`,
