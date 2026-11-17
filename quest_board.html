@@ -275,20 +275,21 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 
     <label class="k">Exam</label>
     <select id="upBank" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px"
-            onchange="document.getElementById('upExam').textContent=this.options[this.selectedIndex].text"></select>
+            onchange="document.getElementById('upExam').textContent=this.options[this.selectedIndex].text;updateDest()"></select>
 
     <label class="k">Strand</label>
-    <input id="upStrand" placeholder="Sequences, Codes, Data…" style="margin-bottom:12px">
+    <input id="upStrand" placeholder="Sequences, Codes, Data…" style="margin-bottom:12px" oninput="updateDest()">
 
     <label class="k">Questions</label>
     <textarea id="upRows" rows="8" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px"
       placeholder="One per line, question then a pipe then the answer:&#10;Next: 2, 6, 12, 20, … | 30&#10;Odd one out: 4, 9, 16, 25, 30 | 30&#10;Leave the answer empty if a person should mark it."></textarea>
 
     <div class="bar">
-      <button class="ghost small" onclick="document.getElementById('upFile').click()">📄 Upload a paper (jpg, png, pdf)</button>
-      <input type="file" id="upFile" accept="image/*,application/pdf" multiple class="hidden" onchange="readPaper(this)">
+      <button class="ghost small" onclick="document.getElementById('upFile').click()">📄 Upload files (pdf, jpg, png, md, html, txt, docx)</button>
+      <input type="file" id="upFile" multiple class="hidden" onchange="readPaper(this)">
     </div>
-    <div class="hint" id="upNote">A paper is read page by page and the questions land in the box above, for you to check before anything is saved.</div>
+    <div class="hint" id="upDest" style="color:var(--acc);font-weight:600">Going into: —</div>
+    <div class="hint" id="upNote">Files are read and the questions land in the box above, for you to check before anything is saved.</div>
 
     <div class="bar" style="margin-top:14px">
       <button class="go small" id="upAdd" onclick="submitUpload()">Add these questions</button>
@@ -470,50 +471,101 @@ function openUpload() {
   $("upExam").textContent = BANK_LABEL[banks[0]] ?? banks[0] ?? "—";
   $("upRows").value = ""; $("upStrand").value = "";
   $("upErr").textContent = ""; $("upDone").className = "fb hidden";
-  $("upNote").textContent = "A paper is read page by page and the questions land in the box above, for you to check before anything is saved.";
+  $("upNote").textContent = "Files are read and the questions land in the box above, for you to check before anything is saved.";
+  updateDest();
 }
 
-/* a paper: images go straight up; a pdf is rendered page by page in the browser */
+/* any file: images and pdf pages go up as pictures, documents are read as words */
 async function readPaper(input) {
   const files = [...(input.files ?? [])];
   if (!files.length) return;
   const { data: { user } } = await sb.auth.getUser();
   const note = $("upNote");
   $("upErr").textContent = "";
-  let added = 0;
+  let added = 0, suggested = "";
 
   for (const file of files) {
     try {
-      if (file.type === "application/pdf") {
+      const kind = fileKind(file);
+      note.textContent = `Reading ${file.name}…`;
+
+      if (kind === "image") {
+        added += await extractOne(file, user.id, `${Date.now()}-${safeName(file.name)}`, (st) => { suggested = suggested || st; });
+      } else if (kind === "pdf") {
         const pages = await pdfToImages(file, 10);
         for (let i = 0; i < pages.length; i++) {
-          note.textContent = `Reading page ${i + 1} of ${pages.length}…`;
-          added += await extractOne(pages[i], user.id, `${Date.now()}-p${i + 1}.jpg`);
+          note.textContent = `Reading ${file.name}, page ${i + 1} of ${pages.length}…`;
+          added += await extractOne(pages[i], user.id, `${Date.now()}-p${i + 1}.jpg`, (st) => { suggested = suggested || st; });
         }
+      } else if (kind === "text") {
+        const text = await file.text();
+        added += await extractText(text, (st) => { suggested = suggested || st; });
+      } else if (kind === "html") {
+        const html = await file.text();
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        doc.querySelectorAll("script,style").forEach((n) => n.remove());
+        added += await extractText(doc.body?.innerText ?? "", (st) => { suggested = suggested || st; });
+      } else if (kind === "docx") {
+        const mammoth = await import("https://esm.sh/mammoth@1.8.0/mammoth.browser.js");
+        const buf = await file.arrayBuffer();
+        const out = await mammoth.extractRawText({ arrayBuffer: buf });
+        added += await extractText(out.value, (st) => { suggested = suggested || st; });
       } else {
-        note.textContent = `Reading ${file.name}…`;
-        added += await extractOne(file, user.id, `${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "")}`);
+        throw new Error("that file type is not readable — try pdf, an image, or text");
       }
     } catch (e) {
-      $("upErr").textContent = "Could not read " + file.name + ": " + e.message;
+      $("upErr").textContent = `${file.name}: ${e.message}`;
     }
   }
+
+  if (suggested && !$("upStrand").value.trim()) $("upStrand").value = suggested;
+  updateDest();
   note.textContent = added
     ? `${added} question${added === 1 ? "" : "s"} read. Check them above, then press Add.`
-    : "Nothing was read from that file.";
+    : "Nothing was read from those files.";
   input.value = "";
 }
 
-async function extractOne(blob, uid, name) {
+function safeName(n) { return n.replace(/[^a-z0-9.]/gi, "").slice(-40) || "file"; }
+
+function fileKind(f) {
+  const t = (f.type || "").toLowerCase();
+  const n = (f.name || "").toLowerCase();
+  if (t.startsWith("image/")) return "image";
+  if (t === "application/pdf" || n.endsWith(".pdf")) return "pdf";
+  if (n.endsWith(".docx")) return "docx";
+  if (n.endsWith(".html") || n.endsWith(".htm") || t === "text/html") return "html";
+  if (n.endsWith(".md") || n.endsWith(".txt") || n.endsWith(".csv") || n.endsWith(".json") ||
+      t.startsWith("text/")) return "text";
+  return "unknown";
+}
+
+function updateDest() {
+  const exam = $("upBank").value;
+  const strand = $("upStrand").value.trim() || "General";
+  $("upDest").textContent = `Going into: ${BANK_LABEL[exam] ?? exam} · ${strand}`;
+}
+
+async function extractOne(blob, uid, name, onStrand) {
   const path = `${uid}/${name}`;
   const up = await sb.storage.from("papers").upload(path, blob, { upsert: true, contentType: blob.type || "image/jpeg" });
   if (up.error) throw new Error(up.error.message);
+  return await callExtract({ path }, onStrand);
+}
+
+async function extractText(text, onStrand) {
+  if (!text || text.trim().length < 20) throw new Error("no readable text in it");
+  return await callExtract({ text: text.slice(0, 60000) }, onStrand);
+}
+
+async function callExtract(body, onStrand) {
   const { data, error } = await sb.functions.invoke("extract-questions", {
-    body: { path, exam: $("upBank").value, strand: $("upStrand").value.trim() },
+    body: { ...body, exam: $("upBank").value, strand: $("upStrand").value.trim() },
   });
   if (error) throw new Error(error.message);
   if (data?.error) throw new Error(data.error);
   const rows = data?.rows ?? [];
+  if (data?.strand) onStrand(data.strand);
   if (rows.length) {
     const box = $("upRows");
     box.value = (box.value ? box.value.trim() + "\n" : "") +
@@ -539,23 +591,6 @@ async function pdfToImages(file, maxPages) {
     out.push(blob);
   }
   return out;
-}
-
-async function solveBlanks() {
-  const exam = $("upBank").value;
-  $("upErr").textContent = "Working them out…";
-  const { data, error } = await sb.functions.invoke("solve-questions", {
-    body: { exam, limit: 8 },
-  });
-  if (error || data?.error) { $("upErr").textContent = "The solver could not run: " + (error?.message || data?.error); return; }
-  const n = (data.solved ?? []).length;
-  $("upErr").textContent = "";
-  $("upDone").className = "fb right";
-  $("upDone").innerHTML = n
-    ? `<b>${n} answer${n === 1 ? "" : "s"} worked out</b>
-       <div class="m">${data.solved.map((x) => `Ch${x.chapter} Q${x.idx}: ${esc(x.answer)}${x.confident ? "" : " (unsure)"}`).join("<br>")}</div>
-       <div class="m" style="margin-top:8px">These came from the model, not the book, so they are marked unverified. Run it again for the next batch.</div>`
-    : `<b>Nothing left to solve</b><div class="m">Every question in this exam already has an answer.</div>`;
 }
 
 async function submitUpload() {
@@ -792,7 +827,8 @@ async function startSession(chapterOverride) {
   show("session");
 
   const lane = S.plan.find((p) => p.lane !== "R");
-  S.chapter = chapterOverride ?? lane?.chapter ?? null;
+  const bankChapter = await pickChapterForTrack();
+  S.chapter = chapterOverride ?? bankChapter ?? lane?.chapter ?? null;
   if (!S.chapter) {
     const { data: map } = await sb.from("v_chapter_map").select("chapter,status").order("chapter");
     const open = (map ?? []).filter((c) => c.status !== "not_started");
@@ -841,6 +877,12 @@ async function showExamples() {
     <button class="go small" onclick="this.closest('.qcard').remove()">Ready for the questions →</button>`;
   $("chatWrap").appendChild(bar);
   bar.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
+async function pickChapterForTrack() {
+  if (S.track === "olympiad" || S.track === "amc") return null;
+  const { data } = await sb.from("chapters").select("n").eq("source", S.track).order("n");
+  return data && data.length ? data[0].n : null;
 }
 
 async function loadQuestions(lane) {
@@ -1061,7 +1103,7 @@ Object.assign(window, { signIn, signOut, goLanding, openTrack, openBook, openCha
   practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly,
   startQuiz, startPaper, submitTest,
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
-  readPaper, extractOne, solveBlanks });
+  readPaper, extractOne, solveBlanks, updateDest });
 </script>
 </body>
 </html>
