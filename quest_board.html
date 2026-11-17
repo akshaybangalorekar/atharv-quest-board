@@ -50,7 +50,8 @@ th{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em
 .pill.red{background:#fdeaea;color:var(--red)}.pill.grey{background:#eeeef4;color:var(--mut)}
 .hint{font-size:13.5px;color:var(--mut);margin-top:8px}
 .xpbar{height:8px;background:#ececf5;border-radius:999px;overflow:hidden;margin-top:8px}.xpbar i{display:block;height:100%;background:var(--acc)}
-footer{width:100%;max-width:1080px;margin:0 auto;padding:0 22px 30px;font-size:12.5px;color:var(--mut);padding-bottom:max(30px, env(safe-area-inset-bottom))}
+footer{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  width:100%;max-width:1080px;margin:0 auto;padding:0 22px 30px;font-size:12.5px;color:var(--mut);padding-bottom:max(30px, env(safe-area-inset-bottom))}
 .hidden{display:none!important}
 input{font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px;width:100%;font-size:16px}
 button.go{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:14px 22px;font:inherit;font-size:17px;font-weight:600;cursor:pointer}
@@ -516,7 +517,10 @@ h1{font-size:17px;letter-spacing:-.01em}
   </div>
 </main>
 
-<footer>Marking, XP and scores are computed by the database, never by this page.</footer>
+<footer>
+  <span>Marking, XP and scores are computed by the database, never by this page.</span>
+  <span id="ver" style="white-space:nowrap"></span>
+</footer>
 
 <script src="./supabase.js"></script>
 <script type="module">
@@ -566,6 +570,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
+const APP_VERSION = "1.0.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2366,6 +2371,7 @@ if (localStorage.getItem(REMEMBER_KEY) === "0") {
 }
 
 paintArt();
+if ($("ver")) $("ver").textContent = "v" + APP_VERSION;
 $("remember").checked = remember;
 try {
   const last = localStorage.getItem(LAST_KEY);
