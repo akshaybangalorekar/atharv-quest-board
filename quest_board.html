@@ -261,7 +261,6 @@ h1{font-size:17px;letter-spacing:-.01em}
   <div class="card" style="padding:14px 20px">
     <div class="k">Look back</div>
     <div class="bar">
-      <button class="ghost small" onclick="startPlacement()">Placement check</button>
       <button class="ghost small" onclick="openDash()">Progress</button>
       <button class="ghost small" onclick="openJournal()">Journal</button>
       <button class="ghost small" onclick="openFormula()">Formula board</button>
@@ -345,7 +344,6 @@ h1{font-size:17px;letter-spacing:-.01em}
     <div class="sub" id="pSummary"></div>
     <div class="bar">
       <button class="go small" onclick="openParentChat()">Ask the coach →</button>
-      <button class="ghost small" onclick="startPlacement()">Placement check</button>
       <button class="ghost small" onclick="openDash()">Progress</button>
       <button class="ghost small" onclick="parentWeekly()">This week's summary</button>
     </div>
@@ -569,7 +567,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.1.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.2.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -710,13 +708,42 @@ function rich(text) {
 function paintActions() {
   const box = $("chatActions");
   if (!box) return;
-  const due = S.ctx?.mock?.due;
   const btns = [];
+  const c = S.ctx ?? {};
+
+  // a placement only ever appears until he has been placed once
+  if (c.placement_due) btns.push(`<button class="go small" onclick="startPlacement()">Check where I am</button>`);
+
+  // the chapter the coach has just sent him to
+  const plan = S.planAction;
+  if (plan?.chapter && plan.action === "quest" && !S.script?.length) {
+    const t = (TRACKS.find((x) => x.id === S.track) ?? {});
+    btns.push(`<button class="go small" onclick="startChapter(${plan.chapter})">Chapter ${plan.chapter} →</button>`);
+  }
+
+  if (c.mock?.due) btns.push(`<button class="go small" onclick="startMock()">Paper is due — sit it</button>`);
+
   if (S.script && S.si < S.script.length) btns.push(`<button class="ghost small" onclick="advance()">Skip this one</button>`);
-  if (S.chapter) btns.push(`<button class="ghost small" onclick="startQuiz()">Chapter quiz</button>`);
-  if (due) btns.push(`<button class="go small" onclick="startMock()">Paper is due — sit it</button>`);
-  btns.push(`<button class="ghost small" onclick="openJournal()">Journal</button>`);
+  if (S.chapter && S.script?.length) btns.push(`<button class="ghost small" onclick="startQuiz()">Chapter quiz</button>`);
   box.innerHTML = btns.join("");
+}
+
+/* she sends him to a chapter; when he is done he comes back to her */
+async function startChapter(n) {
+  await startSolo(n);
+  S.returnToCoach = true;
+}
+
+async function backToCoach() {
+  S.returnToCoach = false;
+  const done = (S.script ?? []).slice(0, S.si).filter((x) => x.type === "question").length;
+  const right = (S.script ?? []).slice(0, S.si).filter((x) => x.type === "question" && x.data?.lastOk).length;
+  show("session");
+  const note = `He has just finished chapter ${S.chapter} on his own — ${done} questions. Assess how he did and tell him what is next, in two or three lines.`;
+  const reply = await callCoach({ mode: "reply", note });
+  if (reply) bubble("coach", reply, replySpoken);
+  S.script = []; S.si = 0;
+  paintActions();
 }
 
 
@@ -1799,7 +1826,9 @@ function nextStep() {
     const done = document.createElement("div");
     done.className = "qcard";
     done.innerHTML = `<div class="q" style="font-size:16px">What next?</div>
-      <div class="bar"><button class="go small" onclick="endSession()">Call it a day</button>
+      <div class="bar">${S.returnToCoach
+        ? `<button class="go small" onclick="backToCoach()">Back to ${COACH} →</button>`
+        : `<button class="go small" onclick="endSession()">Call it a day</button>`}
       <button class="ghost small" onclick="startSolo(S.chapter)">Another one</button>
       <button class="ghost small" onclick="openDash()">See progress</button></div>`;
     $("chatWrap").appendChild(done);
@@ -2301,7 +2330,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, startPlacement, solveBlanks, paintActions, rich
+  openJournal, openFormula, tickFormula, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
