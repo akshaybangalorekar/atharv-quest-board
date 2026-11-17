@@ -649,7 +649,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.9.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.9.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -796,7 +796,16 @@ function journeyChart(j) {
     const days = Math.round((new Date(m.on) - new Date(j.today)) / 86400000);
     const soon = days <= 60;
     const col = soon ? "#ffcf6b" : "#8fd0ff";
-    const label = String(m.name).replace(/\s*(Upper Primary|Maths|Division J)\s*/gi, " ").trim() || String(m.name);
+    const short = {
+      "AAS numerical reasoning": "Camberwell",
+      "Edutest numerical reasoning": "Kilvington",
+      "AMC Upper Primary": "AMC",
+      "APSMO Division J": "APSMO",
+      "ICAS Maths": "ICAS",
+      "ELMS": "ELMS",
+    };
+    const label = short[m.name] ?? String(m.name).replace(/\s*(Upper Primary|Maths|Division J)\s*/gi, " ").trim();
+    const firm = m.status === "confirmed";
 
     // labels alternate above and below so two exams a week apart do not collide
     const up = i % 2 === 0;
@@ -810,7 +819,8 @@ function journeyChart(j) {
         <circle cx="${x}" cy="${y}" r="${soon ? 8 : 6}" fill="${col}"/>
         <ellipse cx="${x}" cy="${y}" rx="${soon ? 15 : 12}" ry="4" fill="none" stroke="${col}" stroke-opacity=".5" stroke-width="1.2"
                  transform="rotate(-16 ${x} ${y})"/>
-        <text x="${x}" y="${nameY}" fill="#dfe6ff" font-size="11.5" text-anchor="${anchor}" font-weight="600">${esc(label)}</text>
+        <text x="${x}" y="${nameY}" fill="${firm ? "#dfe6ff" : "#b9c2e8"}" font-size="11.5" text-anchor="${anchor}"
+              font-weight="${firm ? 700 : 600}" ${firm ? "" : 'opacity=".9"'}>${esc(label)}${firm ? "" : "*"}</text>
         <text x="${x}" y="${daysY}" fill="#8f9ac4" font-size="10.5" text-anchor="${anchor}">${days} days</text>
       </g>`;
   }).join("");
@@ -849,6 +859,8 @@ function journeyChart(j) {
       <text x="${todayX}" y="${todayY + 34}" fill="#cfd6f7" font-size="11" text-anchor="middle" font-weight="600">you are here</text>
       <text x="${pad}" y="${H - 12}" fill="#8f9ac4" font-size="10.5">start · ${new Date(j.start).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</text>
       <text x="${W - pad}" y="${H - 12}" fill="#8f9ac4" font-size="10.5" text-anchor="end">${j.days_left} days left</text>
+      ${exams.some((m) => m.status !== "confirmed")
+        ? `<text x="${pad}" y="20" fill="#6f7aa6" font-size="10">* date not yet published by the school</text>` : ""}
     </svg>
 
     <div class="flightFoot">
