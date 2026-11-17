@@ -68,22 +68,39 @@ Rules:
 - If something is not recorded, say "that is not in the log yet".
 - Three short paragraphs at most. No lists of platitudes. British/Australian spelling.`;
 
+const SPOKEN = `You also speak your message aloud, so every reply must carry a spoken
+version in "speak" — the same idea, said the way a teacher says it to a child sitting next to her.
+
+How to write "speak":
+- Conversational, with contractions. "Right, let's look at this one" not "Proceeding to the question".
+- Numbers in words, the way people say them: "nine hundred and ninety-nine thousand", not "999,999".
+- No symbols at all: no ×, ÷, +, =, ^, brackets, slashes, or bullet points. Say "times", "divided by",
+  "plus", "equals", "squared".
+- Never read out the question text or the method word for word. Give the gist, then ask.
+- Thirty-five words at most. One or two sentences.
+- If the written version has steps or lists, the spoken one gets the first step only.
+
+Reply with JSON only:
+{"say":"what appears on screen","speak":"what she says out loud"}`;
+
 const MODES: Record<string, string> = {
-  greet: `Open the session in four short lines at most:
+  greet: `Open the session in four short lines at most (this is the "say" field):
 1. Hello, by name — "Hi Atharv, it's Meera" — and if it is his first day, say so in a clause.
 2. What today's topic is, from the plan, and how long you have together.
 3. Then ask the check-in question in your own words, something like: "Before we start — what have
    you been doing in maths since we last met? School, TopScope, your tutor, anything?"
 4. Say you will wait for his answer.
 
-Do not start teaching. Do not list questions. Keep it warm and short.`,
+Do not start teaching. Do not list questions. Keep it warm and short.
+Also give "speak": two sentences, spoken, warm, no symbols.`,
 
   reply: `Continue the session.
 
 If he is telling you what he has been doing — school, TopScope, his tutor, IXL, the book — then
 acknowledge it in one line, and ask ONE follow-up: how confident he feels about it, on a scale of
 one to five. Reply with JSON only:
-{"say":"your reply, short","log":{"minutes":number or 0,"note":"what he did, in his own words",
+{"say":"your reply, short","speak":"the same, spoken, no symbols",
+ "log":{"minutes":number or 0,"note":"what he did, in his own words",
  "confidence":1-5 or null,"topics":["what he named"]}}
 
 If he has just told you his confidence, note it and move into the work: same JSON shape, with
@@ -92,9 +109,9 @@ confidence filled and a "say" that starts the first example.
 If he is asking something else entirely, reply with plain text and no JSON. Answer what he just said or did, in two or three short
 sentences, then give him the next single step or ask one question.`,
 
-  summary: `The session is ending. Give him a three-line closing card: what he did today,
+  summary: `The session is ending. (This is the "say" field.) Give him a three-line closing card: what he did today,
 one thing he did well (be specific, from the attempts), and one thing to hold in mind next time.
-Then say when the next session is, from the plan.`,
+Then say when the next session is, from the plan. Also give "speak": two spoken sentences.`,
 
   decide: `Decide what he should do in this session, right now. Reply with JSON only:
 {"action":"quest|drill|quiz|paper|mock|rest","chapter":number or null,"minutes":number,
@@ -207,7 +224,7 @@ Deno.serve(async (req) => {
       messages: [
         { role: "system", content: toParent
             ? `${PARENT_PERSONA}\n\nWHAT YOU KNOW RIGHT NOW:\n${parentFacts}`
-            : `${PERSONA}\n\nWHAT YOU KNOW RIGHT NOW:\n${facts}` },
+            : `${PERSONA}\n\n${SPOKEN}\n\nWHAT YOU KNOW RIGHT NOW:\n${facts}` },
         { role: "system", content: MODES[mode] ?? MODES.reply },
         ...history,
       ],
@@ -227,6 +244,22 @@ Deno.serve(async (req) => {
     let reply = (body2?.choices?.[0]?.message?.content ?? "").trim();
     if (!reply) return json({ error: "empty reply" }, 502);
 
+    // any JSON reply carries a spoken version alongside the written one
+    let spoken = "";
+    if (reply.trim().startsWith("{")) {
+      try {
+        const j = JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1));
+        if (j.speak) spoken = String(j.speak).trim();
+        if (j.say) reply = String(j.say).trim();
+        if (mode !== "reply" && mode !== "decide" && j.say) {
+          await admin.from("chat_messages").insert({
+            student_id: user.id, role: "coach", body: String(j.say), meta: { mode, track },
+          });
+          return json({ reply: String(j.say), speak: spoken });
+        }
+      } catch { /* plain text after all */ }
+    }
+
     // a reply may carry a note about work done away from the app
     if (mode === "reply" && reply.trim().startsWith("{")) {
       try {
@@ -244,7 +277,7 @@ Deno.serve(async (req) => {
           await admin.from("chat_messages").insert({
             student_id: user.id, role: "coach", body: String(j.say), meta: { mode, track },
           });
-          return json({ reply: String(j.say), logged: !!j.log });
+          return json({ reply: String(j.say), speak: String(j.speak ?? ""), logged: !!j.log });
         }
       } catch { /* not JSON: fall through and use it as words */ }
     }
@@ -264,10 +297,10 @@ Deno.serve(async (req) => {
           student_id: user.id, role: "coach", body: say,
           meta: { mode, track, plan },
         });
-        return json({ reply: say, plan });
+        return json({ reply: say, speak: String(j.speak ?? ""), plan });
       } catch {
         const plan = { action: "quest", chapter: c.chapter ?? null, minutes: 30 };
-        return json({ reply, plan });
+        return json({ reply, speak: "", plan });
       }
     }
 
@@ -289,7 +322,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ reply });
+    return json({ reply, speak: spoken });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
