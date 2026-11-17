@@ -1578,9 +1578,21 @@ async function beginWork() {
 
 async function buildScript(lane, forceMode) {
   const { data: exs } = await sb.from("examples").select("*").eq("chapter", S.chapter).order("n");
-  const { data: qs } = forceMode === "drill"
+
+  let { data: qs } = forceMode === "drill"
     ? await sb.rpc("due_reviews", { p_count: 6 })
     : await sb.rpc("next_in_chapter", { p_chapter: S.chapter, p_count: lane?.target_questions || 4 });
+
+  // fewer than three left? ask for more, in his own difficulty, then read again
+  if (forceMode !== "drill" && (qs ?? []).length < 3) {
+    const t = bubble("think", "Setting you a few more of these…");
+    try {
+      await sb.functions.invoke("make-questions", { body: { chapter: S.chapter, count: 6 } });
+      const again = await sb.rpc("next_in_chapter", { p_chapter: S.chapter, p_count: lane?.target_questions || 4 });
+      qs = again.data ?? qs;
+    } catch (_) { /* keep what we have */ }
+    t.remove();
+  }
 
   S.script = [
     ...(forceMode === "drill" ? [] : (exs ?? [])).map((e) => ({ type: "example", data: e })),
