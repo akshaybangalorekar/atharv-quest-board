@@ -113,9 +113,12 @@ the paperclip and take a picture of it." Then wait.
 If he is asking something else entirely, reply with plain text and no JSON. Answer what he just said or did, in two or three short
 sentences, then give him the next single step or ask one question.`,
 
-  summary: `The session is ending. (This is the "say" field.) Give him a three-line closing card: what he did today,
+  summary: `The session is ending. Write a note he can read back later. (This is the "say" field.) Give him a three-line closing card: what he did today,
 one thing he did well (be specific, from the attempts), and one thing to hold in mind next time.
-Then say when the next session is, from the plan. Also give "speak": two spoken sentences.`,
+Then say when the next session is, from the plan.
+Also give "title": a short, self-explanatory heading for this note, six words at most, naming what
+was actually worked on — "Place value: swapping digits", not "Session 4".
+And "speak": two spoken sentences.`,
 
   decide: `Decide what he should do in this session, right now. Reply with JSON only:
 {"action":"quest|drill|quiz|paper|mock|rest","chapter":number or null,"minutes":number,
@@ -344,7 +347,12 @@ Deno.serve(async (req) => {
       if (j.say) reply = String(j.say).trim();
       else reply = reply.replace(/^\{|\}$/g, "").replace(/"(say|speak|log)"\s*:\s*/g, "").replace(/"/g, "").trim();
     }
-    return json({ reply, speak: spoken });
+    let title = "";
+    if (reply.trim().startsWith("{")) {
+      const j = looseParse(reply);
+      if (j.title) title = String(j.title).slice(0, 80);
+    }
+    return json({ reply, speak: spoken, title });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
