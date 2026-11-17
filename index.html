@@ -223,7 +223,7 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
   </div>
 
   <div class="card" style="border:2px solid var(--acc)">
-    <div class="k">Your coach says</div>
+    <div class="k" id="coachLabel">Your coach says</div>
     <div class="q" id="coachSay" style="font-size:18px">Thinking about today…</div>
     <div class="bar"><button class="go" id="coachGo" onclick="runCoachPlan()" disabled>Start →</button></div>
     <div class="hint" id="coachWhy"></div>
@@ -270,7 +270,7 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
     </div>
     <div class="bar">
       <button class="ghost small" id="micBtn" onclick="toggleMic()">🎤 Talk</button>
-      <button class="ghost small" id="voiceBtn" onclick="toggleVoice()">🔊 Her voice</button>
+      <button class="ghost small" id="voiceBtn" onclick="toggleVoice()">🔊 ${COACH}'s voice</button>
       <button class="ghost small" onclick="document.getElementById('photo').click()">📷 My working</button>
       <input type="file" id="photo" accept="image/*" capture="environment" class="hidden" onchange="uploadWorking(this)">
       <button class="ghost small" onclick="endSession()">Call it a day</button>
@@ -505,6 +505,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
+const COACH = "Meera";   // her name, in one place
 
 function todayISO() {
   const d = new Date();
@@ -593,10 +594,10 @@ function toggleVoice() {
 
 function paintVoice() {
   const b = $("voiceBtn"), m = $("micBtn"), st = $("voiceState");
-  if (b) b.textContent = voiceOn ? "🔊 Her voice" : "🔇 Voice off";
+  if (b) b.textContent = voiceOn ? `🔊 ${COACH}'s voice` : "🔇 Voice off";
   if (m) m.textContent = listening ? "🎙 Listening…" : micArmed ? "🎤 Talk" : "🎤 Tap to talk";
   if (st) st.textContent = !voiceOn
-    ? "She is silent. Tap the speaker to hear her."
+    ? `${COACH} is silent. Tap the speaker to hear her.`
     : listening ? "Go ahead — she is listening. Stop talking and she will take it from there."
     : "She reads each message aloud. The mic opens by itself when she asks you something.";
 }
@@ -1181,6 +1182,7 @@ function goLanding() {
     </button>`;
   }).join("");
 
+  $("coachLabel").textContent = `Your coach, ${COACH}`;
   askCoachWhatNow();
 
   const done = (c.today_attempts ?? []).length;
@@ -1192,6 +1194,7 @@ function goLanding() {
 
 async function askCoachWhatNow() {
   const say = $("coachSay"), go = $("coachGo");
+  $("coachLabel").textContent = `Your coach, ${COACH}`;
   say.textContent = "Thinking about today…";
   go.disabled = true;
   const { data, error } = await sb.functions.invoke("coach-chat", { body: { mode: "decide", track: S.track } });
