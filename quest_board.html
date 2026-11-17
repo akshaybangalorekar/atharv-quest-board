@@ -585,7 +585,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.3.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.4.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -642,7 +642,7 @@ function show(id) {
 
 const S = {
   track: "olympiad", plan: [], chat: [], qs: [], i: 0,
-  chapter: null, chapterTitle: "", startedAt: 0, ticker: null, nudged: false,
+  chapter: null, chapterTitle: "", startedAt: 0, ticker: null, nudged: 0,
   examId: null, profile: null, readiness: [], ctx: null,
 };
 
@@ -1758,7 +1758,7 @@ async function pickChapterForTrack() {
 async function startSession(chapterOverride, forceMode, mode) {
   S.workMode = mode === "solo" ? "solo" : "quest";
   if (mode === "solo") return startSolo(chapterOverride);
-  S.chat = []; S.qs = []; S.i = 0; S.nudged = false;
+  S.chat = []; S.qs = []; S.i = 0; S.nudged = 0;
   $("chatWrap").innerHTML = "";
   show("session");
 
@@ -1903,11 +1903,23 @@ function showQuestion(q) {
   $("chatWrap").appendChild(el);
   el.scrollIntoView({ behavior: "smooth", block: "end" });
   autoFigure("question", q.idx, "qFig", q.prompt, q.diagram_svg);
-  S.startedAt = Date.now(); S.nudged = false;
+  S.startedAt = Date.now(); S.nudged = 0;
   clearInterval(S.ticker);
   S.ticker = setInterval(tickQuestion, 1000);
   setTimeout(() => $("ans")?.focus(), 250);
 }
+
+/* If he is stuck, she does not wait in silence and she does not hand over the
+   answer. She asks him to talk while he works, and gives him one thing to think
+   about. Three check-ins at most, each later than the last. */
+const NUDGES = [
+  { at: 100, said: () =>
+    "You are taking your time, which is fine. Talk to me while you work — tap Talk and say what you are trying, out loud. Saying it usually shows you the next step." },
+  { at: 240, said: (q) =>
+    `Still on it. Three questions, answer any one out loud: What is it asking for? What do you already know? What is the first small thing you could work out?${q ? "" : ""}` },
+  { at: 420, said: () =>
+    "Do not sit and stare at it. Tell me the bit you are stuck on — the start, the middle, or the sum at the end — and I will take you from there. Or tap Photo and show me your working." },
+];
 
 function tickQuestion() {
   const s = Math.floor((Date.now() - S.startedAt) / 1000);
@@ -1915,9 +1927,15 @@ function tickQuestion() {
   if (!el) { clearInterval(S.ticker); return; }
   el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   el.classList.toggle("warn", s >= 240);
-  if (s >= 300 && !S.nudged) {
-    S.nudged = true;
-    bubble("coach", "Five minutes on this one. Where are you up to? Send me a photo of your working and I will look at it with you.");
+
+  const n = S.nudged ?? 0;
+  const step = NUDGES[n];
+  if (step && s >= step.at && !$("qfb")?.textContent) {
+    S.nudged = n + 1;
+    bubble("coach", step.said());
+    micArmed = true;
+    paintMic();
+    $("micState").textContent = "She is asking you to think out loud — tap Talk and say what you are trying.";
   }
 }
 
