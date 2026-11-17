@@ -63,6 +63,9 @@ footer{padding-bottom:max(30px, env(safe-area-inset-bottom));}
 main{padding-bottom:max(60px, calc(env(safe-area-inset-bottom) + 40px));}
 body{-webkit-tap-highlight-color:transparent;}
 button{-webkit-user-select:none;user-select:none;}
+.out{background:#fff;border:1px solid var(--line);color:var(--mut);border-radius:999px;
+     padding:8px 16px;font:inherit;font-size:14px;cursor:pointer}
+.out:active{background:#f1f1f8}
 #iosHint{display:none;font-size:13.5px;color:var(--mut);margin-top:10px}
 </style>
 </head>
@@ -84,6 +87,7 @@ button{-webkit-user-select:none;user-select:none;}
     <button class="on" onclick="tab('kid',this)">Atharv</button>
     <button onclick="tab('parent',this)">Parent</button>
   </div>
+  <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
 </div>
 
 <main id="signin">
@@ -197,9 +201,15 @@ async function signIn() {
 
 async function start() {
   const { data: { user } } = await sb.auth.getUser();
-  if (!user) { $("signin").classList.remove("hidden"); $("tabs").style.display = "none"; return; }
+  if (!user) {
+    $("signin").classList.remove("hidden");
+    $("tabs").style.display = "none";
+    $("signOut").style.display = "none";
+    return;
+  }
   $("signin").classList.add("hidden");
   $("tabs").style.display = "flex";
+  $("signOut").style.display = "inline-block";
   tab("kid", document.querySelector("#tabs button"));
   $("todayDate").textContent = new Date().toLocaleDateString("en-AU",
     { weekday: "long", day: "numeric", month: "short" });
@@ -300,7 +310,12 @@ async function loadNextExam() {
 
 sb.auth.onAuthStateChange((_e, session) => { if (session) start(); else start(); });
 start();
-window.tab = tab; window.signIn = signIn;
+async function signOut() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+window.tab = tab; window.signIn = signIn; window.signOut = signOut;
 
 // keep the shell on the device; data still comes from the network
 if ("serviceWorker" in navigator) {
