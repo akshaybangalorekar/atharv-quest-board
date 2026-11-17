@@ -263,6 +263,17 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
     <table><tbody id="pTests"><tr><td class="sub">No tests yet.</td></tr></tbody></table>
   </div>
 
+  <div class="card">
+    <div class="k">The coach checking its own content</div>
+    <div class="sub">It reworks the questions most likely to be wrong — blanks, answers it wrote itself, and questions that mention a diagram — and proposes corrections. Nothing changes until you tick and apply.</div>
+    <div class="bar"><button class="ghost small" id="scanBtn" onclick="scanContent()">Check the content</button></div>
+    <div id="contentList" style="margin-top:12px"></div>
+    <div class="bar" id="applyBar" style="display:none">
+      <button class="go small" onclick="applyContent()">Apply the ticked ones</button>
+    </div>
+    <div class="err" id="contentMsg"></div>
+  </div>
+
   <div class="card" style="border-color:#f2c9c9">
     <div class="k" style="color:var(--red)">Start again</div>
     <div class="sub">Wipes every attempt, score, badge, streak, chat and weekly note for him, and puts his XP back to zero. The timetable, the question bank and the logins are kept. It cannot be undone.</div>
@@ -657,6 +668,49 @@ async function sendParent() {
   box.value = "";
   pBubble("me", text);
   await askParent(text);
+}
+
+async function scanContent() {
+  const btn = $("scanBtn");
+  btn.disabled = true;
+  $("contentMsg").textContent = "Reading the bank…";
+  $("contentList").innerHTML = ""; $("applyBar").style.display = "none";
+
+  const { data, error } = await sb.functions.invoke("fix-content", { body: { mode: "scan", limit: 8 } });
+  btn.disabled = false;
+  if (error || data?.error) { $("contentMsg").textContent = "Could not check: " + (error?.message || data?.error); return; }
+
+  const props = data.proposals ?? [];
+  $("contentMsg").textContent = props.length
+    ? `${props.length} of ${data.checked} checked need a change.`
+    : `All ${data.checked} checked came back right.`;
+
+  $("contentList").innerHTML = props.map((p, i) => `
+    <div class="trick" style="align-items:flex-start">
+      <input type="checkbox" data-i="${i}" checked style="width:22px;height:22px;flex:0 0 22px;margin-top:2px">
+      <div>
+        <div class="tt">Ch${p.chapter} Q${p.idx} · ${esc(p.verdict)}</div>
+        <div class="tp">${esc(p.prompt).slice(0, 160)}</div>
+        <div class="sub" style="margin-top:6px">stored: <b>${esc(p.was || "—")}</b> → proposed: <b>${esc(p.answer || "—")}</b></div>
+        <div class="sub">${esc(p.why || "")}</div>
+        <div class="te">${esc(p.method || "")}</div>
+      </div>
+    </div>`).join("");
+  $("applyBar").style.display = props.length ? "flex" : "none";
+  window.__proposals = props;
+}
+
+async function applyContent() {
+  const props = window.__proposals ?? [];
+  const picked = [...document.querySelectorAll("#contentList input:checked")]
+    .map((el) => props[Number(el.dataset.i)]).filter(Boolean);
+  if (!picked.length) { $("contentMsg").textContent = "Nothing ticked."; return; }
+
+  $("contentMsg").textContent = "Applying…";
+  const { data, error } = await sb.functions.invoke("fix-content", { body: { mode: "apply", items: picked } });
+  if (error || data?.error) { $("contentMsg").textContent = "Could not apply: " + (error?.message || data?.error); return; }
+  $("contentMsg").textContent = `${data.applied} corrected, and logged in content_changes.`;
+  $("contentList").innerHTML = ""; $("applyBar").style.display = "none";
 }
 
 async function resetProgress() {
@@ -1148,7 +1202,7 @@ Object.assign(window, { signIn, signOut, goLanding, openTrack, openBook, openCha
   practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly,
   startQuiz, startPaper, submitTest,
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
-  askCoachWhatNow, runCoachPlan,
+  askCoachWhatNow, runCoachPlan, scanContent, applyContent,
   readPaper, extractOne, solveBlanks, updateDest });
 </script>
 </body>
