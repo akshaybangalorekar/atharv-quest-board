@@ -468,7 +468,7 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
       <summary class="sub" style="cursor:pointer">The book's own wording</summary>
       <div class="sub" id="chSummary" style="margin-top:8px"></div>
     </details>
-    <div class="bar"><button class="go small" onclick="startSolo(S.chapter)">Practise this chapter →</button></div>
+    <div class="bar"><button class="go small" onclick="startSolo()">Practise this chapter →</button></div>
   </div>
   <div class="card">
     <div class="k">Worked examples</div>
@@ -1361,7 +1361,9 @@ function practiseChapter() {
 }
 
 /* straight into the questions: the coach reads the results afterwards */
-async function startSolo(chapter) {
+async function startSolo(chapterArg) {
+  const chapter = chapterArg ?? S.chapter;
+  if (!chapter) { alert("Open a chapter first, then press Practise."); return; }
   sb.rpc("log_visit", { p_chapter: chapter, p_source: "solo-practice" });
   S.workMode = "solo";
   S.chat = []; S.qs = []; S.i = 0;
@@ -1369,7 +1371,12 @@ async function startSolo(chapter) {
   show("session");
   S.chapter = chapter;
   startBudget(30);
-  await buildScript({ lane: "Q", target_questions: 4 }, null);
+  try {
+    await buildScript({ lane: "Q", target_questions: 4 }, null);
+  } catch (e) {
+    bubble("coach", "Something went wrong loading the questions: " + e.message);
+    return;
+  }
   if (!S.script.length) {
     bubble("coach", "Nothing left to do in this chapter — every question is answered.");
     return;
