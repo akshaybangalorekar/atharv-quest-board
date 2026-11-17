@@ -607,12 +607,36 @@ const S = {
   examId: null, profile: null, readiness: [], ctx: null,
 };
 
-const TRACKS = [
-  { id: "olympiad", name: "Olympiad", school: "The book and the Division J sets", note: "24 chapters · 200 Division J questions" },
-  { id: "amc", name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Thirty questions, sixty minutes" },
-  { id: "aas", name: "AAS", school: "Camberwell Grammar School", note: "Scholarship test" },
-  { id: "edutest", name: "Edutest", school: "Kilvington Grammar", note: "Scholarship test" },
+/* how each exam is introduced. Anything registered in exam_banks appears,
+   whether or not it is listed here — this only supplies the friendly words. */
+const TRACK_LOOK = {
+  olympiad: { name: "Olympiad", school: "The book and the Division J sets", note: "24 chapters · 200 Division J questions" },
+  amc:      { name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Thirty questions, sixty minutes" },
+  aas:      { name: "AAS", school: "Camberwell Grammar School", note: "Scholarship test · February 2027" },
+  edutest:  { name: "Edutest", school: "Kilvington Grammar", note: "Scholarship test · February 2027" },
+  icas:     { name: "ICAS", school: "ICAS Mathematics · August 2027", note: "Forty questions, sixty minutes" },
+  elms:     { name: "ELMS", school: "Early September 2027", note: "Selection test · McKinnon" },
+};
+
+let TRACKS = [
+  { id: "olympiad", ...TRACK_LOOK.olympiad },
 ];
+
+/* rebuilt from the database as soon as we know what exams exist */
+function buildTracks(banks) {
+  const seen = new Set();
+  const out = [];
+  const order = ["olympiad", "amc", "apsmo", "aas", "edutest", "icas", "elms"];
+  (banks ?? []).forEach((b) => {
+    const id = b.kind;
+    if (!id || seen.has(id) || id === "apsmo") return;   // Division J lives inside Olympiad
+    seen.add(id);
+    out.push({ id, ...(TRACK_LOOK[id] ?? { name: b.exam, school: "", note: "" }) });
+  });
+  out.sort((a, b) => (order.indexOf(a.id) + 99 * (order.indexOf(a.id) < 0)) - (order.indexOf(b.id) + 99 * (order.indexOf(b.id) < 0)));
+  if (out.length) TRACKS = out;
+  return TRACKS;
+}
 
 /* --------------------------------------------------------------- voice --- */
 const VOICE = { speaking: false, lastWas: "" };
@@ -947,6 +971,11 @@ async function start() {
     return;
   }
   goLanding();
+}
+
+async function loadBanks() {
+  const { data } = await sb.from("exam_banks").select("exam, kind, chapter_from, chapter_to").order("chapter_from");
+  buildTracks(data);
 }
 
 async function loadContext() {
@@ -1315,7 +1344,9 @@ function goLanding() {
     : "Today is a rest day.";
 
   const readinessFor = (id) => {
-    const hit = S.readiness.find((r) => (r.exam || "").toLowerCase().includes(id === "olympiad" ? "olympiad" : id));
+    const t = TRACKS.find((x) => x.id === id);
+    const want = (t ? (t.name || "") : id).toLowerCase();
+    const hit = S.readiness.find((r) => (r.exam || "").toLowerCase().startsWith(want.slice(0, 4)));
     return hit ? hit.verdict : "no_content";
   };
   const words = { ready: "Content is enough", too_early: "Just started", in_progress: "Keep going",
