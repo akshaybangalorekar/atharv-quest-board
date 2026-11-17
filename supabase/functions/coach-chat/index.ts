@@ -64,16 +64,27 @@ Rules:
 - Three short paragraphs at most. No lists of platitudes. British/Australian spelling.`;
 
 const MODES: Record<string, string> = {
-  greet: `Open the session. Say hello in one line, name today's topic from the plan, and say what
-you are doing together in one line. The app is showing the chapter's worked examples on screen
-underneath your message, so do not tell him to fetch a book — say the examples are on screen,
-and mention the book page only as somewhere the pictures are if he wants them. If this is his first day, say that in one clause. Say how long the session is, in one short phrase, using the minutes in the plan.
-End by asking him to read the examples and tell you when he is ready. Do not start teaching yet.`,
+  greet: `Open the session in four short lines at most:
+1. Hello, by name. If it is his first day, say so in a clause.
+2. What today's topic is, from the plan, and how long you have together.
+3. Then ask the check-in question in your own words, something like: "Before we start — what have
+   you been doing in maths since we last met? School, TopScope, your tutor, anything?"
+4. Say you will wait for his answer.
 
-  reply: `Continue the session. He may tell you about work done elsewhere — TopScope homework, an
-IXL section from his tutor, a page of the book. When he does, reply with JSON only:
-{"say":"your normal short reply","log":{"minutes":number or 0,"note":"what he did, in his words, one line"}}
-If he reports nothing of the sort, reply with plain text and no JSON. Answer what he just said or did, in two or three short
+Do not start teaching. Do not list questions. Keep it warm and short.`,
+
+  reply: `Continue the session.
+
+If he is telling you what he has been doing — school, TopScope, his tutor, IXL, the book — then
+acknowledge it in one line, and ask ONE follow-up: how confident he feels about it, on a scale of
+one to five. Reply with JSON only:
+{"say":"your reply, short","log":{"minutes":number or 0,"note":"what he did, in his own words",
+ "confidence":1-5 or null,"topics":["what he named"]}}
+
+If he has just told you his confidence, note it and move into the work: same JSON shape, with
+confidence filled and a "say" that starts the first example.
+
+If he is asking something else entirely, reply with plain text and no JSON. Answer what he just said or did, in two or three short
 sentences, then give him the next single step or ask one question.`,
 
   summary: `The session is ending. Give him a three-line closing card: what he did today,
@@ -163,6 +174,7 @@ Deno.serve(async (req) => {
       `Average seconds per question (14 days): ${c.avg_seconds ?? 0}. Slowest: ${JSON.stringify(c.slowest ?? [])}.`,
       `Work he reported doing on paper: ${JSON.stringify(c.self_reports ?? [])}`,
       `What he did in the app on his own: ${JSON.stringify(solo ?? {})}`,
+      `His last check-in: ${JSON.stringify(c.self_reports?.[0] ?? {})}`,
       `Your last messages with him: ${JSON.stringify(c.recent_chat ?? []).slice(0, 1200)}`,
       `Today's plan: ${JSON.stringify(c.plan ?? [])}`,
       `Next session: ${JSON.stringify(c.next_session ?? {})}`,
@@ -215,10 +227,13 @@ Deno.serve(async (req) => {
       try {
         const j = JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1));
         if (j.say) {
-          if (j.log && (j.log.note || j.log.minutes)) {
+          if (j.log && (j.log.note || j.log.minutes || j.log.confidence)) {
             await admin.from("self_reports").insert({
-              student_id: user.id, minutes: Number(j.log.minutes) || 0,
+              student_id: user.id,
+              minutes: Number(j.log.minutes) || 0,
               note: String(j.log.note ?? "").slice(0, 400),
+              confidence: Number.isFinite(j.log.confidence) ? Math.min(5, Math.max(1, j.log.confidence)) : null,
+              topics: Array.isArray(j.log.topics) ? j.log.topics.slice(0, 6).map(String) : null,
             });
           }
           await admin.from("chat_messages").insert({
