@@ -557,9 +557,11 @@ function pickVoice() {
   const voices = window.speechSynthesis?.getVoices?.() ?? [];
   if (!voices.length) return;
   const au = voices.filter((v) => /en[-_]AU/i.test(v.lang));
-  // Karen and Catherine are the Australian voices iPadOS ships with
-  auVoice = au.find((v) => /karen|catherine|matilda|lee/i.test(v.name)) || au[0]
+  const quality = (v) => (/enhanced|premium|siri/i.test(v.name) ? 2 : 0) +
+                         (/karen|catherine|matilda|lee/i.test(v.name) ? 1 : 0);
+  auVoice = au.slice().sort((a, b) => quality(b) - quality(a))[0]
          || voices.find((v) => /en[-_]GB/i.test(v.lang)) || voices[0];
+  window.__voiceIsEnhanced = /enhanced|premium|siri/i.test(auVoice?.name ?? "");
 }
 if (window.speechSynthesis) {
   pickVoice();
@@ -578,8 +580,8 @@ function speak(text) {
   const u = new SpeechSynthesisUtterance(clean);
   u.lang = "en-AU";
   if (auVoice) u.voice = auVoice;
-  u.rate = 0.88;          // slow and clear
-  u.pitch = 1.02;
+  u.rate = 0.92;          // slow and clear
+  u.pitch = 1.0;          // flat pitch sounds less robotic than a raised one
   u.onstart = () => { VOICE.speaking = true; stopListening(); };
   u.onend = () => { VOICE.speaking = false; maybeListen(clean); };
   window.speechSynthesis.speak(u);
@@ -596,20 +598,25 @@ function paintVoice() {
   const b = $("voiceBtn"), m = $("micBtn"), st = $("voiceState");
   if (b) b.textContent = voiceOn ? `🔊 ${COACH}'s voice` : "🔇 Voice off";
   if (m) m.textContent = listening ? "🎙 Listening…" : micArmed ? "🎤 Talk" : "🎤 Tap to talk";
-  if (st) st.textContent = !voiceOn
+  if (st && !window.__voiceIsEnhanced && voiceOn) {
+    st.textContent = "Tip: for a warmer voice, download the Enhanced Australian voice in Settings → Accessibility → Spoken Content → Voices → English (Australia).";
+  } else if (st) st.textContent = !voiceOn
     ? `${COACH} is silent. Tap the speaker to hear her.`
     : listening ? "Go ahead — she is listening. Stop talking and she will take it from there."
     : "She reads each message aloud. The mic opens by itself when she asks you something.";
 }
 
-/* ---------- the mic: opens when she asks, closes when he stops ---------- */
+/* ---------- the mic: opens when she asks, waits for him to finish ---------- */
 function maybeListen(lastSaid) {
   if (!micArmed || listening || !lastSaid) return;
   const asked = /\?\s*$/.test(lastSaid) || /tell me|what do you think|how did you|ready\?/i.test(lastSaid.slice(-120));
-  if (asked) startListening(6000);
+  if (asked) startListening();
 }
 
-function startListening(ms = 8000) {
+const SILENCE_MS = 2600;      // how long he can pause before she takes it
+const MAX_LISTEN_MS = 45000;  // never listen longer than this
+
+function startListening() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { $("voiceState").textContent = "This browser cannot listen. Type instead."; return; }
   if (listening) return;
@@ -617,33 +624,59 @@ function startListening(ms = 8000) {
   recog = new SR();
   recog.lang = "en-AU";
   recog.interimResults = true;
-  recog.continuous = false;
+  recog.continuous = true;      // keep listening through his pauses
   recog.maxAlternatives = 1;
 
-  let finalText = "";
+  let silence = null, hardStop = null, finished = false;
   listening = true; paintVoice();
+  $("voiceState").textContent = "Listening — take your time. Pause when you are done.";
+
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(silence); clearTimeout(hardStop);
+    listening = false;
+    try { recog?.stop(); } catch (_) {}
+    recog = null;
+    paintVoice();
+    const text = $("say").value.trim();
+    if (text) sendMe();
+  };
+  S.finishListening = finish;
+
+  const bumpSilence = () => {
+    clearTimeout(silence);
+    silence = setTimeout(finish, SILENCE_MS);
+  };
 
   recog.onresult = (e) => {
     let interim = "";
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const r = e.results[i];
-      if (r.isFinal) finalText += r[0].transcript;
+      if (r.isFinal) $("say").value = ($("say").value + " " + r[0].transcript).trim();
       else interim += r[0].transcript;
     }
-    $("say").value = (finalText + interim).trim();
+    if (interim) {
+      $("say").value = ($("say").dataset.base ?? "") + interim;
+    } else {
+      $("say").dataset.base = $("say").value;
+    }
+    bumpSilence();
   };
-  recog.onerror = () => { stopListening(); };
-  recog.onend = () => {
-    stopListening();
-    const text = $("say").value.trim();
-    if (text) { sendMe(); }
-  };
+  recog.onerror = () => finish();
+  recog.onend = () => { if (!finished) bumpSilence(); };   // let the pause timer decide
 
-  try { recog.start(); } catch (_) { stopListening(); return; }
-  setTimeout(() => { if (listening) stopListening(true); }, ms);
+  try {
+    $("say").dataset.base = $("say").value;
+    recog.start();
+  } catch (_) { listening = false; recog = null; paintVoice(); return; }
+
+  bumpSilence();
+  hardStop = setTimeout(finish, MAX_LISTEN_MS);
 }
 
-function stopListening(keepText) {
+function stopListening() {
+  if (S.finishListening) { S.finishListening(); return; }
   listening = false;
   try { recog?.stop(); } catch (_) {}
   recog = null;
@@ -652,8 +685,8 @@ function stopListening(keepText) {
 
 function toggleMic() {
   micArmed = true;
-  if (listening) { stopListening(true); return; }
-  startListening(9000);
+  if (listening) { stopListening(); return; }
+  startListening();
 }
 
 /* ---------------------------------------------------------------- art --- */
