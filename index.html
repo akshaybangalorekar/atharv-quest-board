@@ -222,6 +222,67 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
   <div class="card"><button class="ghost" onclick="goLanding()">← Back</button></div>
 </main>
 
+<!-- parent landing -->
+<main id="parent" class="hidden">
+  <div class="card">
+    <div class="k">Parent view</div>
+    <div class="big" style="font-size:22px" id="pChild">—</div>
+    <div class="sub" id="pSummary"></div>
+    <div class="bar">
+      <button class="go small" onclick="openParentChat()">Ask the coach →</button>
+      <button class="ghost small" onclick="parentWeekly()">This week's summary</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="k">Exams and what is loaded</div>
+    <div class="chapterlist" id="pExams"></div>
+    <div class="hint">A verdict of “Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy. Upload a paper and it appears here at once.</div>
+  </div>
+
+  <div class="card">
+    <div class="k">Weakest techniques</div>
+    <ul id="pWeak" style="margin:6px 0 0;padding-left:18px"><li class="sub">Nothing recorded yet.</li></ul>
+  </div>
+
+  <div class="card">
+    <div class="k">Recent tests</div>
+    <table><tbody id="pTests"><tr><td class="sub">No tests yet.</td></tr></tbody></table>
+  </div>
+</main>
+
+<!-- upload questions -->
+<main id="upload" class="hidden">
+  <div class="card">
+    <div class="k">Add questions</div>
+    <div class="big" style="font-size:20px" id="upExam">—</div>
+    <div class="sub">One question per line, like this:</div>
+    <div class="te" style="margin:10px 0">What comes next: 3, 7, 15, 31, … | 63</div>
+    <div class="sub" style="margin-bottom:10px">Leave the part after the pipe empty if it has to be marked by hand — a diagram, a proof, a table.</div>
+    <input id="upStrand" placeholder="Strand (e.g. Sequences, Codes, Data)" style="margin-bottom:10px">
+    <textarea id="upRows" rows="10" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px"
+      placeholder="Next: 2, 6, 12, 20, … | 30&#10;Odd one out: 4, 9, 16, 25, 30 | 30"></textarea>
+    <div class="bar">
+      <button class="go small" onclick="submitUpload()">Add them</button>
+      <button class="ghost small" onclick="goParent()">Cancel</button>
+    </div>
+    <div class="err" id="upErr"></div>
+    <div class="fb hidden" id="upDone"></div>
+  </div>
+</main>
+
+<!-- parent chat -->
+<main id="pchat" class="hidden">
+  <div id="pchatWrap" style="display:grid;gap:10px"></div>
+  <div class="card" style="position:sticky;bottom:0;padding:12px">
+    <div style="display:flex;gap:8px">
+      <input id="pSay" placeholder="Ask the coach…" onkeydown="if(event.key==='Enter')sendParent()">
+      <button class="go small" onclick="sendParent()">Send</button>
+    </div>
+    <div class="bar"><button class="ghost small" onclick="goParent()">← Back</button></div>
+  </div>
+</main>
+
 <!-- the book -->
 <main id="book" class="hidden">
   <div class="card">
@@ -262,7 +323,7 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function show(id) {
-  ["signin", "landing", "track", "session", "book", "chapter", "exam", "results"].forEach((m) => $(m).classList.add("hidden"));
+  ["signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat"].forEach((m) => $(m).classList.add("hidden"));
   $(id).classList.remove("hidden");
   $("homeBtn").classList.toggle("hidden", id === "landing" || id === "signin");
   window.scrollTo(0, 0);
@@ -295,7 +356,10 @@ async function start() {
   if (!user) { show("signin"); $("signOut").style.display = "none"; return; }
   $("signOut").style.display = "inline-block";
   await loadContext();
-  goLanding();
+  const { data: isP } = await sb.rpc("is_parent");
+  S.isParent = !!isP;
+  if (S.isParent) { await loadParent(); goParent(); }
+  else goLanding();
 }
 
 async function loadContext() {
@@ -307,6 +371,139 @@ async function loadContext() {
   S.plan = plan ?? [];
   const { data: ready } = await sb.from("v_exam_readiness").select("*");
   S.readiness = ready ?? [];
+}
+
+/* -------------------------------------------------------------- parent -- */
+async function loadParent() {
+  const { data } = await sb.rpc("parent_context");
+  S.pctx = data ?? {};
+}
+
+const BANK_LABEL = {
+  "Olympiad book": "Olympiad · the book",
+  "AAS numerical reasoning": "AAS · Camberwell Grammar",
+  "Edutest numerical reasoning": "Edutest · Kilvington",
+  "ICAS Maths": "ICAS · Maths",
+  "ELMS": "ELMS",
+};
+
+async function goParent() {
+  await loadParent();
+  show("parent");
+  const c = S.pctx ?? {};
+  $("pChild").textContent = `${c.student ?? "Atharv"} — how it is going`;
+  $("pSummary").textContent =
+    `${c.attempts_total ?? 0} questions answered in all · ${c.attempts_7d ?? 0} this week · ` +
+    `${c.accuracy_7d ?? 0}% right this week · ${c.sessions_7d ?? 0} sessions logged · ` +
+    `${(c.xp ?? 0).toLocaleString()} XP · streak ${c.streak ?? 0} days`;
+
+  const byExam = {};
+  (c.readiness ?? []).forEach((r) => { byExam[r.exam] = r; });
+  const exams = (c.banks ?? []).map((b) => b.exam);
+  (c.readiness ?? []).forEach((r) => { if (!exams.includes(r.exam)) exams.push(r.exam); });
+
+  const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
+                  thin: "Need more data", no_content: "Nothing uploaded" };
+
+  $("pExams").innerHTML = exams.map((name) => {
+    const r = byExam[name];
+    const v = r ? r.verdict : "no_content";
+    const cls = v === "ready" ? "ok" : v === "too_early" ? "grey" : v === "in_progress" ? "amber" : "red";
+    const nums = r ? `${r.items} loaded · ${r.practised} practised · ${r.mastered} mastered` : "nothing loaded yet";
+    return `<div class="ch" style="cursor:default">
+      <span><b>${esc(BANK_LABEL[name] ?? name)}</b>
+        <div class="sub">${nums}</div>
+        <div style="margin-top:6px"><span class="pill ${cls}">${words[v] ?? v}</span></div></span>
+      <button class="ghost small" onclick="openUpload('${esc(name).replace(/'/g, "\\'")}')">Add questions</button>
+    </div>`;
+  }).join("");
+
+  const weak = c.weak ?? [];
+  $("pWeak").innerHTML = weak.length
+    ? weak.map((w) => `<li><b>${esc(w.technique)}</b> <span class="sub">· ${w.open} open, ${w.misses} misses</span></li>`).join("")
+    : `<li class="sub">Nothing recorded yet.</li>`;
+
+  const tests = c.recent_tests ?? [];
+  $("pTests").innerHTML = tests.length
+    ? tests.map((t) => {
+        const d = new Date(t.taken_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+        const cls = t.pct >= 80 ? "ok" : t.pct >= 60 ? "amber" : "red";
+        return `<tr><td>${d}</td><td>${esc(t.kind)}</td><td>${t.score}/${t.total}</td>
+                <td><span class="pill ${cls}">${t.pct}%</span></td></tr>`;
+      }).join("")
+    : `<tr><td class="sub">No tests yet.</td></tr>`;
+}
+
+function openUpload(exam) {
+  S.uploadExam = exam;
+  show("upload");
+  $("upExam").textContent = BANK_LABEL[exam] ?? exam;
+  $("upRows").value = ""; $("upStrand").value = "";
+  $("upErr").textContent = ""; $("upDone").className = "fb hidden";
+}
+
+async function submitUpload() {
+  const rows = $("upRows").value.split("\n").map((line) => {
+    const [q, ...rest] = line.split("|");
+    return { q: (q ?? "").trim(), a: rest.join("|").trim() };
+  }).filter((r) => r.q);
+  if (!rows.length) { $("upErr").textContent = "Nothing to add — put one question per line."; return; }
+
+  $("upErr").textContent = "";
+  const { data, error } = await sb.rpc("add_questions", {
+    p_exam: S.uploadExam, p_strand: $("upStrand").value.trim() || "General", p_rows: rows,
+  });
+  if (error) { $("upErr").textContent = error.message; return; }
+  $("upDone").className = "fb right";
+  $("upDone").innerHTML = `<b>${data.added} question${data.added === 1 ? "" : "s"} added</b>
+    <div class="m">into ${esc(data.strand)}. The readiness panel will update now.</div>`;
+  $("upRows").value = "";
+  await goParent();
+}
+
+function openParentChat() {
+  show("pchat");
+  if (!$("pchatWrap").dataset.started) {
+    $("pchatWrap").dataset.started = "1";
+    pBubble("coach", "Hello. Ask me anything about how he is going — what he has done this week, which technique is costing him marks, or what to add next.");
+  }
+}
+
+function pBubble(role, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + role;
+  d.innerHTML = esc(text);
+  $("pchatWrap").appendChild(d);
+  d.scrollIntoView({ behavior: "smooth", block: "end" });
+  return d;
+}
+
+async function askParent(text) {
+  pBubble("think", "…");
+  const { data, error } = await sb.functions.invoke("coach-chat", {
+    body: { mode: "parent", messages: [{ role: "atharv", content: text }], note: text },
+  });
+  document.querySelector("#pchatWrap .msg.think")?.remove();
+  if (error || data?.error) { pBubble("coach", "I could not reach the coach. Try again in a moment."); return; }
+  pBubble("coach", data.reply);
+}
+
+async function sendParent() {
+  const box = $("pSay");
+  const text = box.value.trim();
+  if (!text) return;
+  box.value = "";
+  pBubble("me", text);
+  await askParent(text);
+}
+
+async function parentWeekly() {
+  openParentChat();
+  pBubble("me", "Give me this week's summary.");
+  pBubble("think", "…");
+  const { data, error } = await sb.functions.invoke("coach-chat", { body: { mode: "parent-weekly" } });
+  document.querySelector("#pchatWrap .msg.think")?.remove();
+  pBubble("coach", error || data?.error ? "The coach is unavailable right now." : data.reply);
 }
 
 /* ------------------------------------------------------------- landing -- */
@@ -687,7 +884,8 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").ca
 
 Object.assign(window, { signIn, signOut, goLanding, openTrack, openBook, openChapter,
   practiseChapter, startSession, check, nextQ, sendMe, endSession, uploadWorking, weekly,
-  startQuiz, startPaper, submitTest });
+  startQuiz, startPaper, submitTest,
+  goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly });
 </script>
 </body>
 </html>
