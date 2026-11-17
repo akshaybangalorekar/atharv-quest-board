@@ -435,6 +435,26 @@ h1{font-size:17px;letter-spacing:-.01em}
   </div>
 </main>
 
+<!-- the journal -->
+<main id="journal" class="hidden">
+  <div class="card">
+    <div class="k">Journal</div>
+    <div class="big" style="font-size:21px">What we have done</div>
+    <div class="sub">One note per session, newest first. Tap one to read it again.</div>
+  </div>
+  <div class="card"><div id="journalList"><div class="sub">Loading…</div></div></div>
+</main>
+
+<!-- the formula board -->
+<main id="formula" class="hidden">
+  <div class="card">
+    <div class="k">Formula board</div>
+    <div class="big" style="font-size:21px">What belongs on your wall</div>
+    <div class="sub">The board beside your desk. Tick a card once you have written it there, in your own hand.</div>
+  </div>
+  <div class="card"><div id="formulaList"><div class="sub">Loading…</div></div></div>
+</main>
+
 <!-- how it is going -->
 <main id="dash" class="hidden">
   <div class="card">
@@ -462,6 +482,14 @@ h1{font-size:17px;letter-spacing:-.01em}
   <div class="card">
     <div class="k">The last six weeks</div>
     <div id="weekBars"></div>
+  </div>
+
+  <div class="card">
+    <div class="k">Go back to</div>
+    <div class="bar">
+      <button class="ghost" onclick="openJournal()">Journal — what we have done</button>
+      <button class="ghost" onclick="openFormula()">Formula board</button>
+    </div>
   </div>
 </main>
 
@@ -523,7 +551,34 @@ function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+const SESSION_KEY = "quest.session";
 const ROUTE_KEY = "quest.route";
+
+function saveSession() {
+  if (!S.script || !S.script.length) return;
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      at: Date.now(), chapter: S.chapter, workMode: S.workMode, si: S.si,
+      script: S.script, chat: S.chat.slice(-40), track: S.track,
+      done: S.si >= S.script.length,
+    }));
+  } catch (_) {}
+}
+
+function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (_) {} }
+
+function readSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (_) { return null; }
+}
+
+/* an unfinished session is always resumed; a finished one only for two hours */
+function restorableSession() {
+  const st = readSession();
+  if (!st || !st.script?.length) return null;
+  const age = Date.now() - (st.at ?? 0);
+  if (st.done && age > 2 * 60 * 60 * 1000) return null;
+  return st;
+}
 function saveRoute() {
   try {
     localStorage.setItem(ROUTE_KEY, JSON.stringify({
@@ -535,7 +590,7 @@ function saveRoute() {
 function show(id) {
   S.view = id;
   if (!S.restoring) saveRoute();
-  ["boot", "signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat", "selflog", "dash"].forEach((m) => $(m).classList.add("hidden"));
+  ["boot", "signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat", "selflog", "dash", "journal", "formula"].forEach((m) => $(m).classList.add("hidden"));
   const signing = id === "signin";
   document.body.classList.toggle("signing", signing);
   if (!signing) document.body.style.background = "";   // back to plain white
@@ -866,6 +921,23 @@ async function start() {
     S.restoring = false;
     return;
   }
+  const st = restorableSession();
+  if (st) {
+    S.restoring = true;
+    S.track = st.track ?? S.track;
+    S.chapter = st.chapter; S.workMode = st.workMode ?? "quest";
+    S.script = st.script; S.si = st.si ?? 0; S.chat = st.chat ?? [];
+    $("chatWrap").innerHTML = "";
+    show("session");
+    S.chat.forEach((m) => bubble(m.role === "atharv" ? "me" : "coach", m.text));
+    if (S.si < S.script.length) {
+      const step = S.script[S.si];
+      if (step.type === "example") showExample(step.data); else showQuestion(step.data);
+    }
+    S.restoring = false;
+    return;
+  }
+
   if (route && route.view === "chapter" && route.chapter) {
     S.restoring = true;
     await openChapter(route.chapter);
@@ -1615,6 +1687,7 @@ async function callCoach({ mode, note }) {
   if (error) return null;
   if (data?.error) return null;
   replySpoken = data?.speak ?? "";
+  window.__lastTitle = data?.title ?? "";
   return data?.reply ?? null;
 }
 
@@ -1702,8 +1775,11 @@ function clearBoard() {
 
 function nextStep() {
   clearBoard();
+  saveSession();
   if (S.si >= S.script.length) {
     bubble("coach", "That is the whole set done. Say “call it a day” when you want to stop, or ask me anything about what we just did.");
+    S.finished = true;
+    saveSession();
     return;
   }
   const step = S.script[S.si];
@@ -1812,6 +1888,7 @@ async function check() {
     fb.innerHTML = `<div class="fb manual"><b>Written answer — a person marks this one.</b><div class="m">${esc(data.method ?? "")}</div></div>`;
   }
   S.chat.push({ role: "atharv", text: `Chapter ${q.chapter} Q${q.idx}: ${val}` });
+  saveSession();
   loadContext();
 
   const bar = document.createElement("div");
@@ -1822,6 +1899,7 @@ async function check() {
 
 function advance() {
   S.si++;
+  saveSession();
   nextStep();
 }
 
@@ -1840,9 +1918,68 @@ async function sendMe() {
   if (S.pendingStart) await beginWork();
 }
 
+async function openJournal() {
+  show("journal");
+  const { data } = await sb.from("session_notes").select("*").order("day", { ascending: false }).limit(60);
+  const rows = data ?? [];
+  if (!rows.length) { $("journalList").innerHTML = `<div class="sub">Nothing yet. The first note appears when you finish a session.</div>`; return; }
+  $("journalList").innerHTML = rows.map((r) => `
+    <details style="border-top:1px solid var(--line);padding:12px 0">
+      <summary style="cursor:pointer;list-style:none">
+        <span class="sub" style="font-size:12.5px">${new Date(r.day).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })}${r.chapter ? " · chapter " + r.chapter : ""}</span>
+        <div style="font-weight:650;font-size:16px;margin-top:2px">${esc(r.title)}</div>
+      </summary>
+      <div class="sub" style="margin-top:8px;white-space:pre-wrap;line-height:1.55">${esc(r.body)}</div>
+    </details>`).join("");
+}
+
+async function openFormula() {
+  show("formula");
+  const { data, error } = await sb.rpc("formula_board_view");
+  if (error) { $("formulaList").innerHTML = `<div class="sub">${esc(error.message)}</div>`; return; }
+  const rows = data ?? [];
+  const byChapter = {};
+  rows.forEach((r) => { (byChapter[r.chapter] ??= { title: r.chapter_title, items: [] }).items.push(r); });
+
+  $("formulaList").innerHTML = Object.entries(byChapter)
+    .filter(([, v]) => v.items.some((i) => i.touched) || v.items.some((i) => i.on_board))
+    .map(([n, v]) => `
+      <div style="border-top:1px solid var(--line);padding:12px 0">
+        <div style="font-weight:650;font-size:15.5px">${n}. ${esc(String(v.title).replace(/^\d+ · /, ""))}</div>
+        ${v.items.map((i) => `
+          <label style="display:flex;gap:10px;align-items:flex-start;margin-top:8px;font-size:14.5px">
+            <input type="checkbox" ${i.on_board ? "checked" : ""} style="width:19px;height:19px;margin-top:2px"
+              onchange="tickFormula(${n}, ${JSON.stringify(i.technique).replace(/"/g, "&quot;")}, this.checked)">
+            <span>${esc(i.technique)}</span>
+          </label>`).join("")}
+      </div>`).join("")
+    || `<div class="sub">Nothing to write up yet. As you meet a technique in a chapter, it appears here.</div>`;
+}
+
+async function tickFormula(chapter, technique, on) {
+  const { data: { user } } = await sb.auth.getUser();
+  if (on) {
+    await sb.from("formula_board").upsert({ student_id: user.id, chapter, technique });
+  } else {
+    await sb.from("formula_board").delete().eq("student_id", user.id).eq("chapter", chapter).eq("technique", technique);
+  }
+}
+
 async function endSession() {
   bubble("think", "…");
   const reply = await callCoach({ mode: "summary" });
+  if (reply) {
+    const { data: { user } } = await sb.auth.getUser();
+    const done = (S.script ?? []).slice(0, S.si).filter((x) => x.type === "question").length;
+    await sb.from("session_notes").insert({
+      student_id: user.id,
+      title: (window.__lastTitle || "").trim() || `Chapter ${S.chapter} session`,
+      body: reply,
+      chapter: S.chapter ?? null,
+      questions: done,
+    });
+    clearSession();
+  }
   document.querySelector(".msg.think")?.remove();
   if (reply) bubble("coach", reply);
   await sb.rpc("record_session", { p_lane: "Q", p_minutes: 30, p_status: "done", p_note: "chat session" });
@@ -2082,7 +2219,8 @@ const api = {
   goParent, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
-  readPaper, extractOne, updateDest, buildScript, toggleMic, toggleVoice, speak, askDoubt, handlePhoto
+  readPaper, extractOne, updateDest, buildScript, toggleMic, toggleVoice, speak, askDoubt, handlePhoto,
+  openJournal, openFormula, tickFormula
 };
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
 
