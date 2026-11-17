@@ -89,6 +89,8 @@ const MODES: Record<string, string> = {
 2. What today's topic is, from the plan, and how long you have together.
 3. Then ask the check-in question in your own words, something like: "Before we start — what have
    you been doing in maths since we last met? School, TopScope, your tutor, anything?"
+   If "still missing from his formula board" has anything in it, add one short line first: ask
+   whether he wrote those on his board. One line, no guilt, then move on. Never ask twice.
 4. Say you will wait for his answer.
 
 Do not start teaching. Do not list questions. Keep it warm and short.
@@ -125,10 +127,12 @@ chapter he should write up on the board beside his desk, in his own hand, before
 once, kindly, and make it the last thing — "Before you go, put the ten-minus-one trick on your board."`,
 
   decide: `Decide what he should do in this session, right now. Reply with JSON only:
-{"action":"quest|drill|quiz|paper|mock|rest","chapter":number or null,"minutes":number,
+{"action":"quest|drill|quiz|paper|mock|placement|rest","chapter":number or null,"minutes":number,
  "say":"one or two sentences to him, in your own voice, saying what you are doing and why"}
 
 How to choose:
+- If there is no evidence at all yet — no attempts, no tests — action "placement": twelve questions
+  across the book so you can see where he stands before you plan anything else. Say why in one line.
 - If he has done four or more sessions since his last test, action "mock" — a timed paper in the
   shape of his exam. Say plainly that it is time to see where he stands.
 - If today's plan has a test (lane M) and a chapter, action "quiz" on that chapter, 20 minutes.
@@ -197,9 +201,12 @@ Deno.serve(async (req) => {
     const effChapter = chapter ?? c.chapter ?? null;
     let pack: any = {};
     let solo: any = {};
+    let boardPending: any = [];
     if (!toParent) {
       const { data: s2 } = await asUser.rpc("solo_activity");
       solo = s2 ?? {};
+      const { data: b2 } = await asUser.rpc("board_pending");
+      boardPending = b2 ?? [];
     }
     if (effChapter && !toParent) {
       const { data: p } = await asUser.rpc("chapter_pack", { p_chapter: effChapter });
@@ -225,6 +232,7 @@ Deno.serve(async (req) => {
       `Average seconds per question (14 days): ${c.avg_seconds ?? 0}. Slowest: ${JSON.stringify(c.slowest ?? [])}.`,
       `Work he reported doing on paper: ${JSON.stringify(c.self_reports ?? [])}`,
       `What he did in the app on his own: ${JSON.stringify(solo ?? {})}`,
+      `Still missing from his formula board: ${JSON.stringify(boardPending ?? [])}`,
       `His last check-in: ${JSON.stringify(c.self_reports?.[0] ?? {})}`,
       `Your last messages with him: ${JSON.stringify(c.recent_chat ?? []).slice(0, 1200)}`,
       `Today's plan: ${JSON.stringify(c.plan ?? [])}`,
@@ -314,7 +322,7 @@ Deno.serve(async (req) => {
     if (mode === "decide") {
       {
         const j = looseParse(reply);
-        const action = ["quest", "drill", "quiz", "paper", "mock", "rest"].includes(j.action) ? j.action : "quest";
+        const action = ["quest", "drill", "quiz", "paper", "mock", "placement", "rest"].includes(j.action) ? j.action : "quest";
         const plan = {
           action,
           chapter: Number.isFinite(j.chapter) ? j.chapter : (c.chapter ?? null),
