@@ -1918,6 +1918,30 @@ async function sendMe() {
   if (S.pendingStart) await beginWork();
 }
 
+/* before he goes: the techniques from today, ready to be written up */
+async function showBoardReminder(chapter) {
+  if (!chapter) return;
+  const { data: note } = await sb.from("chapter_notes").select("ideas").eq("chapter", chapter).maybeSingle();
+  const ideas = (note?.ideas ?? []).map(String).filter(Boolean);
+  if (!ideas.length) return;
+
+  const { data: { user } } = await sb.auth.getUser();
+  const { data: board } = await sb.from("formula_board").select("technique").eq("student_id", user.id).eq("chapter", chapter);
+  const on = new Set((board ?? []).map((b) => b.technique));
+
+  const el = document.createElement("div");
+  el.className = "qcard";
+  el.innerHTML = `<div class="n">BEFORE YOU GO</div>
+    <div class="q" style="font-size:16px">Put these on the board beside your desk, in your own hand.</div>
+    ${ideas.map((t) => `<label style="display:flex;gap:10px;align-items:flex-start;font-size:15px">
+        <input type="checkbox" ${on.has(t) ? "checked" : ""} style="width:19px;height:19px;margin-top:2px"
+          onchange="tickFormula(${chapter}, ${JSON.stringify(t).replace(/"/g, "&quot;")}, this.checked)">
+        <span>${esc(t)}</span></label>`).join("")}
+    <div class="bar"><button class="ghost small" onclick="openFormula()">See the whole board</button></div>`;
+  $("chatWrap").appendChild(el);
+  el.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
 async function openJournal() {
   show("journal");
   const { data } = await sb.from("session_notes").select("*").order("day", { ascending: false }).limit(60);
@@ -1979,6 +2003,7 @@ async function endSession() {
       questions: done,
     });
     clearSession();
+    await showBoardReminder(S.chapter);
   }
   document.querySelector(".msg.think")?.remove();
   if (reply) bubble("coach", reply);
