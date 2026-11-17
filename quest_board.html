@@ -264,15 +264,15 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
   </div>
   <div id="chatWrap"></div>
   <div class="card" style="position:sticky;bottom:0;padding:12px">
-    <div style="display:flex;gap:8px">
-      <input id="say" placeholder="Say something to the coach…" onkeydown="if(event.key==='Enter')sendMe()">
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="ghost small" title="Attach a photo of a question" onclick="document.getElementById('doubt').click()" style="flex:0 0 auto;padding:10px 12px">📎</button>
+      <input type="file" id="doubt" accept="image/*" capture="environment" multiple class="hidden" onchange="askDoubt(this)">
+      <input id="say" placeholder="Say something to Meera…" onkeydown="if(event.key==='Enter')sendMe()">
       <button class="go small" onclick="sendMe()">Send</button>
     </div>
     <div class="bar">
       <button class="ghost small" id="micBtn" onclick="toggleMic()">🎤 Talk</button>
       <button class="ghost small" id="voiceBtn" onclick="toggleVoice()">🔊 ${COACH}'s voice</button>
-      <button class="ghost small" onclick="document.getElementById('doubt').click()">❓ I'm stuck</button>
-      <input type="file" id="doubt" accept="image/*" capture="environment" class="hidden" onchange="askDoubt(this)">
       <button class="ghost small" onclick="document.getElementById('photo').click()">📷 My working</button>
       <input type="file" id="photo" accept="image/*" capture="environment" class="hidden" onchange="uploadWorking(this)">
       <button class="ghost small" onclick="endSession()">Call it a day</button>
@@ -1562,7 +1562,8 @@ let replySpoken = "";
 async function callCoach({ mode, note }) {
   const history = S.chat.slice(-10).map((m) => ({ role: m.role, content: m.text }));
   const { data, error } = await sb.functions.invoke("coach-chat", {
-    body: { mode, track: S.track, chapter: S.chapter, messages: history, note },
+    body: { mode, track: S.track, chapter: S.chapter, messages: history, note,
+            hasAttach: typeof S.canAttach === "boolean" ? S.canAttach : true },
   });
   if (error) return null;
   if (data?.error) return null;
@@ -1815,46 +1816,55 @@ function examForDoubt() {
 }
 
 async function askDoubt(input) {
-  const file = input.files?.[0];
+  const files = [...(input.files ?? [])];
   input.value = "";
-  if (!file) return;
+  if (!files.length) return;
 
   if (!S.chat) S.chat = [];
   show("session");
-  bubble("me", "📷 Here is one I'm stuck on");
-  const think = bubble("think", "Reading it…");
+  bubble("me", files.length > 1 ? `📷 ${files.length} photos of questions I'm stuck on` : "📷 Here is one I'm stuck on");
 
-  try {
-    const { data: { user } } = await sb.auth.getUser();
-    const path = `${user.id}/doubt-${Date.now()}.jpg`;
-    const up = await sb.storage.from("working").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
-    if (up.error) throw new Error(up.error.message);
+  const { data: { user } } = await sb.auth.getUser();
+  const exam = examForDoubt();
 
-    const { data, error } = await sb.functions.invoke("doubt", { body: { path, exam: examForDoubt() } });
-    think.remove();
-    if (error || data?.error) {
-      bubble("coach", "I could not read that one clearly. Try again in better light, with the page flat and the camera square to it.");
-      return;
+  for (let i = 0; i < files.length; i++) {
+    const think = bubble("think", files.length > 1 ? `Reading photo ${i + 1} of ${files.length}…` : "Reading it…");
+    try {
+      const path = `${user.id}/doubt-${Date.now()}-${i}.jpg`;
+      const up = await sb.storage.from("working").upload(path, files[i], { upsert: true, contentType: files[i].type || "image/jpeg" });
+      if (up.error) throw new Error(up.error.message);
+
+      const { data, error } = await sb.functions.invoke("doubt", { body: { path, exam } });
+      think.remove();
+      if (error || data?.error) {
+        bubble("coach", "I could not read that one clearly. Try again in better light, with the page flat and the camera square to it.");
+        continue;
+      }
+
+      const lines = [];
+      if (files.length > 1) lines.push(`**Photo ${i + 1} · ${data.strand ?? "this one"}**`);
+      else lines.push(`**${data.strand ?? "This one"}**`);
+      if (data.idea) lines.push(`The thing to notice: ${data.idea}`);
+      if (data.method) lines.push(data.method);
+      if (data.answer) lines.push(`**Answer: ${data.answer}**`);
+      bubble("coach", lines.join("\n\n"));
+
+      if (data.confident === false) {
+        bubble("coach", "I am not certain I read every part of that one — check it against the photo before you trust my answer.");
+      }
+      S.chat.push({ role: "atharv", text: "I was stuck on: " + (data.question ?? "") });
+      S.chat.push({ role: "coach", text: data.method ?? "" });
+    } catch (e) {
+      think.remove();
+      bubble("coach", "That one did not work: " + e.message);
     }
+  }
 
-    const lines = [];
-    lines.push(`**${data.strand ?? "This one"}**`);
-    if (data.idea) lines.push(`The thing to notice: ${data.idea}`);
-    if (data.method) lines.push(data.method);
-    if (data.answer) lines.push(`**Answer: ${data.answer}**`);
-    bubble("coach", lines.join("\n\n"));
-
-    if (data.saved) {
-      bubble("coach", "I have put it in your bank too, so we can come back to this kind of question later.");
-    }
-    if (data.confident === false) {
-      bubble("coach", "I am not certain I read every part of that correctly — check the question against the photo before you trust my answer.");
-    }
-    S.chat.push({ role: "atharv", text: "I was stuck on: " + (data.question ?? "") });
-    S.chat.push({ role: "coach", text: data.method ?? "" });
-  } catch (e) {
-    think.remove();
-    bubble("coach", "That did not work: " + e.message);
+  if (files.length) {
+    const saved = files.length;
+    bubble("coach", saved > 1
+      ? "I have put those in your bank too, so we can come back to them."
+      : "I have put it in your bank too, so we can come back to this kind of question later.");
   }
 }
 
