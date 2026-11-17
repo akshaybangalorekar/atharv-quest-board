@@ -188,6 +188,9 @@ h1{font-size:17px;letter-spacing:-.01em}
 .keyrow span{color:var(--mut)}
 .keyrow span::after{content:"·";margin-left:6px;color:#c9c6d8}
 .keyrow span:last-child::after{content:""}
+.row3{display:flex;gap:8px;flex-wrap:nowrap}
+.row3 button{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  padding:11px 8px;font-size:13.5px}
 </style>
 </head>
 <body>
@@ -267,7 +270,7 @@ h1{font-size:17px;letter-spacing:-.01em}
 
   <div class="card" style="padding:14px 20px">
     <div class="k">Look back</div>
-    <div class="bar">
+    <div class="row3">
       <button class="ghost small" onclick="openDash()">Progress</button>
       <button class="ghost small" onclick="openJournal()">Journal</button>
       <button class="ghost small" onclick="openFormula()">Formula board</button>
@@ -306,14 +309,14 @@ h1{font-size:17px;letter-spacing:-.01em}
   <div id="chatWrap"></div>
   <div class="card" style="position:sticky;bottom:0;padding:12px">
     <div style="display:flex;gap:8px;align-items:center">
-      <button class="ghost small attach" title="Send a photo" onclick="document.getElementById('doubt').click()">Photo</button>
       <input type="file" id="doubt" accept="image/*" capture="environment" multiple class="hidden" onchange="handlePhoto(this)">
       <input id="say" placeholder="Say something to Ananya…" onkeydown="if(event.key==='Enter')sendMe()">
       <button class="go small" onclick="sendMe()">Send</button>
     </div>
-    <div class="bar">
+    <div class="row3">
       <button class="ghost small" id="micBtn" onclick="toggleMic()">Talk</button>
-      <button class="ghost small" onclick="endSession()">Call it a day</button>
+      <button class="ghost small" onclick="document.getElementById('doubt').click()">Photo</button>
+      <button class="ghost small" onclick="endSession()">Pause for now</button>
     </div>
     <div class="hint" id="micState"></div>
     <div class="keys">
@@ -582,7 +585,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.2.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.3.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -608,12 +611,13 @@ function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (_) { return null; }
 }
 
-/* an unfinished session is always resumed; a finished one only for two hours */
+/* He picks up where he left off, even the next day. A session is only dropped
+   when the topic is finished or when a new chapter starts. */
 function restorableSession() {
   const st = readSession();
   if (!st || !st.script?.length) return null;
   const age = Date.now() - (st.at ?? 0);
-  if (st.done && age > 2 * 60 * 60 * 1000) return null;
+  if (st.done && age > 24 * 60 * 60 * 1000) return null;   // finished: keep a day, then let go
   return st;
 }
 function saveRoute() {
@@ -1679,6 +1683,7 @@ function startBudget(mins) {
 async function startSolo(chapterArg) {
   const chapter = chapterArg ?? S.chapter;
   if (!chapter) { alert("Open a chapter first, then press Practise."); return; }
+  if (S.chapter && chapter !== S.chapter) clearSession();   // a new topic, a fresh page
   sb.rpc("log_visit", { p_chapter: chapter, p_source: "solo-practice" });
   S.workMode = "solo";
   S.chat = []; S.qs = []; S.i = 0;
@@ -1843,7 +1848,7 @@ function nextStep() {
     done.innerHTML = `<div class="q" style="font-size:16px">What next?</div>
       <div class="bar">${S.returnToCoach
         ? `<button class="go small" onclick="backToCoach()">Back to ${COACH} →</button>`
-        : `<button class="go small" onclick="endSession()">Call it a day</button>`}
+        : `<button class="go small" onclick="endSession()">Pause for now</button>`}
       <button class="ghost small" onclick="startSolo(S.chapter)">Another one</button>
       <button class="ghost small" onclick="openDash()">See progress</button></div>`;
     $("chatWrap").appendChild(done);
@@ -2070,7 +2075,8 @@ async function endSession() {
       chapter: S.chapter ?? null,
       questions: done,
     });
-    clearSession();
+    // the conversation stays: he resumes here next time
+    saveSession();
     await showBoardReminder(S.chapter);
   }
   document.querySelector(".msg.think")?.remove();
