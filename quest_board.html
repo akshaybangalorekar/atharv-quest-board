@@ -104,7 +104,7 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 </script>
 
 <div class="top">
-  <h1 id="appTitle">Atharv's Coach</h1>
+  <h1 id="appTitle">Quest Coach</h1>
   <div style="display:flex;gap:8px;align-items:center">
     <button class="out hidden" id="homeBtn" onclick="goLanding()">⌂</button>
     <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
@@ -225,7 +225,7 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 <!-- parent landing -->
 <main id="parent" class="hidden">
   <div class="card">
-    <div class="k">Parent view</div>
+    <div class="k" id="pWho">Parent view</div>
     <div class="big" style="font-size:22px" id="pChild">—</div>
     <div class="sub" id="pSummary"></div>
     <div class="bar">
@@ -376,6 +376,7 @@ async function signIn() {
   start();
 }
 async function signOut() { await sb.auth.signOut(); location.reload(); }
+$("appTitle").textContent = "Quest Coach";
 
 async function start() {
   const { data: { user } } = await sb.auth.getUser();
@@ -384,6 +385,7 @@ async function start() {
   await loadContext();
   const { data: isP } = await sb.rpc("is_parent");
   S.isParent = !!isP;
+  $("appTitle").textContent = S.isParent ? "Quest Coach · parent" : "Quest Coach";
   if (S.isParent) { await loadParent(); goParent(); }
   else goLanding();
 }
@@ -417,7 +419,9 @@ async function goParent() {
   await loadParent();
   show("parent");
   const c = S.pctx ?? {};
-  $("pChild").textContent = `${c.student ?? "Atharv"} — how it is going`;
+  const me = (await sb.auth.getUser()).data?.user?.email ?? "";
+  $("pWho").textContent = me ? `Parent view · signed in as ${me}` : "Parent view";
+  $("pChild").textContent = `${c.student ?? "your child"} — how it is going`;
   $("pSummary").textContent =
     `${c.attempts_total ?? 0} questions answered in all · ${c.attempts_7d ?? 0} this week · ` +
     `${c.accuracy_7d ?? 0}% right this week · ${c.sessions_7d ?? 0} sessions logged · ` +
@@ -623,7 +627,7 @@ async function parentWeekly() {
 function goLanding() {
   show("landing");
   const c = S.ctx ?? {};
-  $("hello").textContent = `Hello, ${c.name ?? "Atharv"}`;
+  $("hello").textContent = `Hello, ${c.name ?? "there"}`;
   const lane = S.plan.find((p) => p.lane !== "R");
   $("todayLine").textContent = lane
     ? `Today: ${lane.lane === "Q" ? "quest" : lane.lane === "M" ? "a test" : lane.lane === "D" ? "a drill" : lane.lane}${lane.chapter ? " · chapter " + lane.chapter : ""} · ${lane.minutes} minutes`
