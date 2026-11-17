@@ -146,6 +146,14 @@ body.signing .top,body.signing footer{display:none}
 body.signing .authFoot{color:rgba(255,255,255,.85)}
 #signin .card,#signin .authFoot{position:relative;z-index:2}
 .art{z-index:-1}
+
+/* shelf tabs: amber when idle, blue when chosen */
+.shelfTabs{display:flex;gap:8px;flex-wrap:wrap}
+.shelfTabs button{border:1px solid #e8b26a;background:#fff4e3;color:#a8600a;border-radius:999px;
+  padding:9px 18px;font:inherit;font-size:14.5px;font-weight:650;cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s}
+.shelfTabs button:active{transform:translateY(1px)}
+.shelfTabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
 </style>
 </head>
 <body>
@@ -237,7 +245,7 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
   </div>
 
   <div class="card">
-    <div class="tabs" id="subTabs">
+    <div class="shelfTabs" id="subTabs">
       <button class="on" id="subBook" onclick="pickShelf('book',this)">The book</button>
       <button id="subDj" onclick="pickShelf('dj',this)">Division J</button>
       <button onclick="startMock()">Mock test</button>
@@ -468,7 +476,18 @@ function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+const ROUTE_KEY = "quest.route";
+function saveRoute() {
+  try {
+    localStorage.setItem(ROUTE_KEY, JSON.stringify({
+      view: S.view, track: S.track, shelf: S.shelf, chapter: S.chapter,
+    }));
+  } catch (_) {}
+}
+
 function show(id) {
+  S.view = id;
+  if (!S.restoring) saveRoute();
   ["boot", "signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat", "selflog"].forEach((m) => $(m).classList.add("hidden"));
   const signing = id === "signin";
   document.body.classList.toggle("signing", signing);
@@ -538,7 +557,9 @@ function paintArt() {
   band.style.backgroundRepeat = "repeat";
   band.innerHTML = `<div class="frame" style="border-color:${warli ? "#f6efe3" : "#c0392b"}"></div>
                     <div class="frame inner" style="border-color:${warli ? "#e8b23a" : "#1b3a6b"}"></div>`;
-  document.body.style.background = warli ? "#8c3b1e" : "#f7f1e3";
+  if (document.body.classList.contains("signing")) {
+    document.body.style.background = warli ? "#8c3b1e" : "#f7f1e3";
+  }
   const foot = document.querySelector(".authFoot");
   if (foot) {
     foot.style.color = warli ? "rgba(255,255,255,.82)" : "rgba(27,58,107,.75)";
@@ -615,8 +636,27 @@ async function start() {
   const { data: isP } = await sb.rpc("is_parent");
   S.isParent = !!isP;
   $("appTitle").textContent = S.isParent ? "Quest Coach · parent" : "Quest Coach";
-  if (S.isParent) { await loadParent(); goParent(); }
-  else goLanding();
+  if (S.isParent) { await loadParent(); goParent(); return; }
+
+  let route = null;
+  try { route = JSON.parse(localStorage.getItem(ROUTE_KEY) || "null"); } catch (_) {}
+  if (route && route.view === "track" && route.track) {
+    S.restoring = true;
+    await openTrack(route.track);
+    if (route.shelf && route.shelf !== "book") {
+      const btn = $("subDj");
+      pickShelf(route.shelf, btn);
+    }
+    S.restoring = false;
+    return;
+  }
+  if (route && route.view === "chapter" && route.chapter) {
+    S.restoring = true;
+    await openChapter(route.chapter);
+    S.restoring = false;
+    return;
+  }
+  goLanding();
 }
 
 async function loadContext() {
@@ -648,6 +688,7 @@ const BANK_LABEL = {
 async function goParent() {
   await loadParent();
   show("parent");
+  S.view = "parent";
   const c = S.pctx ?? {};
   const me = (await sb.auth.getUser()).data?.user?.email ?? "";
   $("pWho").textContent = me ? `Parent view · signed in as ${me}` : "Parent view";
@@ -1094,6 +1135,7 @@ async function openTrack(id) {
 
   const twoShelves = id === "olympiad";
   $("subDj").style.display = twoShelves ? "" : "none";
+  if (!S.restoring) saveRoute();
   $("subBook").classList.add("on"); $("subDj").classList.remove("on");
   $("subBook").textContent = id === "amc" ? "Questions" : "The book";
   S.shelf = "book";
@@ -1109,6 +1151,7 @@ function bankFor(id) {
 
 function pickShelf(which, btn) {
   S.shelf = which;
+  saveRoute();
   document.querySelectorAll("#subTabs button").forEach((b) => b.classList.toggle("on", b === btn));
   renderShelf();
 }
@@ -1185,6 +1228,7 @@ async function openBook() {
 async function openChapter(n) {
   show("chapter");
   S.chapter = n;
+  saveRoute();
   sb.rpc("log_visit", { p_chapter: n, p_source: "book" });
   const { data: c } = await sb.from("chapters").select("*").eq("n", n).single();
   const { data: note } = await sb.from("chapter_notes").select("*").eq("chapter", n).maybeSingle();
