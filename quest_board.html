@@ -118,6 +118,27 @@ body.signing .top,body.signing footer{display:none}
 .diagram{display:flex;justify-content:center;margin:10px 0;padding:8px;background:#fbfbfe;border:1px solid var(--line);border-radius:12px}
 .diagram svg{max-width:100%;height:auto}
 #iosHint{display:none;font-size:13.5px;color:var(--mut);margin-top:10px}
+#signin .auth{padding:30px 28px 26px}
+.brand{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);font-weight:700}
+.brand span{color:var(--mut);font-weight:600}
+.authTitle{font-size:26px;margin:14px 0 4px;font-weight:700;letter-spacing:-.01em}
+.authSub{font-size:14px;color:var(--mut);margin:0 0 20px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.field input{background:#fbfbfe}
+.forgotRow{text-align:right;margin-top:6px}
+.link{background:none;border:0;padding:0;font:inherit;font-size:13.5px;color:var(--acc);cursor:pointer}
+.link:hover{text-decoration:underline}
+.check{display:flex;gap:9px;align-items:center;font-size:14px;color:var(--mut);margin:4px 0 18px}
+.check input{width:18px;height:18px;accent-color:var(--acc)}
+.go.wide{width:100%;padding:15px}
+#signin .err{min-height:0}
+#signin .hint{font-size:13.5px;color:var(--mut);margin-top:12px;line-height:1.4}
+.authFoot{margin-top:6px;font-size:12.5px;color:rgba(255,255,255,.8);letter-spacing:.02em;
+  text-shadow:0 1px 2px rgba(0,0,0,.25)}
+body.signing .authFoot{color:rgba(255,255,255,.85)}
+#signin .card,#signin .authFoot{position:relative;z-index:2}
+.art{z-index:-1}
 </style>
 </head>
 <body>
@@ -138,22 +159,33 @@ body.signing .top,body.signing footer{display:none}
 <!-- sign in -->
 <main id="signin">
   <div class="art" id="artBand"></div>
-  <div class="card" style="max-width:460px;margin:0 auto">
-    <div class="k">Sign in</div>
-    <div style="display:grid;gap:10px;margin-top:8px">
-      <input id="email" type="email" placeholder="email" autocomplete="username">
-      <input id="pw" type="password" placeholder="password" autocomplete="current-password"
-             onkeydown="if(event.key==='Enter')signIn()">
-      <label class="sub" style="display:flex;gap:8px;align-items:center">
-        <input type="checkbox" id="remember" checked style="width:20px;height:20px">
-        Keep me signed in on this device
-      </label>
-      <button class="go" onclick="signIn()">Sign in</button>
-      <button class="ghost small" onclick="forgotPassword()">Forgot the password?</button>
+  <div class="card auth" style="max-width:420px;margin:0 auto">
+    <div class="brand">Quest <span>Coach</span></div>
+    <h2 class="authTitle">Sign in</h2>
+    <p class="authSub">Welcome back. Your session is waiting.</p>
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@example.com" autocomplete="username" autocapitalize="off" spellcheck="false">
     </div>
+    <div class="field">
+      <label for="pw">Password</label>
+      <input id="pw" type="password" placeholder="••••••••" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')signIn()">
+      <div class="forgotRow"><button class="link" onclick="forgotPassword()">Forgot password?</button></div>
+    </div>
+
+    <label class="check">
+      <input type="checkbox" id="remember" checked>
+      <span>Keep me signed in on this device</span>
+    </label>
+
+    <button class="go wide" onclick="signIn()">Sign in</button>
     <div class="err" id="err"></div>
-    <div class="hint" id="signHint">Atharv, Pooja and Akshay each sign in with their own account.</div>
+    <div class="hint" id="signHint"></div>
   </div>
+
+  <div class="authFoot">Quest Coach · Melbourne, Australia</div>
 
   <div class="card hidden" id="newPassCard" style="max-width:460px;margin:14px auto">
     <div class="k">Choose a new password</div>
@@ -499,6 +531,11 @@ function paintArt() {
   band.innerHTML = `<div class="frame" style="border-color:${warli ? "#f6efe3" : "#c0392b"}"></div>
                     <div class="frame inner" style="border-color:${warli ? "#e8b23a" : "#1b3a6b"}"></div>`;
   document.body.style.background = warli ? "#8c3b1e" : "#f7f1e3";
+  const foot = document.querySelector(".authFoot");
+  if (foot) {
+    foot.style.color = warli ? "rgba(255,255,255,.82)" : "rgba(27,58,107,.75)";
+    foot.style.textShadow = warli ? "0 1px 2px rgba(0,0,0,.3)" : "none";
+  }
 }
 
 /* --------------------------------------------------------------- auth --- */
