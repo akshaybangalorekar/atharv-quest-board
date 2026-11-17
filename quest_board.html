@@ -1535,15 +1535,17 @@ async function startSolo(chapterArg) {
 }
 
 /* ----------------------------------------------------------- the session - */
-function bubble(role, text) {
+function bubble(role, text, spoken) {
   const d = document.createElement("div");
   d.className = "msg " + role;
   d.innerHTML = esc(text);
-  if (role === "coach") speak(text);
+  if (role === "coach") speak(spoken || text);
   $("chatWrap").appendChild(d);
   d.scrollIntoView({ behavior: "smooth", block: "end" });
   return d;
 }
+
+let replySpoken = "";
 
 async function callCoach({ mode, note }) {
   const history = S.chat.slice(-10).map((m) => ({ role: m.role, content: m.text }));
@@ -1552,6 +1554,7 @@ async function callCoach({ mode, note }) {
   });
   if (error) return null;
   if (data?.error) return null;
+  replySpoken = data?.speak ?? "";
   return data?.reply ?? null;
 }
 
@@ -1580,7 +1583,7 @@ async function startSession(chapterOverride, forceMode, mode) {
     note: mode === "solo" ? "He chose this chapter himself rather than following the plan. Acknowledge that." : undefined,
   });
   document.querySelector(".msg.think")?.remove();
-  bubble("coach", greet ?? `Hello. Today we are on chapter ${S.chapter}. Open the book and tell me when you are ready.`);
+  bubble("coach", greet ?? `Hello. Today we are on chapter ${S.chapter}. Tell me when you are ready.`, replySpoken);
   S.chat.push({ role: "coach", text: greet ?? "" });
 
   // wait for his answer to the check-in before the work appears
@@ -1773,7 +1776,7 @@ async function sendMe() {
   bubble("think", "…");
   const reply = await callCoach({ mode: "reply" });
   document.querySelector(".msg.think")?.remove();
-  if (reply) { bubble("coach", reply); S.chat.push({ role: "coach", text: reply }); }
+  if (reply) { bubble("coach", reply, replySpoken); S.chat.push({ role: "coach", text: reply }); }
   else bubble("coach", "I could not reach the coach just then. Try again in a moment.");
   if (S.pendingStart) await beginWork();
 }
