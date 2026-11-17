@@ -46,6 +46,23 @@ if i > 0 and j > i:
 unknown = sorted(handlers - defined - api_names)
 if unknown: fails.append(f"onclick handlers not defined: {unknown}")
 
+# 4b. functions called but never defined (the bug that broke the app twice)
+BUILTIN = {"if","for","while","switch","catch","return","typeof","Number","String","Boolean","Array","Object",
+           "JSON","Math","Date","Promise","Set","Map","parseInt","parseFloat","isNaN","setTimeout","setInterval",
+           "clearTimeout","clearInterval","alert","confirm","prompt","fetch","btoa","atob","encodeURIComponent",
+           "decodeURIComponent","SpeechSynthesisUtterance","RegExp","Error","console","document","window",
+           "SpeechRecognition","webkitSpeechRecognition","DOMParser","Uint8Array","Blob","FileReader","URL",
+           "requestAnimationFrame","structuredClone","queueMicrotask","Function","Symbol","BigInt","Intl",
+           "addEventListener","removeEventListener","importScripts","rgba","rgb","hsl","var","async","import",
+           "onStrand","quality","tick","finish","bumpSilence","url"}
+called = set()
+for m2 in re.finditer(r'(?<![.\w$])([a-z][A-Za-z0-9_$]*)\s*\(', js):
+    called.add(m2.group(1))
+defined2 = set(re.findall(r'(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(', js))
+consts2 = set(re.findall(r'(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=', js))
+unknown_calls = sorted(c for c in called - defined2 - consts2 - BUILTIN)
+if unknown_calls: fails.append(f"called but never defined: {unknown_calls}")
+
 # 5. syntax
 open("/tmp/_chk.mjs", "w").write(js)
 r = subprocess.run(["node", "--check", "/tmp/_chk.mjs"], capture_output=True, text=True)
