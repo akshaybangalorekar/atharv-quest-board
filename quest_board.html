@@ -585,7 +585,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.4.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.5.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -767,34 +767,41 @@ async function backToCoach() {
 
 
 /* --------------------------------------------------------------- mic --- */
-/* He talks as long as he likes. Nothing is sent until he says "submit". */
-const MAX_LISTEN_MS = 3 * 60 * 1000;
+/* Two ways to speak. Answering: he says "submit" and it is marked. Thinking
+   aloud: the microphone stays open, and every time he pauses she answers him —
+   no word needed, because he is talking to her, not answering. */
+const MAX_LISTEN_MS = 5 * 60 * 1000;
+const THINK_QUIET_MS = 2500;
 
 let micArmed = false, listening = false, recog = null;
 let heard = "";
-
-function paintMic() {
-  const m = $("micBtn"), st = $("micState");
-  if (m) m.textContent = listening ? "Stop listening" : micArmed ? "Talk" : "Tap to talk";
-  if (st) st.textContent = listening
-    ? "Go ahead — take your time. Say “submit” when you have finished, or tap Stop."
-    : "Tap Talk, say your answer, then say “submit”. Nothing is sent before that.";
-}
+let thinkMode = false, thinkBuf = "", thinkTimer = null;
 
 const SUBMIT_WORDS = /\b(submit|send it|send|done|finished|that'?s it)\b[.!]?\s*$/i;
 
-function startListening() {
+function paintMic() {
+  const m = $("micBtn"), st = $("micState");
+  if (m) m.textContent = listening ? (thinkMode ? "Stop thinking aloud" : "Stop listening")
+                                   : micArmed ? "Talk" : "Tap to talk";
+  if (st) st.textContent = listening
+    ? (thinkMode ? "Go ahead — think out loud. I will answer each time you pause."
+                 : "Go ahead — say “submit” when you have finished, or tap Stop.")
+    : "Tap Talk, say your answer, then say “submit”. Or tap “Talk to Ananya” to think out loud.";
+}
+
+function startListening(asThink) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { $("micState").textContent = "This browser cannot listen — type instead."; return; }
-  if (listening) return;
+  if (listening) { if (asThink && !thinkMode) { thinkMode = true; paintMic(); } return; }
 
+  thinkMode = !!asThink;
   recog = new SR();
   recog.lang = "en-AU";
   recog.interimResults = true;
   recog.continuous = true;
   recog.maxAlternatives = 1;
 
-  heard = $("say").value;
+  heard = thinkMode ? "" : $("say").value;
   listening = true; paintMic();
 
   recog.onresult = (e) => {
@@ -804,12 +811,19 @@ function startListening() {
       if (r.isFinal) heard = (heard + " " + r[0].transcript).replace(/\s+/g, " ").trim();
       else interim += r[0].transcript;
     }
-    $("say").value = (heard + " " + interim).replace(/\s+/g, " ").trim();
+    const whole = (heard + " " + interim).replace(/\s+/g, " ").trim();
 
-    // only a spoken "submit" sends it
-    const tail = (heard + " " + interim).trim();
-    if (SUBMIT_WORDS.test(tail)) {
-      const clean = tail.replace(SUBMIT_WORDS, "").trim();
+    if (thinkMode) {
+      thinkBuf = whole;
+      $("micState").textContent = whole ? `I am listening — “${whole.slice(-70)}”` : "I am listening.";
+      clearTimeout(thinkTimer);
+      thinkTimer = setTimeout(flushThink, THINK_QUIET_MS);
+      return;
+    }
+
+    $("say").value = whole;
+    if (SUBMIT_WORDS.test(whole)) {
+      const clean = whole.replace(SUBMIT_WORDS, "").trim();
       $("say").value = clean;
       stopListening(false);
       if (clean) sendMe();
@@ -817,24 +831,48 @@ function startListening() {
   };
 
   recog.onerror = () => stopListening(true);
-  recog.onend = () => { if (listening) { try { recog.start(); } catch (_) {} } };  // keep going
+  recog.onend = () => { if (listening) { try { recog.start(); } catch (_) {} } };
 
   try { recog.start(); } catch (_) { listening = false; paintMic(); return; }
   setTimeout(() => { if (listening) stopListening(true); }, MAX_LISTEN_MS);
 }
 
+/* every pause in his thinking becomes a turn in the conversation */
+async function flushThink() {
+  const said = (thinkBuf || "").trim();
+  thinkBuf = ""; heard = "";
+  if (!said || said.length < 2) return;
+  bubble("me", said);
+  S.chat.push({ role: "atharv", text: said });
+  const think = bubble("think", "…");
+  const reply = await callCoach({
+    mode: "reply",
+    note: "He is thinking aloud in the middle of a question and has just said the above. Answer in one or two short lines that move him one step: name what he has right, then ask the single next question, or give the first line of the method and stop. Never the final answer.",
+  });
+  think.remove();
+  if (reply) { bubble("coach", reply, replySpoken); S.chat.push({ role: "coach", text: reply }); }
+  paintMic();
+}
+
 function stopListening(keepText) {
   listening = false;
+  clearTimeout(thinkTimer);
   try { recog?.stop(); } catch (_) {}
   recog = null;
   if (!keepText) heard = "";
+  thinkBuf = "";
   paintMic();
 }
 
 function toggleMic() {
   micArmed = true;
   if (listening) stopListening(true);
-  else startListening();
+  else startListening(false);
+}
+
+function startThinking() {
+  micArmed = true;
+  startListening(true);
 }
 
 /* ---------------------------------------------------------------- art --- */
@@ -1937,8 +1975,8 @@ function tickQuestion() {
       const talk = document.createElement("button");
       talk.className = "go small";
       talk.style.cssText = "margin-top:10px;display:block";
-      talk.textContent = "Talk to Ananya";
-      talk.onclick = () => { micArmed = true; startListening(); talk.remove(); };
+      talk.textContent = "Talk to Ananya — I will answer as you think";
+      talk.onclick = () => { startThinking(); talk.remove(); };
       b.appendChild(talk);
     }
     micArmed = true;
@@ -2377,7 +2415,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach
+  openJournal, openFormula, tickFormula, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
