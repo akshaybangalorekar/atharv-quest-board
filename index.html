@@ -548,6 +548,7 @@ const TRACKS = [
 ];
 
 /* --------------------------------------------------------------- voice --- */
+const VOICE = { speaking: false, lastWas: "" };
 const VOICE_KEY = "quest.voice";
 let voiceOn = localStorage.getItem(VOICE_KEY) !== "0";
 let auVoice = null;
@@ -570,6 +571,22 @@ if (window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = pickVoice;
 }
 
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked || !window.speechSynthesis) return;
+  audioUnlocked = true;
+  try {
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0; u.rate = 2;
+    window.speechSynthesis.speak(u);
+  } catch (_) {}
+  window.removeEventListener("pointerdown", unlockAudio);
+  window.removeEventListener("click", unlockAudio);
+  window.removeEventListener("touchstart", unlockAudio);
+}
+["pointerdown", "click", "touchstart"].forEach((e) =>
+  window.addEventListener(e, unlockAudio, { passive: true }));
+
 function speak(text) {
   if (!voiceOn || !window.speechSynthesis) return;
   const clean = String(text)
@@ -587,6 +604,14 @@ function speak(text) {
   u.onstart = () => { VOICE.speaking = true; stopListening(); };
   u.onend = () => { VOICE.speaking = false; maybeListen(clean); };
   window.speechSynthesis.speak(u);
+  S.lastSpoken = { text: clean, at: Date.now() };
+  setTimeout(() => {
+    if (!window.speechSynthesis.speaking && VOICE.lastWas === clean) {
+      const chip = document.getElementById("replayChip");
+      if (chip) chip.style.display = "inline-block";
+    }
+  }, 900);
+  VOICE.lastWas = clean;
 }
 
 function toggleVoice() {
@@ -1257,6 +1282,8 @@ async function askCoachWhatNow() {
 function runCoachPlan() {
   const p = S.planAction;
   if (!p) return;
+  unlockAudio();
+  speak("Right, let's begin.");        // said inside the tap, so iOS allows it
   if (p.action === "mock") return startMock();
   if (p.action === "paper") return startTest(null, 60);
   if (p.action === "quiz") return startTest(p.chapter || currentChapter(), 20);
@@ -1551,6 +1578,16 @@ function bubble(role, text, spoken) {
   const d = document.createElement("div");
   d.className = "msg " + role;
   d.innerHTML = esc(text);
+  if (role === "coach" && voiceOn) {
+    const chip = document.createElement("button");
+    chip.className = "link";
+    chip.style.cssText = "display:none;margin-top:6px;font-size:12.5px";
+    chip.id = "replayChip";
+    chip.textContent = "▶︎ tap to hear it";
+    chip.onclick = () => { unlockAudio(); speak(spoken || text); chip.style.display = "none"; };
+    d.appendChild(chip);
+    setTimeout(() => { if (!window.speechSynthesis?.speaking) chip.style.display = "inline-block"; }, 1100);
+  }
   if (role === "coach") speak(spoken || text);
   $("chatWrap").appendChild(d);
   d.scrollIntoView({ behavior: "smooth", block: "end" });
