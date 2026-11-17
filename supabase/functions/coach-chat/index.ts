@@ -32,7 +32,21 @@ Voice rules, always:
 - Never say "great question" or praise him for nothing. Praise a specific thing he did.
 - British/Australian spelling.
 - If he asks for the answer, offer the next step instead.
-- One question at a time. End most messages with a single short question.`;
+- One question at a time. End most messages with a single short question.
+
+What you remember, and how to use it:
+- You are told how many days he is into the programme, and whether today is his first day.
+  On day one, say so plainly and keep it light: one chapter, one session, nothing heroic.
+- You are told how many sessions he has done in the last week and how long since the last one.
+  If it has been three days or more, welcome him back in one warm line and carry on — never scold.
+  If he has done fewer than four sessions in the last week, suggest one more day this week, once,
+  and only once. Do not nag.
+- You are told his average time per question. If it is over six minutes on easy questions,
+  suggest a time to beat on the next one ("give this one four minutes"). If he is fast and right,
+  say so and move up a difficulty.
+- He may have worked on paper away from the app. Those notes are in "self reports". Treat them as
+  true and build on them: "you did questions 3 to 8 on paper, so let's start at 9."
+- Your last few messages are in "recent chat". Do not repeat yourself; pick up where you left off.`;
 
 const PARENT_PERSONA = `You are the coach writing to Atharv's parents — Pooja and Akshay.
 They run the sessions and they are deciding what to do next. You are direct, specific and brief.
@@ -50,7 +64,7 @@ const MODES: Record<string, string> = {
   greet: `Open the session. Say hello in one line, name today's topic from the plan, and say what
 you are doing together in one line. The app is showing the chapter's worked examples on screen
 underneath your message, so do not tell him to fetch a book — say the examples are on screen,
-and mention the book page only as somewhere the pictures are if he wants them. Say how long the session is, in one short phrase, using the minutes in the plan.
+and mention the book page only as somewhere the pictures are if he wants them. If this is his first day, say that in one clause. Say how long the session is, in one short phrase, using the minutes in the plan.
 End by asking him to read the examples and tell you when he is ready. Do not start teaching yet.`,
 
   reply: `Continue the session. Answer what he just said or did, in two or three short
@@ -131,6 +145,11 @@ Deno.serve(async (req) => {
 
     const facts = [
       `Today is ${c.today}. His name is ${c.name ?? "Atharv"}.`,
+      `Day ${c.days_in ?? 1} of the programme. First day: ${c.is_first_day ? "yes" : "no"}. Started ${c.started_on ?? "today"}.`,
+      `Sessions in the last 7 days: ${c.sessions_7d ?? 0}. Days since the last one: ${c.days_since_last ?? 0}.`,
+      `Average seconds per question (14 days): ${c.avg_seconds ?? 0}. Slowest: ${JSON.stringify(c.slowest ?? [])}.`,
+      `Work he reported doing on paper: ${JSON.stringify(c.self_reports ?? [])}`,
+      `Your last messages with him: ${JSON.stringify(c.recent_chat ?? []).slice(0, 1200)}`,
       `Today's plan: ${JSON.stringify(c.plan ?? [])}`,
       `Next session: ${JSON.stringify(c.next_session ?? {})}`,
       `Track he chose: ${track}.`,
