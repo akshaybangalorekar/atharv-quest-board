@@ -267,7 +267,7 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
     <div style="display:flex;gap:8px;align-items:center">
       <button class="ghost small" title="Attach a photo of a question" onclick="document.getElementById('doubt').click()" style="flex:0 0 auto;padding:10px 12px">📎</button>
       <input type="file" id="doubt" accept="image/*" capture="environment" multiple class="hidden" onchange="askDoubt(this)">
-      <input id="say" placeholder="Say something to Meera…" onkeydown="if(event.key==='Enter')sendMe()">
+      <input id="say" placeholder="Say something to Ananya…" onkeydown="if(event.key==='Enter')sendMe()">
       <button class="go small" onclick="sendMe()">Send</button>
     </div>
     <div class="bar">
@@ -507,7 +507,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
-const COACH = "Meera";   // her name, in one place
+const COACH = "Ananya";   // her name, in one place
 
 function todayISO() {
   const d = new Date();
@@ -1627,30 +1627,25 @@ async function startSession(chapterOverride, forceMode, mode) {
     S.chapter = open.length ? open[open.length - 1].chapter : 1;
   }
 
-  bubble("think", "…");
+  // the tap itself says hi, and that is what makes her start talking
+  bubble("me", "hi");
+  S.chat.push({ role: "atharv", text: "hi" });
+
+  const think = bubble("think", "…");
   const greet = await callCoach({
     mode: "greet",
-    note: mode === "solo" ? "He chose this chapter himself rather than following the plan. Acknowledge that." : undefined,
+    note: mode === "solo"
+      ? "He has just said hi, and he chose this chapter himself rather than following the plan. Acknowledge that and open the session."
+      : "He has just said hi. Answer him and open the session.",
   });
-  document.querySelector(".msg.think")?.remove();
-  bubble("coach", greet ?? `Hello. Today we are on chapter ${S.chapter}. Tell me when you are ready.`, replySpoken);
-  S.chat.push({ role: "coach", text: greet ?? "" });
+  think.remove();
+  bubble(
+    "coach",
+    greet ?? `Hi Atharv, it's ${COACH}. Today we are on chapter ${S.chapter}. Ready?`,
+    replySpoken
+  );
+  if (greet) S.chat.push({ role: "coach", text: greet });
 
-  // he does not have to type hello: the session opens itself
-  await new Promise((r) => setTimeout(r, 350));
-  bubble("me", "Hi Meera 👋");
-  S.chat.push({ role: "atharv", text: "Hi Meera" });
-
-  const hi = await callCoach({
-    mode: "reply",
-    note: "He has just said hello. Greet him back in one line, then ask your check-in question in one line. Keep it to two lines.",
-  });
-  if (hi) {
-    bubble("coach", hi, replySpoken);
-    S.chat.push({ role: "coach", text: hi });
-  }
-
-  // and straight into the work; he can still say anything he likes first
   await beginWork();
 }
 
