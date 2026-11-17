@@ -1,7 +1,12 @@
 // coach-work — reads a photo of Atharv's rough work and coaches the method.
 //
 // Deploy:  supabase functions deploy coach-work
-// Secret:  supabase secrets set ANTHROPIC_API_KEY=...   (never in the app)
+// Secret:  supabase secrets set SARVAM_API_KEY=...   (never in the app)
+//
+// Model:   glm5.3-flash on Sarvam's OpenAI-compatible /v2 endpoint — text and
+//          image in, so the photo of his working is read directly. Swap the
+//          MODEL constant for gemma4 or deepseekv4.1-flash-1017 if you prefer;
+//          both also take inline images.
 //
 // POST body:
 //   { chapter, idx, image_path?, stage: "work" | "check" | "teachback", note? }
@@ -19,6 +24,9 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const MODEL = "glm5.3-flash";
+const ENDPOINT = "https://api.sarvam.ai/v2/chat/completions";
 
 const SYSTEM = `You are a maths coach for an 11-year-old preparing for the Australian
 Maths Competition (Upper Primary) and APSMO Division J. He has just sent a photo of his
@@ -67,7 +75,7 @@ Deno.serve(async (req) => {
       .eq("chapter", chapter).eq("idx", idx).single();
     if (!q) return json({ error: "no such question" }, 404);
 
-    const content: any[] = [{
+    const parts: any[] = [{
       type: "text",
       text: `Question (chapter ${chapter}, ${q.chapters?.title}): ${q.prompt}\n` +
             `Book method: ${a?.method ?? "not recorded"}\n` +
@@ -78,35 +86,36 @@ Deno.serve(async (req) => {
       const { data: file } = await admin.storage.from("working").download(image_path);
       if (file) {
         const b64 = btoa(String.fromCharCode(...new Uint8Array(await file.arrayBuffer())));
-        content.push({
-          type: "image",
-          source: { type: "base64", media_type: file.type || "image/jpeg", data: b64 },
-        });
+        const mime = file.type || "image/jpeg";
+        parts.push({ type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } });
       }
     }
 
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const r = await fetch(ENDPOINT, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
-        "anthropic-version": "2023-06-01",
+        "api-subscription-key": Deno.env.get("SARVAM_API_KEY")!,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 700,
-        system: SYSTEM,
-        messages: [{ role: "user", content }],
+        model: MODEL,
+        temperature: 0.3,
+        max_tokens: 800,
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: parts },
+        ],
       }),
     });
     if (!r.ok) return json({ error: "model call failed", detail: await r.text() }, 502);
 
-    const raw = (await r.json()).content?.[0]?.text ?? "{}";
+    const body = await r.json();
+    const raw = body?.choices?.[0]?.message?.content ?? "{}";
     const feedback = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
 
     await admin.from("working_reviews").insert({
       student_id: me.id, chapter, idx, image_path, stage, feedback,
-      model: "claude-sonnet-4-5",
+      model: MODEL,
     });
 
     return json(feedback);
