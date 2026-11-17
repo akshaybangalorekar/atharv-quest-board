@@ -1670,6 +1670,30 @@ function practiseChapter() {
 }
 
 /* straight into the questions: the coach reads the results afterwards */
+/* the clock the teacher sets for the session */
+function startBudget(mins) {
+  clearInterval(S.budgetTimer);
+  const total = Math.max(5, Number(mins) || 30) * 60;
+  let left = total;
+  const bar = $("budgetBar");
+  if (!bar) return;
+  bar.classList.remove("hidden");
+  $("budgetLabel").textContent = `${mins} minutes · work on your own, then come back`;
+  const tick = () => {
+    const m = Math.floor(left / 60), sec = left % 60;
+    $("budgetClock").textContent = `${m}:${String(sec).padStart(2, "0")}`;
+    bar.classList.toggle("low", left <= 300);
+    if (left <= 0) {
+      clearInterval(S.budgetTimer);
+      bubble("coach", "Time is up for today. Put the pencil down and tell me how far you got.");
+      return;
+    }
+    left--;
+  };
+  tick();
+  S.budgetTimer = setInterval(tick, 1000);
+}
+
 async function startSolo(chapterArg) {
   const chapter = chapterArg ?? S.chapter;
   if (!chapter) { alert("Open a chapter first, then press Practise."); return; }
@@ -1737,6 +1761,13 @@ async function callCoach({ mode, note }) {
   replySpoken = data?.speak ?? "";
   window.__lastTitle = data?.title ?? "";
   return data?.reply ?? null;
+}
+
+/* which chapter a non-book exam starts from */
+async function pickChapterForTrack() {
+  if (S.track === "olympiad" || S.track === "amc") return null;
+  const { data } = await sb.from("chapters").select("n").eq("source", S.track).order("n");
+  return data && data.length ? data[0].n : null;
 }
 
 async function startSession(chapterOverride, forceMode, mode) {
