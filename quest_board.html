@@ -164,7 +164,9 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
 </div>
 
 <!-- sign in -->
-<main id="signin">
+<main id="boot"><div class="card" style="text-align:center;padding:34px"><div class="k">Quest Coach</div><div class="sub">One moment…</div></div></main>
+
+<main id="signin" class="hidden">
   <div class="art" id="artBand"></div>
   <div class="card auth" style="max-width:420px;margin:0 auto">
     <div class="brand">Quest <span>Coach</span></div>
@@ -467,7 +469,7 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function show(id) {
-  ["signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat", "selflog"].forEach((m) => $(m).classList.add("hidden"));
+  ["boot", "signin", "landing", "track", "session", "book", "chapter", "exam", "results", "parent", "upload", "pchat", "selflog"].forEach((m) => $(m).classList.add("hidden"));
   const signing = id === "signin";
   document.body.classList.toggle("signing", signing);
   if (!signing) document.body.style.background = "";   // back to plain white
@@ -1617,8 +1619,22 @@ if (localStorage.getItem(REMEMBER_KEY) === "0") {
 
 paintArt();
 $("remember").checked = remember;
-sb.auth.onAuthStateChange(() => start());
-start();
+let booted = false;
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === "SIGNED_OUT") { location.reload(); return; }
+  if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED" || event === "MFA_CHALLENGE_VERIFIED") return;
+  if (booted) return;                       // already inside: never re-navigate
+  booted = true;
+  start();
+});
+
+/* start once, after the stored session has been read */
+(async () => {
+  const { data } = await sb.auth.getSession();
+  booted = true;
+  if (data?.session) start();
+  else { show("signin"); }
+})();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 
 const api = {
