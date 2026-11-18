@@ -1293,30 +1293,16 @@ async function signIn() {
       const res = await sb.auth.signInWithPassword({ email: typed, password });
       error = res.error;
     } else {
-      // a short name: the server swaps it for the account and hands back a session.
-      // A cold function can take a few seconds, so never wait forever.
-      const call = sb.functions.invoke("login", { body: { username: typed.toLowerCase(), password } });
-      const timeout = new Promise((resolve) =>
-        setTimeout(() => resolve({ data: null, error: { message: "timeout" } }), 15000));
-      const { data, error: fnErr } = await Promise.race([call, timeout]);
-      if (fnErr?.message === "timeout") {
-        error = { message: "The server did not answer. Check the connection, then try again." };
-        if (btn) { btn.disabled = false; btn.textContent = "Sign in"; }
-        $("err").textContent = error.message;
-        return;
-      }
-      if (fnErr) {
-        error = { message: "Could not reach the server. Check the connection and try again." };
-      } else if (data?.error) {
-        error = { message: data.error };
-      } else if (data?.access_token) {
-        const set = await sb.auth.setSession({
-          access_token: data.access_token,
-          refresh_token: data.refresh_token,
-        });
-        error = set.error;
+      // a short name: look up the account, then sign in the ordinary way.
+      // No function in the middle, so there is nothing to wait on.
+      const { data: found, error: lookErr } = await sb.rpc("login_email", { p_name: typed.toLowerCase() });
+      if (lookErr) {
+        error = { message: "Could not check that name. Check the connection and try again." };
+      } else if (!found) {
+        error = { message: `There is no one called “${typed}” here. Try atharv, pooja or akshay — or your full email.` };
       } else {
-        error = { message: "That did not work. Try again." };
+        const res = await sb.auth.signInWithPassword({ email: found, password });
+        error = res.error;
       }
     }
   } catch (e) {
