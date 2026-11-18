@@ -432,7 +432,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     <div class="bar" style="margin-bottom:10px"><button class="ghost small" onclick="goLanding()">← Home</button></div>
     <div class="shelfTabs" id="subTabs">
       <button class="on" id="subBook" onclick="pickShelf('book',this)">The book</button>
-      <button id="subDj" onclick="pickShelf('dj',this)">Division J</button>
+      <button id="subDj" onclick="pickShelf('dj',this)">Contest sets</button>
       <button id="mockTab" onclick="startMock()" style="display:none">Mock test</button>
     </div>
     <div class="sub" id="shelfNote" style="margin-top:10px"></div>
@@ -881,7 +881,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.45.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.46.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1017,7 +1017,7 @@ const S = {
 /* how each exam is introduced. Anything registered in exam_banks appears,
    whether or not it is listed here — this only supplies the friendly words. */
 const TRACK_LOOK = {
-  olympiad: { name: "Olympiad", school: "The book · APSMO Division J", note: "24 chapters · 200 Division J questions · contests May to September" },
+  olympiad: { name: "Olympiad", school: "The book and the contest sets", note: "24 chapters · 200 contest questions · contests May to September" },
   amc:      { name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Thirty questions, sixty minutes" },
   aas:      { name: "AAS", school: "Camberwell Grammar", note: "Scholarship test · February 2027" },
   edutest:  { name: "Edutest", school: "Kilvington Grammar · McKinnon Secondary (ELMS)", note: "One paper family · same year level · February and September 2027" },
@@ -1048,7 +1048,8 @@ function buildTracks(banks) {
     out.push({
       id: fam,
       ...look,
-      school: schools.length > 1 ? schools.join(" · ") : (schools[0] ?? look.school),
+      // the family's own line if it has one, otherwise the schools beneath it
+      school: look.school || (schools.length ? schools.join(" · ") : ""),
       members,
     });
   });
@@ -1173,7 +1174,7 @@ function journeyChart(j) {
       "AAS numerical reasoning": "Camberwell",
       "Edutest numerical reasoning": "Kilvington",
       "AMC Upper Primary": "AMC",
-      "APSMO Division J": "APSMO",
+      "APSMO Division J": "Olympiad contest",
       "ICAS Maths": "ICAS",
       "ELMS": "ELMS · Edutest, McKinnon",
     };
@@ -2107,7 +2108,7 @@ async function loadParent() {
 
 const BANK_LABEL = {
   "Olympiad book": "Olympiad · the book",
-  "APSMO Division J": "APSMO · Division J",
+  "APSMO Division J": "Olympiad · contest sets",
   "AAS numerical reasoning": "AAS · Camberwell Grammar",
   "Edutest numerical reasoning": "Edutest · Kilvington",
   "ICAS Maths": "ICAS · Maths",
@@ -3067,7 +3068,7 @@ async function openTrack(id) {
   loadParts(id);
   loadPapers(id);
   $("subBook").textContent = id === "amc" ? "From the book" : "The book";
-  $("subDj").textContent = id === "amc" ? "AMC papers" : "Division J";
+  $("subDj").textContent = id === "amc" ? "AMC papers" : "Contest sets";
   S.shelf = "book";
   await renderShelf();
 }
@@ -3094,14 +3095,14 @@ async function renderShelf() {
     const src = S.track === "amc" ? "amc" : "apsmo";
     $("shelfNote").textContent = src === "amc"
       ? "AMC Upper Primary papers — nothing uploaded yet"
-      : "Maths Olympiad Contest Problems Vol 2 · Division J · nine sets";
+      : "Olympiad contest problems · nine sets";
     const { data } = await sb.from("chapters").select("n,title,practice").eq("source", src).order("n");
     box.innerHTML = (data ?? []).map((c) => `
       <button class="ch" onclick="openChapter(${c.n})">
-        <span><b>${esc(c.title.replace("APSMO Division J · ", ""))}</b>
+        <span><b>${esc(c.title.replace("APSMO Division J · ", "").replace("APSMO Division J", "Contest set"))}</b>
           <div class="sub">${c.practice} questions${c.n === 141 ? " · the first set" : ""}</div></span>
         <span class="sub">›</span></button>`).join("")
-      || `<div class="sub">${src === "amc" ? "No AMC papers uploaded yet. Upload one from the parent view." : "No Division J questions loaded."}</div>`;
+      || `<div class="sub">${src === "amc" ? "No AMC papers uploaded yet. Upload one from the parent view." : "No contest questions loaded yet."}</div>`;
     return;
   }
 
@@ -3136,7 +3137,7 @@ async function startMock() {
   if (id === "olympiad") {
     const { data } = await sb.from("chapters").select("n").eq("source", "apsmo");
     const chs = (data ?? []).map((c) => c.n);
-    if (!chs.length) { alert("No Division J questions loaded yet."); return; }
+    if (!chs.length) { alert("No contest questions loaded yet."); return; }
     body = { p_kind: "mock", p_chapters: chs, p_count: 5, p_minutes: 30, p_pass: 60 };
   } else if (id === "amc") {
     const { data } = await sb.from("chapters").select("n").eq("source", "amc");
@@ -3161,7 +3162,7 @@ async function startMock() {
                 : { p_count: Math.min(30, chs.length * 5), p_minutes: 45 };
     body = { p_kind: "mock", p_chapters: chs, p_pass: 60, ...shape };
   }
-  const label = id === "olympiad" ? "Division J mock · 5 questions, 30 minutes"
+  const label = id === "olympiad" ? "Olympiad contest mock · 5 questions, 30 minutes"
     : id === "amc" ? "AMC paper · 30 questions, 60 minutes"
     : id === "icas" ? "ICAS paper · 40 questions, 60 minutes"
     : id === "elms" ? "ELMS paper · 30 questions, 45 minutes"
@@ -4036,7 +4037,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
