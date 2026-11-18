@@ -71,13 +71,32 @@ Deno.serve(async (req) => {
       .select("id, exam, student_id").eq("id", paper_id).single();
     if (!paper) return json({ error: "no such paper" }, 404);
 
-    // the page image, straight from storage
+    // the page, straight from storage: a picture, or text for anything that is not one
     const { data: blob, error: dlErr } = await admin.storage.from("papers").download(row.path);
-    if (dlErr || !blob) return json({ error: "could not read the page" }, 400);
-    const buf = new Uint8Array(await blob.arrayBuffer());
-    let bin = "";
-    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-    const b64 = btoa(bin);
+    if (dlErr || !blob) return json({ error: "could not read the page", detail: dlErr?.message }, 200);
+
+    const isText = /\.(txt|md|html?|csv)$/i.test(row.path) || (blob.type || "").startsWith("text/");
+    let userContent: any;
+    if (isText) {
+      const text = (await blob.text()).slice(0, 24000);
+      if (!text.trim()) return json({ error: "that file had no readable text", page }, 200);
+      userContent = [{ type: "text", text: `Extract the questions from this:
+
+${text}` }];
+    } else {
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      if (buf.length > 6_000_000) return json({ error: "that page image is too large to send", page }, 200);
+      let bin = "";
+      const CH = 0x8000;
+      for (let i = 0; i < buf.length; i += CH) {
+        bin += String.fromCharCode.apply(null, buf.subarray(i, i + CH) as unknown as number[]);
+      }
+      const b64 = btoa(bin);
+      userContent = [
+        { type: "text", text: "Extract the questions from this page." },
+        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${b64}` } },
+      ];
+    }
 
     const r = await fetch(ENDPOINT, {
       method: "POST",
@@ -91,26 +110,23 @@ Deno.serve(async (req) => {
         max_tokens: 3000,
         messages: [
           { role: "system", content: PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Extract the questions from this page." },
-              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${b64}` } },
-            ],
-          },
+          { role: "user", content: userContent },
         ],
       }),
     });
-    if (!r.ok) return json({ error: "model call failed", detail: await r.text() }, 502);
+    if (!r.ok) {
+      const why = (await r.text()).slice(0, 300);
+      return json({ error: `the reader refused that page (${r.status})`, detail: why, page }, 200);
+    }
 
     const body = await r.json();
     const raw = body?.choices?.[0]?.message?.content ?? "";
     const a = raw.indexOf("{"), b = raw.lastIndexOf("}");
-    if (a < 0 || b <= a) return json({ error: "could not read that page" }, 422);
+    if (a < 0 || b <= a) return json({ error: "the reader did not answer in a form I could use", page }, 200);
 
     let parsed: any = {};
     try { parsed = JSON.parse(raw.slice(a, b + 1)); }
-    catch { return json({ error: "could not read that page" }, 422); }
+    catch { return json({ error: "the reader's answer was cut off", page }, 200); }
 
     const rows = (parsed.rows ?? [])
       .map((x: any) => {
@@ -142,7 +158,7 @@ Deno.serve(async (req) => {
       p_paper: paper_id,
       p_pages: rows.map(() => page),
     });
-    if (addErr) return json({ error: addErr.message }, 400);
+    if (addErr) return json({ error: addErr.message, page }, 200);
 
     await admin.from("paper_pages").update({ done: true })
       .eq("paper_id", paper_id).eq("page_no", page);

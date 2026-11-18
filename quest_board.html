@@ -73,7 +73,8 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 .exam .state{margin-top:12px;font-size:14px}
 
 /* chat */
-#chatWrap{display:grid;gap:10px;max-width:820px;width:100%;margin:0 auto;
+#chatWrap{display:grid;gap:10px;width:100%;max-width:none;margin:0;
+  padding:0 clamp(12px, 3vw, 40px) 8px;
   align-content:end;
   overflow-y:auto;overscroll-behavior:contain;padding-bottom:6px;
   flex:1 1 auto;min-height:0}   /* min-height:0 is what lets it give room to the box */
@@ -105,7 +106,8 @@ main#session .composer{flex:0 0 auto;margin-top:8px}
 .footLine{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
 .footLine .keys summary{font-size:12px}
 body:has(#session:not(.hidden)) footer{display:none}
-main#session{height:calc(100dvh - 66px);height:calc(100vh - 66px);padding-bottom:0;gap:8px}
+main#session{height:calc(100dvh - 62px);height:calc(100vh - 62px);padding:0 0 0;gap:0;
+  max-width:none;width:100%}
 .topProg{display:flex;flex-direction:column;gap:3px;min-width:120px;max-width:190px}
 .topProg.hidden{display:none}
 .topProgText{font-size:11px;color:var(--mut);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -178,7 +180,8 @@ body.signing .top,body.signing footer{display:none}
 .footLine{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
 .footLine .keys summary{font-size:12px}
 body:has(#session:not(.hidden)) footer{display:none}
-main#session{height:calc(100dvh - 66px);height:calc(100vh - 66px);padding-bottom:0;gap:8px}
+main#session{height:calc(100dvh - 62px);height:calc(100vh - 62px);padding:0 0 0;gap:0;
+  max-width:none;width:100%}
 .topProg{display:flex;flex-direction:column;gap:3px;min-width:120px;max-width:190px}
 .topProg.hidden{display:none}
 .topProgText{font-size:11px;color:var(--mut);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -229,6 +232,7 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
 .actions:empty{display:none}
 .composer{padding:12px 14px;border-radius:16px;backdrop-filter:blur(8px);background:rgba(255,255,255,.94)}
 .sayRow{display:flex;gap:8px;align-items:flex-end;width:100%}
+#session .card.composerCard,.composer{border-radius:0;border-left:0;border-right:0}
 .sayRow #say{flex:1 1 auto;min-width:0}
 .sayRow .go{flex:0 0 auto;align-self:flex-end}
 .composer textarea#say, input[readonly]{caret-color:transparent}
@@ -320,6 +324,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <div class="topProgText" id="topProgText">Reading…</div>
       <div class="topProgTrack"><span id="topProgBar"></span></div>
     </div>
+    <button class="out" id="helpBtn" onclick="openHelp()">Help</button>
     <button class="out hidden" id="homeBtn" onclick="goHome()">Home</button>
     <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
   </div>
@@ -465,17 +470,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </div>
     <div class="footLine">
       <span class="hint" id="micState" style="flex:1 1 auto;margin:0;display:none"></span>
-      <details class="keys" style="margin:0;border:0;padding:0">
-        <summary>Key words</summary>
-        <div class="keyrow" id="micHintRow"><span>To answer out loud: tap Talk, say your answer, then say “submit”. Or tap “Talk to Ananya” to think out loud.</span></div>
-      <div class="keyrow"><b>To send</b><span>say “submit” — or “send it”, “done”, “finished”</span></div>
-      <div class="keyrow"><b>Times</b><span>“times”</span><b>÷</b><span>“divided by”</span><b>+</b><span>“plus”</span>
-        <b>−</b><span>“minus”</span><b>=</b><span>“equals”</span></div>
-      <div class="keyrow"><b>3/4</b><span>“three over four”</span><b>2.5</b><span>“two point five”</span>
-        <b>7²</b><span>“seven squared”</span><b>15%</b><span>“fifteen per cent”</span></div>
-      <div class="keyrow"><b>$</b><span>“dollars”</span><b>cm²</b><span>“square centimetres”</span><b>1:3</b><span>“one to three”</span></div>
-      </details>
-      <span class="sub" id="verMini" style="white-space:nowrap"></span>
+      <button class="link" onclick="openHelp()">Help</button>
     </div>
   </div>
 </main>
@@ -720,6 +715,34 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 </main>
 
 <!-- logging work done away from the app -->
+<!-- help -->
+<main id="help" class="hidden">
+  <div class="card">
+    <div class="k">Help</div>
+    <div class="big" style="font-size:20px">Talking to Ananya</div>
+    <div class="sub" style="margin-top:6px">To answer out loud: tap <b>Talk</b>, say your answer, then say
+      “submit”. Or tap <b>Talk to Ananya</b> to think out loud while you work.</div>
+  </div>
+
+  <div class="card">
+    <div class="k">Key words — how to say maths out loud</div>
+    <div class="keyrow"><b>To send</b><span>say “submit” — or “send it”, “done”, “finished”</span></div>
+    <div class="keyrow"><b>×</b><span>“times”</span><b>÷</b><span>“divided by”</span><b>+</b><span>“plus”</span>
+      <b>−</b><span>“minus”</span><b>=</b><span>“equals”</span></div>
+    <div class="keyrow"><b>3/4</b><span>“three over four”</span><b>2.5</b><span>“two point five”</span>
+      <b>7²</b><span>“seven squared”</span><b>15%</b><span>“fifteen per cent”</span></div>
+    <div class="keyrow"><b>$</b><span>“dollars”</span><b>cm²</b><span>“square centimetres”</span><b>1:3</b><span>“one to three”</span></div>
+  </div>
+
+  <div class="card">
+    <div class="bar" style="justify-content:space-between;align-items:center">
+      <span class="sub" id="helpVer">—</span>
+      <div class="bar"><button class="ghost small" onclick="freshCopy()">Refresh the app</button>
+        <button class="ghost small" onclick="goHome()">← Back</button></div>
+    </div>
+  </div>
+</main>
+
 <!-- reading a paper -->
 <main id="paper" class="hidden">
   <div class="card">
@@ -883,7 +906,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.53.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.56.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -998,10 +1021,15 @@ async function dismissNote(id) {
   $("noteBar").innerHTML = "";
 }
 
+async function openHelp() {
+  show("help");
+  if ($("helpVer")) $("helpVer").textContent = "Version " + APP_VERSION;
+}
+
 function show(id) {
   S.view = id;
   if (!S.restoring) saveRoute();
-  ["boot", "signin", "landing", "track", "session", "chapter", "exam", "results", "parent", "upload", "pchat", "dash", "journal", "formula", "paper"].forEach((m) => $(m).classList.add("hidden"));
+  ["boot", "signin", "landing", "track", "session", "chapter", "exam", "results", "parent", "upload", "pchat", "dash", "journal", "formula", "paper", "help"].forEach((m) => $(m).classList.add("hidden"));
   const signing = id === "signin";
   document.body.classList.toggle("signing", signing);
   if (!signing) document.body.style.background = "";   // back to plain white
@@ -2383,8 +2411,13 @@ async function readInBackground(file, userId, exam, paperId) {
         paintTopProgress(i + 1, pages.length, `Saving page ${i + 1} of ${pages.length}`);
       }
     } else {
-      const path = `${userId}/page-${paperId}-1.jpg`;
-      await sb.storage.from("papers").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+      // a picture stays a picture; anything else is kept as text and read as text
+      const isPic = (file.type || "").startsWith("image/");
+      const path = `${userId}/page-${paperId}-1.${isPic ? "jpg" : "txt"}`;
+      const body = isPic ? file : new Blob([await file.text()], { type: "text/plain" });
+      await sb.storage.from("papers").upload(path, body, {
+        upsert: true, contentType: isPic ? (file.type || "image/jpeg") : "text/plain",
+      });
       await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: 1, path }, { onConflict: "paper_id,page_no" });
       await sb.rpc("set_job_total", { p_id: jobId, p_total: 1 });
     }
@@ -2415,13 +2448,21 @@ async function runServerQueue() {
     const { data, error } = await sb.functions.invoke("parse-page", {
       body: { paper_id: next.paper_id, page: next.page_no },
     });
-    if (error || data?.error) {
-      // a page failed: keep the job open, and remember why so the row can say it
-      S.lastReadError = data?.error ?? error?.message ?? "the reader did not answer";
-      queueTimer = setTimeout(runServerQueue, 20000);
+
+    // the function reports its own failures in the body, with the reason
+    if (data?.error) {
+      S.lastReadError = data.detail ? `${data.error}: ${String(data.detail).slice(0, 120)}` : data.error;
+      queueTimer = setTimeout(runServerQueue, 25000);
       loadPapersToRead();
       return;
     }
+    if (error) {
+      S.lastReadError = error.message ?? "the reader did not answer";
+      queueTimer = setTimeout(runServerQueue, 25000);
+      loadPapersToRead();
+      return;
+    }
+    S.lastReadError = "";
   }
 
   const { data: prog } = await sb.rpc("parse_progress");
@@ -2637,11 +2678,14 @@ async function pdfToImages(file, maxPages) {
   const n = Math.min(doc.numPages, maxPages);
   for (let i = 1; i <= n; i++) {
     const page = await doc.getPage(i);
-    const viewport = page.getViewport({ scale: 2 });
+    // scale so the page is about 1400 px wide: legible for the model, small enough to send
+    const base = page.getViewport({ scale: 1 });
+    const scale = Math.min(2.5, 1400 / base.width);
+    const viewport = page.getViewport({ scale });
     const canvas = document.createElement("canvas");
-    canvas.width = viewport.width; canvas.height = viewport.height;
+    canvas.width = Math.round(viewport.width); canvas.height = Math.round(viewport.height);
     await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.85));
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.82));
     out.push(blob);
   }
   return out;
@@ -4058,7 +4102,7 @@ if (localStorage.getItem(REMEMBER_KEY) === "0") {
 
 paintArt();
 if ($("ver")) $("ver").textContent = "v" + APP_VERSION;
-if ($("verMini")) $("verMini").textContent = "v" + APP_VERSION;
+if ($("helpVer")) $("helpVer").textContent = "Version " + APP_VERSION;
 $("remember").checked = remember;
 try {
   const last = localStorage.getItem(LAST_KEY);
@@ -4096,7 +4140,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, openHelp, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
