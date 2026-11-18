@@ -74,6 +74,28 @@ Deno.serve(async (req) => {
       return json({ ok: true, student_id: id, name, email });
     }
 
+    // ---- removing another parent's access ----------------------------------
+    if (action === "remove-parent") {
+      const parentId = String(body.parent_id ?? "");
+      const childId = String(body.student_id ?? "");
+      if (!parentId || !childId) return json({ error: "Which parent, and which child?" }, 400);
+      if (parentId === user.id) return json({ error: "You cannot remove yourself." }, 400);
+
+      const { data: mine } = await admin.from("guardians")
+        .select("student_id").eq("parent_id", user.id).eq("student_id", childId).limit(1);
+      if (!mine?.length) return json({ error: "That child is not linked to this login." }, 403);
+
+      const { error } = await admin.from("guardians")
+        .delete().eq("parent_id", parentId).eq("student_id", childId);
+      if (error) return json({ error: error.message }, 400);
+
+      await admin.from("account_events").insert({
+        student_id: childId, by_user: user.id, what: "a parent's access was removed",
+      }).then(() => {}, () => {});
+
+      return json({ ok: true });
+    }
+
     // ---- removing a child -------------------------------------------------
     if (action === "delete") {
       const target = String(body.student_id ?? "");
