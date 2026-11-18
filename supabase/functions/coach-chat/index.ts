@@ -306,6 +306,7 @@ Deno.serve(async (req) => {
       `Work he reported doing on paper: ${JSON.stringify(c.self_reports ?? [])}`,
       `What he did in the app on his own: ${JSON.stringify(solo ?? {})}`,
       `Still missing from his formula board: ${JSON.stringify(boardPending ?? [])}`,
+      `Exam note: ELMS at McKinnon is an Edutest paper, the same family as Kilvington — preparation for one counts for the other.`,
       `Placement needed: ${c.placement_due ? "yes — he has never been placed, or a parent reset the app" : "no"}`,
       `The question on his screen right now: ${onScreen?.prompt ? JSON.stringify(onScreen) : "nothing — no question is open"}`,
       `STANDING BRIEF (his whole history, rebuilt nightly — trust it over your own memory): ${JSON.stringify(brief ?? {})}`,
