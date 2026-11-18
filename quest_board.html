@@ -554,10 +554,17 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </details>
   </div>
 
+  <div class="card" style="padding:12px 16px">
+    <div class="bar" style="justify-content:space-between;align-items:center">
+      <span class="sub" id="pVer">—</span>
+      <button class="ghost small" onclick="freshCopy()">Refresh the app</button>
+    </div>
+  </div>
+
   <div class="card">
     <div class="k">Exams and what is loaded</div>
     <table>
-      <tr><th>Exam</th><th>Loaded</th><th>Tried</th><th>Verdict</th></tr>
+      <tr><th>Where</th><th>Sits</th><th>Verdict</th></tr>
       <tbody id="pExams"></tbody>
     </table>
     <div class="hint">“Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy.</div>
@@ -808,7 +815,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.30.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.31.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1798,6 +1805,8 @@ async function loadContext() {
 async function loadParent() {
   const { data } = await sb.rpc("parent_context");
   S.pctx = data ?? {};
+  const { data: sr } = await sb.rpc("readiness_by_school");
+  S.schoolReadiness = sr?.schools ?? [];
 }
 
 const BANK_LABEL = {
@@ -1826,16 +1835,22 @@ async function goParent() {
   const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
                   thin: "Need more data", no_content: "Nothing yet" };
 
-  // one row per exam family — Edutest covers two schools, Olympiad covers the book and Division J
-  const rows = c.readiness ?? [];
+  // one line per school, over exactly the sections that school sits
+  const rows = S.schoolReadiness ?? [];
+  if ($("pVer")) $("pVer").textContent = `Version ${APP_VERSION} · ${rows.length} schools`;
+  const cls = (v) => v === "solid" ? "ok" : v === "needs work" ? "red"
+    : v === "partly measured" ? "amber" : "grey";
   $("pExams").innerHTML = rows.map((r) => {
-    const v = r.verdict ?? "no_content";
-    const cls = v === "ready" ? "ok" : v === "too_early" ? "grey" : v === "in_progress" ? "amber" : "red";
-    const schools = r.schools ? `<div class="sub">${esc(r.schools)}</div>` : "";
-    return `<tr><td><b>${esc(r.exam)}</b>${schools}</td>
-      <td>${r.items ?? 0}</td><td>${r.practised ?? 0}</td>
-      <td><span class="pill ${cls}">${words[v] ?? v}</span></td></tr>`;
-  }).join("") || `<tr><td class="sub">Nothing loaded yet.</td><td></td><td></td><td></td></tr>`;
+    const detail = (r.sections ?? []).map((x) => {
+      const mark = x.covered
+        ? `${x.tried} tried${x.accuracy === null ? "" : ` · ${x.accuracy}%`}`
+        : "not measured";
+      return `<div class="sub">${esc(x.part)} · ${x.minutes} min · ${mark} — <b>${esc(x.verdict)}</b></div>`;
+    }).join("");
+    return `<tr><td><b>${esc(r.school)}</b><div class="sub">${esc(r.exam)}</div></td>
+      <td>${r.measured_minutes ?? 0} of ${r.sits_minutes ?? 0} min measured</td>
+      <td><span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>${detail}</td></tr>`;
+  }).join("") || `<tr><td class="sub">Nothing loaded yet.</td><td></td><td></td></tr>`;
 
   const weak = c.weak ?? [];
   $("pWeak").innerHTML = weak.length
@@ -3662,7 +3677,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
