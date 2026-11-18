@@ -870,7 +870,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.40.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.41.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -931,11 +931,18 @@ async function checkRunningJob() {
   const job = data ?? null;
   if (!job) { paintTopProgress(0, 0); return; }
 
-  if (job.status === "running") {
+  if (job.status === "running" || (job.remaining ?? 0) > 0) {
     const total = job.pages_total || 1;
     paintTopProgress(job.pages_done ?? 0, total,
       total > 1 ? `Reading ${job.pages_done ?? 0} of ${total}` : "Reading…");
     startJobWatch();
+    return;
+  }
+
+  if ((job.remaining ?? 0) > 0) {
+    paintTopProgress(job.pages_done ?? 0, job.pages_total || 1,
+      `Reading ${job.pages_done ?? 0} of ${job.pages_total ?? 1} — paused`);
+    runServerQueue();
     return;
   }
 
@@ -2232,32 +2239,49 @@ async function readInBackground(file, userId, exam, paperId) {
   runServerQueue();
 }
 
-/* ask the server to read page after page until there are none left */
+/* ask the server to read page after page; never call it done while pages remain */
+let queueTimer = null;
 async function runServerQueue() {
-  for (let guard = 0; guard < 60; guard++) {
+  if (queueTimer) { clearTimeout(queueTimer); queueTimer = null; }
+
+  for (let guard = 0; guard < 40; guard++) {
     const { data: next } = await sb.rpc("next_parse_page");
     if (!next) break;
+
+    const { data: prog0 } = await sb.rpc("parse_progress");
+    if (prog0) {
+      paintTopProgress(prog0.pages_done ?? 0, prog0.pages_total || 1,
+        `Reading ${prog0.pages_done ?? 0} of ${prog0.pages_total ?? 1}`);
+    }
 
     const { data, error } = await sb.functions.invoke("parse-page", {
       body: { paper_id: next.paper_id, page: next.page_no },
     });
-    if (error || data?.error) break;
-
-    const { data: prog } = await sb.rpc("parse_progress");
-    if (prog) {
-      paintTopProgress(prog.pages_done ?? 0, prog.pages_total || 1,
-        `Reading ${prog.pages_done ?? 0} of ${prog.pages_total ?? 1}`);
+    if (error || data?.error) {
+      // a page failed: keep the job open and try again shortly
+      paintTopProgress(1, 1, "Reading paused — retrying");
+      queueTimer = setTimeout(runServerQueue, 20000);
+      return;
     }
   }
 
   const { data: prog } = await sb.rpc("parse_progress");
+  if (prog && (prog.remaining ?? 0) > 0) {
+    // there is still work: leave the bar up and come back to it
+    paintTopProgress(prog.pages_done ?? 0, prog.pages_total || 1,
+      `Reading ${prog.pages_done ?? 0} of ${prog.pages_total ?? 1} — paused`);
+    queueTimer = setTimeout(runServerQueue, 20000);
+    return;
+  }
+
   if (prog && prog.status === "running") {
     await sb.rpc("finish_parse_job", {
       p_id: prog.id, p_added: prog.added ?? 0, p_unanswered: prog.unanswered ?? 0,
       p_strand: prog.strand ?? "", p_pages_done: prog.pages_done ?? 0, p_failed: false,
     });
   }
-  paintTopProgress(0, 0);
+  paintTopProgress(1, 1, "Reading done");
+  setTimeout(() => paintTopProgress(0, 0), 5000);
   paintNote();
 }
 
