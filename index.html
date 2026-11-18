@@ -906,7 +906,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.56.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.57.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1996,8 +1996,10 @@ async function loadPapersToRead() {
           (r.questions ?? 0) > (r.answers ?? 0) ? ` · ${(r.questions ?? 0) - (r.answers ?? 0)} still to answer` : ""}</div>
       </div>
       <div class="bar" style="gap:6px">
-        ${left > 0 ? `<button class="go small" onclick="retryReading(${r.id}, false)">Read the rest</button>` : ""}
-        <button class="ghost small" onclick="retryReading(${r.id}, true)">Reload</button>
+        ${left > 0 ? `<button class="go small" title="Carry on from the page it stopped at — pages already read are skipped"
+              onclick="retryReading(${r.id}, false)">Continue reading</button>` : ""}
+        <button class="ghost small" title="Read every page again from the start — for when the first reading was wrong"
+              onclick="retryReading(${r.id}, true)">Read the whole file again</button>
         <button class="ghost small" style="border-color:#f2c9c9;color:#b8383d" onclick="deletePaper(${r.id})">Delete</button>
       </div>
     </div>`;
