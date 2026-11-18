@@ -870,7 +870,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.39.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.40.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1868,7 +1868,8 @@ async function loadBanks() {
 async function loadContext() {
   await loadBanks();
   await checkReset();
-  checkRunningJob();                     // which exams exist decides which cards appear
+  checkRunningJob();
+  runServerQueue();                     // which exams exist decides which cards appear
   const { data } = await sb.rpc("coach_context");
   S.ctx = data ?? {};
   const { data: prof } = await sb.from("profiles").select("*").limit(1).maybeSingle();
@@ -2199,50 +2200,63 @@ async function uploadAndRead(input) {
   }
 }
 
-/* runs on its own; the note at the top tells him when it lands */
+/* the reading is the server's job now; this just keeps asking it for the next page */
 async function readInBackground(file, userId, exam, paperId) {
   const { data: jobId } = await sb.rpc("start_parse_job", { p_paper: paperId, p_exam: exam, p_pages: 0 });
-  paintTopProgress(0, 1, "Reading…");
-  let added = 0, unanswered = 0, strand = "", pagesDone = 0, failed = false;
+  paintTopProgress(0, 1, "Preparing…");
 
   try {
-    S.pendingOptions = [];
-    S.pendingPages = [];
-    S.pendingPaper = paperId;
-
     if (fileKind(file) === "pdf") {
       const pages = await pdfToImages(file, 40);
       await sb.rpc("set_job_total", { p_id: jobId, p_total: pages.length });
-      paintTopProgress(0, pages.length, `Reading 0 of ${pages.length}`);
-      startJobWatch();
+
+      // the pages go into storage once; after this the browser is not needed
       for (let i = 0; i < pages.length; i++) {
-        S.pendingPage = i + 1;
-        const got = await callExtractRows(pages[i], exam);
-        if (!got.rows.length) continue;
-        const res = await commitRows(got.rows, exam, got.strand, pages[i]);
-        added += res.added; unanswered += res.unanswered;
-        strand = res.strand || strand;
-        pagesDone = i + 1;
-        paintTopProgress(pagesDone, pages.length, `Reading ${pagesDone} of ${pages.length}`);
-        await sb.rpc("finish_parse_job", {
-          p_id: jobId, p_added: added, p_unanswered: unanswered,
-          p_strand: strand, p_pages_done: pagesDone, p_failed: false,
-        });
+        const path = `${userId}/page-${paperId}-${i + 1}.jpg`;
+        await sb.storage.from("papers").upload(path, pages[i], { upsert: true, contentType: "image/jpeg" });
+        await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: i + 1, path }, { onConflict: "paper_id,page_no" });
+        paintTopProgress(i + 1, pages.length, `Saving page ${i + 1} of ${pages.length}`);
       }
     } else {
-      const got = await callExtractRows(file, exam);
-      const res = await commitRows(got.rows, exam, got.strand, file);
-      added = res.added; unanswered = res.unanswered; strand = res.strand;
-      pagesDone = 1;
+      const path = `${userId}/page-${paperId}-1.jpg`;
+      await sb.storage.from("papers").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+      await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: 1, path }, { onConflict: "paper_id,page_no" });
+      await sb.rpc("set_job_total", { p_id: jobId, p_total: 1 });
     }
   } catch (e) {
-    failed = true;
+    await sb.rpc("finish_parse_job", { p_id: jobId, p_added: 0, p_unanswered: 0, p_strand: "", p_pages_done: 0, p_failed: true });
+    return;
   }
 
-  await sb.rpc("finish_parse_job", {
-    p_id: jobId, p_added: added, p_unanswered: unanswered,
-    p_strand: strand, p_pages_done: pagesDone, p_failed: failed,
-  });
+  paintTopProgress(0, 1, "Reading…");
+  runServerQueue();
+}
+
+/* ask the server to read page after page until there are none left */
+async function runServerQueue() {
+  for (let guard = 0; guard < 60; guard++) {
+    const { data: next } = await sb.rpc("next_parse_page");
+    if (!next) break;
+
+    const { data, error } = await sb.functions.invoke("parse-page", {
+      body: { paper_id: next.paper_id, page: next.page_no },
+    });
+    if (error || data?.error) break;
+
+    const { data: prog } = await sb.rpc("parse_progress");
+    if (prog) {
+      paintTopProgress(prog.pages_done ?? 0, prog.pages_total || 1,
+        `Reading ${prog.pages_done ?? 0} of ${prog.pages_total ?? 1}`);
+    }
+  }
+
+  const { data: prog } = await sb.rpc("parse_progress");
+  if (prog && prog.status === "running") {
+    await sb.rpc("finish_parse_job", {
+      p_id: prog.id, p_added: prog.added ?? 0, p_unanswered: prog.unanswered ?? 0,
+      p_strand: prog.strand ?? "", p_pages_done: prog.pages_done ?? 0, p_failed: false,
+    });
+  }
   paintTopProgress(0, 0);
   paintNote();
 }
@@ -3906,7 +3920,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
