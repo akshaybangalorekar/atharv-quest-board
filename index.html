@@ -72,7 +72,10 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 .exam .state{margin-top:12px;font-size:14px}
 
 /* chat */
-#chatWrap{display:grid;gap:10px;max-width:820px;width:100%;margin:0 auto}
+#chatWrap{display:grid;gap:10px;max-width:820px;width:100%;margin:0 auto;
+  max-height:calc(100vh - 330px);overflow-y:auto;overscroll-behavior:contain;padding-bottom:4px}
+#chatWrap::-webkit-scrollbar{width:8px}
+#chatWrap::-webkit-scrollbar-thumb{background:#e2dff0;border-radius:99px}
 #session .card{max-width:820px;width:100%;margin:0 auto}
 .msg{max-width:86%;padding:12px 14px;border-radius:16px;font-size:15.5px;white-space:pre-wrap}
 .msg.coach{background:var(--acc-soft);border:1px solid #e4e0fb;border-bottom-left-radius:6px;justify-self:start}
@@ -682,7 +685,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.11.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.11.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -937,8 +940,9 @@ function openPad(el, kind) {
   $("pad").setAttribute("aria-hidden", "false");
   $("padWho").textContent = kind === "num" ? "Your answer" : "Type to Ananya";
   paintPad();
-  // keep the box he is typing into on screen above the pad
-  setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 60);
+  // the pad sits at the bottom, so nothing needs to move; just keep the box visible
+  const y = window.scrollY;
+  setTimeout(() => { if (Math.abs(window.scrollY - y) > 4) window.scrollTo(0, y); }, 80);
 }
 
 function closePad() {
@@ -968,8 +972,10 @@ function paintPad() {
 }
 
 function growSay(el) {
+  const y = window.scrollY;
   el.style.height = "auto";
   el.style.height = Math.min(140, Math.max(48, el.scrollHeight)) + "px";
+  if (window.scrollY !== y) window.scrollTo(0, y);   // the box grows, the page does not move
 }
 
 function padKey(k) {
@@ -1620,7 +1626,7 @@ function pBubble(role, text) {
   d.className = "msg " + role;
   d.innerHTML = esc(text);
   $("pchatWrap").appendChild(d);
-  d.scrollIntoView({ behavior: "smooth", block: "end" });
+  stickBottom();
   return d;
 }
 
@@ -1639,6 +1645,7 @@ async function sendParent() {
   const text = box.value.trim();
   if (!text) return;
   box.value = "";
+  S.forceScroll = true;
   heard = "";                    // the microphone must not put it back
   if (box.style) box.style.height = "";
   pBubble("me", text);
@@ -2111,6 +2118,15 @@ function cleanCoachText(text) {
   return t.replace(/\{.*\}/s, "").trim() || "…";
 }
 
+/* follow the newest message only if he is already at the bottom */
+function stickBottom() {
+  const box = $("chatWrap");
+  if (!box) return;
+  const near = box.scrollHeight - box.scrollTop - box.clientHeight < 90;
+  if (near || S.forceScroll) box.scrollTop = box.scrollHeight;
+  S.forceScroll = false;
+}
+
 function bubble(role, text, spoken) {
   if (role === "coach") text = cleanCoachText(text);
   const d = document.createElement("div");
@@ -2119,7 +2135,7 @@ function bubble(role, text, spoken) {
 
 
   $("chatWrap").appendChild(d);
-  d.scrollIntoView({ behavior: "smooth", block: "end" });
+  stickBottom();
   return d;
 }
 
@@ -2273,6 +2289,7 @@ function nextStep() {
 }
 
 function showExample(e) {
+  S.forceScroll = true;
   const el = document.createElement("div");
   el.className = "qcard";
   el.style.borderColor = "var(--line)";
@@ -2288,7 +2305,7 @@ function showExample(e) {
     </div>
     <div class="bar hidden" id="exNext"><button class="go small" onclick="advance()">Next →</button></div>`;
   $("chatWrap").appendChild(el);
-  el.scrollIntoView({ behavior: "smooth", block: "end" });
+  stickBottom();
   autoFigure("example", e.n, "exFig", e.prompt, e.diagram_svg);
 }
 
@@ -2299,6 +2316,7 @@ function revealExample(btn) {
 }
 
 function showQuestion(q) {
+  S.forceScroll = true;
   const el = document.createElement("div");
   el.className = "qcard";
   el.innerHTML = `
@@ -2313,7 +2331,7 @@ function showQuestion(q) {
     <div class="timer" id="qtimer">0:00</div>
     <div id="qfb"></div>`;
   $("chatWrap").appendChild(el);
-  el.scrollIntoView({ behavior: "smooth", block: "end" });
+  stickBottom();
   autoFigure("question", q.idx, "qFig", q.prompt, q.diagram_svg);
   S.startedAt = Date.now(); S.nudged = 0;
   S.onScreen = { chapter: q.chapter, idx: q.idx, prompt: q.prompt };
@@ -2441,6 +2459,7 @@ async function sendMe() {
   const text = box.value.trim();
   if (!text) return;
   box.value = "";
+  S.forceScroll = true;
   heard = "";                    // the microphone must not put it back
   if (box.style) box.style.height = "";
   bubble("me", text);
@@ -2474,7 +2493,7 @@ async function showBoardReminder(chapter) {
         <span>${esc(t)}</span></label>`).join("")}
     <div class="bar"><button class="ghost small" onclick="openFormula()">See the whole board</button></div>`;
   $("chatWrap").appendChild(el);
-  el.scrollIntoView({ behavior: "smooth", block: "end" });
+  stickBottom();
 }
 
 function backButton() {
@@ -2831,7 +2850,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, paintPad, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, paintPad, growSay, stickBottom, bubble, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
