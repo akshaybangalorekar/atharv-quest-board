@@ -128,8 +128,14 @@ Deno.serve(async (req) => {
 
     const strand = String(parsed.strand ?? "").trim() || "General";
 
-    // write them as this child, so the same rules apply as everywhere else
-    const { data: added, error: addErr } = await asUser.rpc("add_questions", {
+    // only someone who may see this child can add to their bank
+    const { data: allowed } = await admin.from("guardians")
+      .select("student_id").eq("parent_id", user.id).eq("student_id", paper.student_id).limit(1);
+    const isSelf = paper.student_id === user.id;
+    if (!isSelf && !allowed?.length) return json({ error: "not your child" }, 403);
+
+    const { data: added, error: addErr } = await admin.rpc("add_questions_for", {
+      p_student: paper.student_id,
       p_exam: paper.exam,
       p_strand: strand,
       p_rows: rows,
