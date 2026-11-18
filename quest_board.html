@@ -73,7 +73,11 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 
 /* chat */
 #chatWrap{display:grid;gap:10px;max-width:820px;width:100%;margin:0 auto;
-  max-height:calc(100vh - 330px);overflow-y:auto;overscroll-behavior:contain;padding-bottom:4px}
+  overflow-y:auto;overscroll-behavior:contain;padding-bottom:6px;
+  flex:1 1 auto;min-height:0}   /* min-height:0 is what lets it give room to the box */
+main#session{display:flex;flex-direction:column;
+  height:calc(100dvh - 132px);height:calc(100vh - 132px)}
+main#session .composer{flex:0 0 auto;margin-top:8px}
 #chatWrap::-webkit-scrollbar{width:8px}
 #chatWrap::-webkit-scrollbar-thumb{background:#e2dff0;border-radius:99px}
 #session .card{max-width:820px;width:100%;margin:0 auto}
@@ -696,7 +700,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.15.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.16.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1110,8 +1114,20 @@ function paintMic() {
     : "Tap Talk, say your answer, then say “submit”. Or tap “Talk to Ananya” to think out loud.";
 }
 
+function isStandalone() {
+  return window.navigator.standalone === true ||
+    window.matchMedia?.("(display-mode: standalone)")?.matches === true;
+}
+
 function startListening(asThink) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (isStandalone() && !SR) {
+    $("micState").innerHTML = "The microphone does not work in the home-screen app on iPad. " +
+      `<a href="${location.href}" target="_blank" rel="noopener">Open it in Safari</a> and the mic will work — ` +
+      "or type instead, the pad is ready.";
+    openPad($("say"), "text");
+    return;
+  }
   if (!SR) {
     $("micState").textContent = "This browser cannot listen. Type instead — the pad is ready.";
     openPad($("say"), "text");
@@ -1147,6 +1163,8 @@ function startListening(asThink) {
     }
 
     $("say").value = whole;
+    growSay($("say"));
+    $("say").scrollTop = $("say").scrollHeight;
     if (SUBMIT_WORDS.test(whole)) {
       const clean = whole.replace(SUBMIT_WORDS, "").trim();
       $("say").value = clean;
@@ -1215,8 +1233,11 @@ function stopListening(keepText) {
 
 function toggleMic() {
   micArmed = true;
-  if (listening) stopListening(true);
-  else startListening(false);
+  if (listening) { stopListening(true); return; }
+  // the box is where his words appear, so put the cursor there as well
+  const box = $("say");
+  if (box && document.activeElement !== box) { try { box.focus({ preventScroll: true }); } catch (_) { box.focus(); } }
+  startListening(false);
 }
 
 function startThinking() {
