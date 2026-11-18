@@ -323,6 +323,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   <div class="card" style="padding:16px 20px">
     <div class="big" style="font-size:22px" id="hello">Hello</div>
     <div class="sub" id="todayLine"></div>
+    <div class="sub" id="focusLine" style="margin-top:6px"></div>
   </div>
 
   <div class="card" style="border-color:#dcd8f4;box-shadow:0 2px 18px rgba(75,63,196,.08)">
@@ -732,7 +733,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.19.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.20.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2023,6 +2024,15 @@ function goLanding() {
     </button>`;
   }).join("");
 
+  const f = S.ctx?.focus;
+  if (f && $("focusLine")) {
+    const parts = (f.split ?? []).filter((x) => x.pct >= 10)
+      .map((x) => `${x.pct}% ${String(x.exam).replace(" numerical reasoning", "").replace("Olympiad book", "book")}`);
+    $("focusLine").textContent = parts.length
+      ? `This week: ${parts.join(" · ")} — ${f.primary_exam === "Olympiad book" ? "technique from the book" : "towards " + String(f.primary_exam).replace(" numerical reasoning", "")}`
+      : "";
+  }
+
   $("coachLabel").textContent = `Your coach, ${COACH}`;
   askCoachWhatNow();
 
@@ -2035,6 +2045,15 @@ function goLanding() {
 
 async function askCoachWhatNow() {
   const say = $("coachSay"), go = $("coachGo");
+  const f = S.ctx?.focus;
+  if (f && $("focusLine")) {
+    const parts = (f.split ?? []).filter((x) => x.pct >= 10)
+      .map((x) => `${x.pct}% ${String(x.exam).replace(" numerical reasoning", "").replace("Olympiad book", "book")}`);
+    $("focusLine").textContent = parts.length
+      ? `This week: ${parts.join(" · ")} — ${f.primary_exam === "Olympiad book" ? "technique from the book" : "towards " + String(f.primary_exam).replace(" numerical reasoning", "")}`
+      : "";
+  }
+
   $("coachLabel").textContent = `Your coach, ${COACH}`;
   say.textContent = "Thinking about today…";
   go.disabled = true;
