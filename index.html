@@ -173,6 +173,7 @@ body.signing .authFoot{color:rgba(255,255,255,.85)}
 .sayRow{display:flex;gap:8px;align-items:flex-end;width:100%}
 .sayRow #say{flex:1 1 auto;min-width:0}
 .sayRow .go{flex:0 0 auto;align-self:flex-end}
+.composer textarea#say, input[readonly]{caret-color:transparent}
 .composer textarea#say{border-radius:11px;background:#fbfbfd;resize:none;line-height:1.5;
   min-height:48px;max-height:140px;padding:12px 13px;overflow-y:auto}
 .composer .attach{white-space:nowrap;padding:11px 14px;flex:0 0 auto}
@@ -365,7 +366,7 @@ body:has(.pad:not(.hidden)) footer{margin-bottom:220px}
     <div class="sayRow">
       <input type="file" id="doubt" accept="image/*" capture="environment" multiple class="hidden" onchange="handlePhoto(this)">
       <textarea id="say" rows="2" placeholder="Say something to Ananya…" inputmode="none" autocomplete="off"
-                onfocus="openPad(this,'text')"
+                readonly onclick="openPad(this,'text')"
                 oninput="growSay(this)"
                 onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMe()}"></textarea>
       <button class="go small" onclick="sendMe()">Send</button>
@@ -640,7 +641,10 @@ body:has(.pad:not(.hidden)) footer{margin-bottom:220px}
 <div id="pad" class="pad hidden" aria-hidden="true">
   <div class="padTop">
     <span id="padWho">Typing</span>
-    <button class="link" onclick="padDone()">Done</button>
+    <span>
+      <button class="link" id="padKb" onclick="useSystemKeyboard()">iPad keyboard</button>
+      <button class="link" onclick="padDone()">Done</button>
+    </span>
   </div>
   <div id="padKeys"></div>
 </div>
@@ -700,7 +704,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.16.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.16.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1008,6 +1012,16 @@ function padKey(k) {
   if (padTarget.id === "say") growSay(padTarget);
 }
 
+/* the escape hatch: hand this one field to the iPad's own keyboard */
+function useSystemKeyboard() {
+  const el = padTarget;
+  closePad();
+  if (!el) return;
+  el.removeAttribute("readonly");
+  el.focus();
+  el.addEventListener("blur", () => el.setAttribute("readonly", "readonly"), { once: true });
+}
+
 function padDone() {
   const el = padTarget;
   closePad();
@@ -1234,10 +1248,7 @@ function stopListening(keepText) {
 function toggleMic() {
   micArmed = true;
   if (listening) { stopListening(true); return; }
-  // the box is where his words appear, so put the cursor there as well
-  const box = $("say");
-  if (box && document.activeElement !== box) { try { box.focus({ preventScroll: true }); } catch (_) { box.focus(); } }
-  startListening(false);
+  startListening(false);          // his words are written into the box; it is never focused
 }
 
 function startThinking() {
@@ -2455,7 +2466,7 @@ function showQuestion(q) {
     <div id="qFig"></div>
     <div style="display:flex;gap:8px">
       <input id="ans" placeholder="Your answer" inputmode="none" autocomplete="off"
-             onfocus="openPad(this,'num')" onkeydown="if(event.key==='Enter')check()">
+             readonly onclick="openPad(this,'num')" onkeydown="if(event.key==='Enter')check()">
       <button class="go small" id="chk" onclick="check()">Check</button>
     </div>
     <div class="timer" id="qtimer">0:00</div>
@@ -2981,7 +2992,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, paintPad, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
