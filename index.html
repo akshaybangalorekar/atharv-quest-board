@@ -715,7 +715,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.17.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.18.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -782,9 +782,9 @@ const TRACK_LOOK = {
   olympiad: { name: "Olympiad", school: "The book and the Division J sets", note: "24 chapters · 200 Division J questions" },
   amc:      { name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Thirty questions, sixty minutes" },
   aas:      { name: "AAS", school: "Camberwell Grammar School", note: "Scholarship test · February 2027" },
-  edutest:  { name: "Edutest", school: "Kilvington Grammar", note: "Scholarship test · February 2027" },
+  edutest:  { name: "Edutest", school: "Kilvington Grammar · February 2027", note: "Scholarship test · shares practice with ELMS" },
   icas:     { name: "ICAS", school: "ICAS Mathematics · 23–27 August 2027", note: "Paper D · 40 questions, 60 minutes" },
-  elms:     { name: "ELMS", school: "McKinnon Secondary College · early September 2027", note: "Enhanced Learning in Maths · Year 6 standard" },
+  elms:     { name: "ELMS", school: "McKinnon Secondary College · early September 2027", note: "Edutest paper · Year 6 maths · shares practice with Kilvington" },
 };
 
 let TRACKS = [
@@ -2215,8 +2215,12 @@ async function startMock() {
     }
     body = { p_kind: "mock", p_chapters: chs, p_count: 30, p_minutes: 60, p_pass: 60 };
   } else {
-    const { data } = await sb.from("chapters").select("n").eq("source", id);
-    const chs = (data ?? []).map((c) => c.n);
+    const { data: shared } = await sb.rpc("chapters_for_exam", { p_exam: id });
+    let chs = (shared ?? []).filter((n) => typeof n === "number");
+    if (!chs.length) {
+      const { data } = await sb.from("chapters").select("n").eq("source", id);
+      chs = (data ?? []).map((c) => c.n);
+    }
     if (!chs.length) { alert("Nothing uploaded for this exam yet — add questions first."); return; }
     const shape = id === "icas" ? { p_count: 40, p_minutes: 60 }
                 : id === "elms" ? { p_count: 30, p_minutes: 45 }
