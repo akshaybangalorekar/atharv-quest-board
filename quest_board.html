@@ -106,6 +106,12 @@ main#session .composer{flex:0 0 auto;margin-top:8px}
 .footLine .keys summary{font-size:12px}
 body:has(#session:not(.hidden)) footer{display:none}
 main#session{height:calc(100dvh - 66px);height:calc(100vh - 66px);padding-bottom:0;gap:8px}
+.topProg{display:flex;flex-direction:column;gap:3px;min-width:120px;max-width:190px}
+.topProg.hidden{display:none}
+.topProgText{font-size:11px;color:var(--mut);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topProgTrack{height:5px;border-radius:99px;background:#eceaf6;overflow:hidden}
+.topProgTrack span{display:block;height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,#6d5ef0,#a99bff);transition:width .3s ease}
 .prog{height:8px;border-radius:99px;background:#eceaf6;overflow:hidden}
 .prog span{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#6d5ef0,#a99bff);
   transition:width .25s ease}
@@ -173,6 +179,12 @@ body.signing .top,body.signing footer{display:none}
 .footLine .keys summary{font-size:12px}
 body:has(#session:not(.hidden)) footer{display:none}
 main#session{height:calc(100dvh - 66px);height:calc(100vh - 66px);padding-bottom:0;gap:8px}
+.topProg{display:flex;flex-direction:column;gap:3px;min-width:120px;max-width:190px}
+.topProg.hidden{display:none}
+.topProgText{font-size:11px;color:var(--mut);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topProgTrack{height:5px;border-radius:99px;background:#eceaf6;overflow:hidden}
+.topProgTrack span{display:block;height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,#6d5ef0,#a99bff);transition:width .3s ease}
 .prog{height:8px;border-radius:99px;background:#eceaf6;overflow:hidden}
 .prog span{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#6d5ef0,#a99bff);
   transition:width .25s ease}
@@ -304,6 +316,10 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 <div class="top">
   <h1 id="appTitle">Quest Coach</h1>
   <div style="display:flex;gap:8px;align-items:center">
+    <div id="topProg" class="topProg hidden" title="Reading the paper">
+      <div class="topProgText" id="topProgText">Reading…</div>
+      <div class="topProgTrack"><span id="topProgBar"></span></div>
+    </div>
     <button class="out hidden" id="homeBtn" onclick="goHome()">Home</button>
     <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
   </div>
@@ -786,7 +802,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.27.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.28.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -827,6 +843,27 @@ function saveRoute() {
       view: S.view, track: S.track, shelf: S.shelf, chapter: S.chapter,
     }));
   } catch (_) {}
+}
+
+/* reading progress, visible from any screen */
+function paintTopProgress(done, total, label) {
+  const wrap = $("topProg"), bar = $("topProgBar"), txt = $("topProgText");
+  if (!wrap) return;
+  if (!total) { wrap.classList.add("hidden"); return; }
+  wrap.classList.remove("hidden");
+  const pct = Math.max(4, Math.min(100, Math.round((done / total) * 100)));
+  bar.style.width = pct + "%";
+  txt.textContent = label ?? `Reading ${done} of ${total}`;
+}
+
+/* a job still running from an earlier visit */
+async function checkRunningJob() {
+  const { data } = await sb.from("parse_jobs")
+    .select("id,pages_done,pages_total,status")
+    .eq("status", "running").order("created_at", { ascending: false }).limit(1);
+  const job = data?.[0];
+  if (!job) { paintTopProgress(0, 0); return; }
+  paintTopProgress(job.pages_done ?? 0, job.pages_total || 1, "Reading a paper…");
 }
 
 /* a note that follows him across screens */
@@ -1739,7 +1776,8 @@ async function loadBanks() {
 
 async function loadContext() {
   await loadBanks();
-  await checkReset();                     // which exams exist decides which cards appear
+  await checkReset();
+  checkRunningJob();                     // which exams exist decides which cards appear
   const { data } = await sb.rpc("coach_context");
   S.ctx = data ?? {};
   const { data: prof } = await sb.from("profiles").select("*").limit(1).maybeSingle();
@@ -1919,6 +1957,7 @@ async function uploadAndRead(input) {
 /* runs on its own; the note at the top tells him when it lands */
 async function readInBackground(file, userId, exam, paperId) {
   const { data: jobId } = await sb.rpc("start_parse_job", { p_paper: paperId, p_exam: exam, p_pages: 0 });
+  paintTopProgress(0, 1, "Reading…");
   let added = 0, unanswered = 0, strand = "", pagesDone = 0, failed = false;
 
   try {
@@ -1928,6 +1967,7 @@ async function readInBackground(file, userId, exam, paperId) {
 
     if (fileKind(file) === "pdf") {
       const pages = await pdfToImages(file, 40);
+      paintTopProgress(0, pages.length, `Reading 0 of ${pages.length}`);
       for (let i = 0; i < pages.length; i++) {
         S.pendingPage = i + 1;
         const got = await callExtractRows(pages[i], exam);
@@ -1936,6 +1976,7 @@ async function readInBackground(file, userId, exam, paperId) {
         added += res.added; unanswered += res.unanswered;
         strand = res.strand || strand;
         pagesDone = i + 1;
+        paintTopProgress(pagesDone, pages.length, `Reading ${pagesDone} of ${pages.length}`);
         await sb.rpc("finish_parse_job", {
           p_id: jobId, p_added: added, p_unanswered: unanswered,
           p_strand: strand, p_pages_done: pagesDone, p_failed: false,
@@ -1955,6 +1996,7 @@ async function readInBackground(file, userId, exam, paperId) {
     p_id: jobId, p_added: added, p_unanswered: unanswered,
     p_strand: strand, p_pages_done: pagesDone, p_failed: failed,
   });
+  paintTopProgress(0, 0);
   paintNote();
 }
 
@@ -3597,7 +3639,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
