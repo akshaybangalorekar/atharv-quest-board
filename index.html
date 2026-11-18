@@ -883,7 +883,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.51.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.52.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1962,7 +1962,7 @@ async function loadPapersToRead() {
         <b>${esc(r.title)}</b> ${statusIcon}
         <div class="sub">${esc(r.exam)} · ${esc(state)}</div>
         ${total ? `<div class="rowProg"><span style="width:${pct}%"></span></div>` : ""}
-        <div class="sub" style="margin-top:2px"><b>${esc(word)}</b>${
+        <div class="sub" style="margin-top:2px"><b>${esc(word)}</b>${word !== "Read" && S.lastReadError ? ` — ${esc(String(S.lastReadError).slice(0, 90))}` : ""}${
           r.questions ? ` · ${r.questions} questions` : ""}${
           r.diagrams ? ` · ${r.diagrams} with a figure` : ""}${
           (r.questions ?? 0) > (r.answers ?? 0) ? ` · ${(r.questions ?? 0) - (r.answers ?? 0)} still to answer` : ""}</div>
@@ -2403,9 +2403,10 @@ async function runServerQueue() {
       body: { paper_id: next.paper_id, page: next.page_no },
     });
     if (error || data?.error) {
-      // a page failed: keep the job open and try again shortly
-      paintTopProgress(1, 1, "Reading paused — retrying");
+      // a page failed: keep the job open, and remember why so the row can say it
+      S.lastReadError = data?.error ?? error?.message ?? "the reader did not answer";
       queueTimer = setTimeout(runServerQueue, 20000);
+      loadPapersToRead();
       return;
     }
   }
