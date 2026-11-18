@@ -711,7 +711,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.16.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.17.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1140,22 +1140,58 @@ function isStandalone() {
     window.matchMedia?.("(display-mode: standalone)")?.matches === true;
 }
 
+/* Ask iOS for the microphone first. In a home-screen app the permission prompt
+   only appears for a real capture request, so this is the one thing that can
+   unblock it — and if it is refused, we say which setting to change. */
+async function askForMic() {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) return "unavailable";
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());     // we only wanted the permission
+    return "granted";
+  } catch (e) {
+    const name = e?.name ?? "";
+    if (name === "NotAllowedError" || name === "SecurityError") return "denied";
+    if (name === "NotFoundError") return "no-mic";
+    return "failed";
+  }
+}
+
+function micHelp(why) {
+  const open = `<a href="${location.href}" target="_blank" rel="noopener">Open it in Safari</a>`;
+  if (why === "denied") {
+    return isStandalone()
+      ? `The microphone is not allowed for this app. Open the iPad's Settings → Safari → Microphone and allow it, or ${open} and use the mic there.`
+      : `The microphone is blocked for this site. Tap “aA” in the address bar → Website Settings → Microphone → Allow, then try again.`;
+  }
+  if (why === "no-mic") return "I cannot find a microphone on this device.";
+  if (why === "unavailable") return `This device will not offer a microphone here. ${open} and the mic will work there — or type instead.`;
+  return `The microphone would not start. ${open} and try there, or type instead.`;
+}
+
 function startListening(asThink) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (isStandalone() && !SR) {
-    $("micState").innerHTML = "The microphone does not work in the home-screen app on iPad. " +
-      `<a href="${location.href}" target="_blank" rel="noopener">Open it in Safari</a> and the mic will work — ` +
-      "or type instead, the pad is ready.";
-    openPad($("say"), "text");
-    return;
-  }
   if (!SR) {
-    $("micState").textContent = "This browser cannot listen. Type instead — the pad is ready.";
+    $("micState").innerHTML = `This browser cannot listen. ${micHelp("unavailable")}`;
     openPad($("say"), "text");
     return;
   }
   if (listening) { if (asThink && !thinkMode) { thinkMode = true; paintMic(); } return; }
 
+  $("micState").textContent = "Asking for the microphone…";
+  askForMic().then((state) => {
+    if (state === "denied" || state === "no-mic" || state === "unavailable") {
+      $("micState").innerHTML = micHelp(state);
+      if (state === "unavailable") openPad($("say"), "text");
+      return;
+    }
+    beginRecognition(asThink);
+  });
+}
+
+function beginRecognition(asThink) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
   thinkMode = !!asThink;
   recog = new SR();
   recog.lang = "en-AU";
