@@ -279,6 +279,12 @@ body:has(.pad:not(.hidden)) footer{margin-bottom:220px}
     <button class="go wide" onclick="signIn()">Sign in</button>
     <div class="err" id="err"></div>
     <div class="hint" id="signHint"></div>
+
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;font-size:12.5px;color:var(--mut)">Trouble signing in?</summary>
+      <div class="hint" id="diag" style="margin-top:8px;line-height:1.6">Checking…</div>
+      <button class="ghost small" style="margin-top:8px" onclick="freshCopy()">Reload a fresh copy</button>
+    </details>
   </div>
 
   <div class="authFoot">Quest Coach · Melbourne, Australia</div>
@@ -687,7 +693,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.13.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.14.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1273,6 +1279,35 @@ function paintArt() {
 }
 
 /* --------------------------------------------------------------- auth --- */
+/* what the device is actually running, so a stale copy is visible at a glance */
+async function paintDiag() {
+  const box = $("diag");
+  if (!box) return;
+  let sw = "none";
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    sw = reg ? (reg.active ? "active" : "installing") : "not registered";
+  } catch (_) { sw = "blocked"; }
+  let sess = "none";
+  try {
+    const { data } = await sb.auth.getSession();
+    sess = data?.session ? "signed in" : "none";
+  } catch (_) { sess = "unknown"; }
+  box.innerHTML = `Version <b>${APP_VERSION}</b> · offline cache: ${sw} · session: ${sess}` +
+    `<br>If this is not the version I told you about, tap the button below.`;
+}
+
+/* drop the offline copy and load the newest file from the site */
+async function freshCopy() {
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map((r) => r.unregister()));
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+  } catch (_) {}
+  location.replace(location.pathname + "?v=" + Date.now());
+}
+
 async function signIn() {
   const btn = document.querySelector("#signin button.go");
   $("err").textContent = "";
@@ -2872,6 +2907,7 @@ try {
   }
 } catch (_) {}
 paintMic();
+paintDiag();
 let booted = false;
 sb.auth.onAuthStateChange((event, session) => {
   if (event === "SIGNED_OUT") { location.reload(); return; }
@@ -2899,7 +2935,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, paintPad, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, paintPad, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
