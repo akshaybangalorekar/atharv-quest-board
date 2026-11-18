@@ -693,7 +693,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.14.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.15.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1382,6 +1382,27 @@ async function signOut() { await sb.auth.signOut(); location.reload(); }
 $("appTitle").textContent = "Quest Coach";
 
 async function start() {
+  // a watchdog: if the app is still on the boot card after ten seconds,
+  // put a screen up rather than leaving "One moment…" for ever
+  const watchdog = setTimeout(() => {
+    if (!$("boot") || $("boot").classList.contains("hidden")) return;
+    try { goLanding(); } catch (_) { show("signin"); }
+    const note = $("err");
+    if (note) note.textContent = "The app was slow to start. Tap Start, and if that fails, reload.";
+  }, 10000);
+
+  try {
+    await bootInner();
+  } catch (e) {
+    try { goLanding(); } catch (_) { show("signin"); }
+    const note = $("err");
+    if (note) note.textContent = "Something went wrong starting up: " + (e?.message ?? e);
+  } finally {
+    clearTimeout(watchdog);
+  }
+}
+
+async function bootInner() {
   if (location.hash.includes("type=recovery")) {
     show("signin");
     $("newPassCard").classList.remove("hidden");
@@ -1390,7 +1411,7 @@ async function start() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) { show("signin"); $("signOut").style.display = "none"; return; }
   $("signOut").style.display = "inline-block";
-  await loadContext();
+  try { await loadContext(); } catch (e) { console.warn("context load failed:", e?.message); }
   const { data: isP } = await sb.rpc("is_parent");
   S.isParent = !!isP;
   $("appTitle").textContent = S.isParent ? "Quest Coach · parent" : "Quest Coach";
@@ -1419,8 +1440,9 @@ async function start() {
     try { localStorage.removeItem(ROUTE_KEY); } catch (_) {}
   }
 
-  // never placed? then today starts with the placement, not an old chat
-  if (ctx?.placement_due) { clearSession(); return; }
+  // never placed? then today starts with the placement, not an old chat —
+  // and he still gets a screen to look at
+  if (ctx?.placement_due) { clearSession(); goLanding(); return; }
 
   if (restorableSession()) { resumeSession(); return; }
 
