@@ -427,9 +427,10 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <button class="ghost small" onclick="endSession()">Pause for now</button>
     </div>
     <div class="footLine">
-      <span class="hint" id="micState" style="flex:1 1 auto;margin:0"></span>
+      <span class="hint" id="micState" style="flex:1 1 auto;margin:0;display:none"></span>
       <details class="keys" style="margin:0;border:0;padding:0">
         <summary>Key words</summary>
+        <div class="keyrow" id="micHintRow"><span>To answer out loud: tap Talk, say your answer, then say “submit”. Or tap “Talk to Ananya” to think out loud.</span></div>
       <div class="keyrow"><b>To send</b><span>say “submit” — or “send it”, “done”, “finished”</span></div>
       <div class="keyrow"><b>Times</b><span>“times”</span><b>÷</b><span>“divided by”</span><b>+</b><span>“plus”</span>
         <b>−</b><span>“minus”</span><b>=</b><span>“equals”</span></div>
@@ -767,7 +768,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.22.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.23.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1232,10 +1233,13 @@ function paintMic() {
   const m = $("micBtn"), st = $("micState");
   if (m) m.textContent = listening ? (thinkMode ? "Stop thinking aloud" : "Stop listening")
                                    : micArmed ? "Talk" : "Tap to talk";
-  if (st) st.textContent = listening
-    ? (thinkMode ? "Go ahead — think out loud. I will answer each time you pause."
-                 : "Go ahead — say “submit” when you have finished, or tap Stop.")
-    : "Tap Talk, say your answer, then say “submit”. Or tap “Talk to Ananya” to think out loud.";
+  if (st) {
+    const show = listening;
+    st.style.display = show ? "" : "none";
+    st.textContent = show
+      ? (thinkMode ? "Listening — think out loud, I will answer each pause." : "Listening — say “submit” when finished.")
+      : "";
+  }
 }
 
 function isStandalone() {
@@ -1948,8 +1952,9 @@ async function submitUpload() {
   if (error) { $("upErr").textContent = error.message; return; }
   $("upDone").className = "fb right";
   const dupes = data.skipped_duplicates ?? 0;
+  const fixed = data.improved ?? 0;
   $("upDone").innerHTML = `<b>${data.added} question${data.added === 1 ? "" : "s"} added</b>` +
-    (dupes ? ` · <b>${dupes} already there, skipped</b>` : "") +
+    (dupes ? ` · <b>${dupes} already there${fixed ? `, ${fixed} improved with their options and page` : ", skipped"}</b>` : "") +
     `<div class="m">into ${esc(data.strand)}. The readiness panel has already updated.</div>
      <div class="bar"><button class="ghost small" onclick="solveBlanks()">Work out the missing answers</button></div>`;
   $("upRows").value = "";
