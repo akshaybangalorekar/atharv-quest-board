@@ -733,7 +733,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.20.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.20.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -827,8 +827,9 @@ function buildTracks(banks) {
 
 /* a figure is drawn without being asked for, when the words need one */
 function needsFigure(text) {
-  return /diagram in the paper|\b(diagram|figure|shape|grid|triangle|square|circle|rectangle|graph|table|number line|shaded|pattern of)\b/i
-    .test(String(text ?? ""));
+  const t = String(text ?? "");
+  if (/diagram in the paper|see the (diagram|figure)|shown (below|above)|in the figure|as shown/i.test(t)) return true;
+  return /\b(diagram|figure|shape|grid|triangle|square|circle|rectangle|polygon|angle|graph|chart|table|number line|shaded|perimeter|area|volume|net|cube|pattern of|sequence of shapes|matches|sticks)\b/i.test(t);
 }
 
 async function autoFigure(kind, key, targetId, prompt, existing) {
@@ -842,9 +843,31 @@ async function autoFigure(kind, key, targetId, prompt, existing) {
     const { data, error } = await sb.functions.invoke("draw-figure", {
       body: { chapter: S.chapter, kind, n: kind === "example" ? key : null, idx: kind === "question" ? key : null },
     });
-    if (error || data?.error) { box.innerHTML = ""; return; }
-    box.innerHTML = data.svg ? `<div class="diagram">${data.svg}</div>` : "";
-  } catch (_) { box.innerHTML = ""; }
+    if (error || data?.error) {
+      const why = error?.message ?? data?.error ?? "no reason given";
+      box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13px">
+        I could not draw this one (${esc(String(why).slice(0, 80))}). Tap Photo and show me the figure.</div>`;
+      return;
+    }
+    if (!data?.svg) {
+      box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13px">
+        There is no figure for this one — the words carry it.</div>`;
+      return;
+    }
+    box.innerHTML = `<div class="diagram">${data.svg}</div>`;
+
+    // keep it: next time the figure is simply there
+    if (kind === "question") {
+      sb.from("problems").update({ diagram_svg: data.svg })
+        .eq("chapter", S.chapter).eq("idx", key).then(() => {}, () => {});
+    } else {
+      sb.from("examples").update({ diagram_svg: data.svg })
+        .eq("chapter", S.chapter).eq("n", key).then(() => {}, () => {});
+    }
+  } catch (e) {
+    box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13px">
+      I could not draw this one (${esc(e.message)}). Tap Photo and show me the figure.</div>`;
+  }
 }
 
 
@@ -3171,7 +3194,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, openPaper, loadPapers, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, needsFigure, openPaper, loadPapers, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
