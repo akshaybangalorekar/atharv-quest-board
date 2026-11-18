@@ -263,6 +263,7 @@ body:has(.pad:not(.hidden)) footer{margin-bottom:220px}
       <input id="email" type="text" placeholder="atharv" autocomplete="username" autocapitalize="none"
              spellcheck="false" enterkeyhint="go"
              onkeydown="if(event.key==='Enter'){event.preventDefault();signIn()}">
+      <div class="hint" style="margin-top:6px">atharv, pooja or akshay — or your full email address.</div>
     </div>
     <div class="field">
       <label for="pw">Password</label>
@@ -670,12 +671,14 @@ function readNames() {
   try { return JSON.parse(localStorage.getItem(NAMES_KEY) || "{}"); } catch (_) { return {}; }
 }
 
-function rememberUser(email) {
+function rememberUser(typed) {
   try {
-    localStorage.setItem(LAST_KEY, email);
+    const whole = String(typed ?? "").trim();
+    if (!whole) return;
+    localStorage.setItem(LAST_KEY, whole);          // exactly what he typed
     const names = readNames();
-    const short = email.split("@")[0].split(".")[0].toLowerCase();
-    if (short && !names[short]) { names[short] = email; localStorage.setItem(NAMES_KEY, JSON.stringify(names)); }
+    const short = whole.split("@")[0].split(".")[0].toLowerCase();
+    if (short && !names[short]) { names[short] = whole; localStorage.setItem(NAMES_KEY, JSON.stringify(names)); }
   } catch (_) {}
 }
 
@@ -693,7 +696,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.15.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.15.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2924,7 +2927,7 @@ $("remember").checked = remember;
 try {
   const last = localStorage.getItem(LAST_KEY);
   if (last && $("email")) {
-    $("email").value = last.includes("@") ? last.split("@")[0] : last;   // short name is enough
+    $("email").value = last;      // whatever worked last time, whole
     setTimeout(() => $("pw")?.focus(), 300);
   }
 } catch (_) {}
