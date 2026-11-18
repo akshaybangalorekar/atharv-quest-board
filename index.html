@@ -906,7 +906,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.55.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.56.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2411,8 +2411,13 @@ async function readInBackground(file, userId, exam, paperId) {
         paintTopProgress(i + 1, pages.length, `Saving page ${i + 1} of ${pages.length}`);
       }
     } else {
-      const path = `${userId}/page-${paperId}-1.jpg`;
-      await sb.storage.from("papers").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+      // a picture stays a picture; anything else is kept as text and read as text
+      const isPic = (file.type || "").startsWith("image/");
+      const path = `${userId}/page-${paperId}-1.${isPic ? "jpg" : "txt"}`;
+      const body = isPic ? file : new Blob([await file.text()], { type: "text/plain" });
+      await sb.storage.from("papers").upload(path, body, {
+        upsert: true, contentType: isPic ? (file.type || "image/jpeg") : "text/plain",
+      });
       await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: 1, path }, { onConflict: "paper_id,page_no" });
       await sb.rpc("set_job_total", { p_id: jobId, p_total: 1 });
     }
@@ -2443,13 +2448,21 @@ async function runServerQueue() {
     const { data, error } = await sb.functions.invoke("parse-page", {
       body: { paper_id: next.paper_id, page: next.page_no },
     });
-    if (error || data?.error) {
-      // a page failed: keep the job open, and remember why so the row can say it
-      S.lastReadError = data?.error ?? error?.message ?? "the reader did not answer";
-      queueTimer = setTimeout(runServerQueue, 20000);
+
+    // the function reports its own failures in the body, with the reason
+    if (data?.error) {
+      S.lastReadError = data.detail ? `${data.error}: ${String(data.detail).slice(0, 120)}` : data.error;
+      queueTimer = setTimeout(runServerQueue, 25000);
       loadPapersToRead();
       return;
     }
+    if (error) {
+      S.lastReadError = error.message ?? "the reader did not answer";
+      queueTimer = setTimeout(runServerQueue, 25000);
+      loadPapersToRead();
+      return;
+    }
+    S.lastReadError = "";
   }
 
   const { data: prog } = await sb.rpc("parse_progress");
@@ -2665,11 +2678,14 @@ async function pdfToImages(file, maxPages) {
   const n = Math.min(doc.numPages, maxPages);
   for (let i = 1; i <= n; i++) {
     const page = await doc.getPage(i);
-    const viewport = page.getViewport({ scale: 2 });
+    // scale so the page is about 1400 px wide: legible for the model, small enough to send
+    const base = page.getViewport({ scale: 1 });
+    const scale = Math.min(2.5, 1400 / base.width);
+    const viewport = page.getViewport({ scale });
     const canvas = document.createElement("canvas");
-    canvas.width = viewport.width; canvas.height = viewport.height;
+    canvas.width = Math.round(viewport.width); canvas.height = Math.round(viewport.height);
     await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.85));
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.82));
     out.push(blob);
   }
   return out;
