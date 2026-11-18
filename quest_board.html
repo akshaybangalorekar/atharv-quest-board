@@ -260,7 +260,9 @@ body:has(.pad:not(.hidden)) footer{margin-bottom:220px}
 
     <div class="field">
       <label for="email">Name or email</label>
-      <input id="email" type="text" placeholder="atharv" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <input id="email" type="text" placeholder="atharv" autocomplete="username" autocapitalize="none"
+             spellcheck="false" enterkeyhint="go"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();signIn()}">
     </div>
     <div class="field">
       <label for="pw">Password</label>
@@ -685,7 +687,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.13.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.13.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1281,6 +1283,9 @@ async function signIn() {
   const wantRemember = $("remember")?.checked !== false;
   localStorage.setItem(REMEMBER_KEY, wantRemember ? "1" : "0");
   if (btn) { btn.disabled = true; btn.textContent = "Signing in…"; }
+  const waitNote = setTimeout(() => {
+    if (btn?.disabled) $("err").textContent = "Still working — the server is slow to answer.";
+  }, 3000);
 
   let error = null;
   try {
@@ -1288,10 +1293,18 @@ async function signIn() {
       const res = await sb.auth.signInWithPassword({ email: typed, password });
       error = res.error;
     } else {
-      // a short name: the server swaps it for the account and hands back a session
-      const { data, error: fnErr } = await sb.functions.invoke("login", {
-        body: { username: typed.toLowerCase(), password },
-      });
+      // a short name: the server swaps it for the account and hands back a session.
+      // A cold function can take a few seconds, so never wait forever.
+      const call = sb.functions.invoke("login", { body: { username: typed.toLowerCase(), password } });
+      const timeout = new Promise((resolve) =>
+        setTimeout(() => resolve({ data: null, error: { message: "timeout" } }), 15000));
+      const { data, error: fnErr } = await Promise.race([call, timeout]);
+      if (fnErr?.message === "timeout") {
+        error = { message: "The server did not answer. Check the connection, then try again." };
+        if (btn) { btn.disabled = false; btn.textContent = "Sign in"; }
+        $("err").textContent = error.message;
+        return;
+      }
       if (fnErr) {
         error = { message: "Could not reach the server. Check the connection and try again." };
       } else if (data?.error) {
@@ -1309,7 +1322,10 @@ async function signIn() {
   } catch (e) {
     error = { message: "Could not reach the server: " + (e?.message ?? e) };
   }
+  if (!error && !typed) error = { message: "Type your name first." };
+  clearTimeout(waitNote);
   if (btn) { btn.disabled = false; btn.textContent = "Sign in"; }
+  if ($("err").textContent.startsWith("Still working")) $("err").textContent = "";
 
   if (error) {
     $("err").textContent = /invalid|credentials|do not match/i.test(error.message)
