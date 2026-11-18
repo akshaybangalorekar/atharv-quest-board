@@ -883,7 +883,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.52.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.53.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2321,12 +2321,24 @@ async function uploadAndRead(input) {
     bar.style.width = "45%";
     if (!b64) { txt.textContent = `Could not read ${file.name}.`; continue; }
 
-    const { data: paperId, error } = await sb.rpc("save_upload", {
+    let paperId = null, saveNote = "";
+    const { data: savedId, error } = await sb.rpc("save_upload", {
       p_exam: exam, p_name: file.name, p_mime: file.type || "application/octet-stream",
       p_b64: b64, p_path: "",
     });
+    paperId = savedId ?? null;
     bar.style.width = "75%";
-    if (error) { txt.textContent = `Could not save ${file.name}: ${error.message}`; continue; }
+    if (error || !paperId) {
+      // too big for the database in one statement: keep the file in storage and go on
+      saveNote = " (kept in storage only — too large for the database copy)";
+      const { data: made } = await sb.from("papers").insert({
+        student_id: (await sb.rpc("my_student_id")).data,
+        uploaded_by: user.id, exam, title: file.name,
+        mime: file.type || null, size_bytes: file.size || null, path: "",
+      }).select("id").single();
+      paperId = made?.id ?? null;
+      if (!paperId) { txt.textContent = `Could not save ${file.name}: ${error?.message ?? "unknown"}`; continue; }
+    }
 
     // a copy in storage too, so pages can be shown without decoding the database
     const path = `${user.id}/${Date.now()}-${safeName(file.name)}`;
@@ -2334,6 +2346,7 @@ async function uploadAndRead(input) {
     await sb.from("papers").update({ path, size_bytes: file.size || null, mime: file.type || null }).eq("id", paperId);
 
     bar.style.width = String(Math.round(((i + 0.9) / files.length) * 100)) + "%";
+    if (saveNote) txt.textContent = `${file.name}${saveNote}`;
     saved.push({ file, paperId });
   }
 
