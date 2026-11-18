@@ -554,6 +554,13 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </details>
   </div>
 
+  <div class="card" style="padding:12px 16px">
+    <div class="bar" style="justify-content:space-between;align-items:center">
+      <span class="sub" id="pVer">—</span>
+      <button class="ghost small" onclick="freshCopy()">Refresh the app</button>
+    </div>
+  </div>
+
   <div class="card">
     <div class="k">Exams and what is loaded</div>
     <table>
@@ -808,7 +815,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.30.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.30.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1825,6 +1832,7 @@ async function goParent() {
 
   const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
                   thin: "Need more data", no_content: "Nothing yet" };
+  if ($("pVer")) $("pVer").textContent = `Version ${APP_VERSION} · ${rows.length} exam families`;
 
   // one row per exam family — Edutest covers two schools, Olympiad covers the book and Division J
   const rows = c.readiness ?? [];
