@@ -296,7 +296,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     <details style="margin-top:14px">
       <summary style="cursor:pointer;font-size:12.5px;color:var(--mut)">Trouble signing in?</summary>
       <div class="hint" id="diag" style="margin-top:8px;line-height:1.6">Checking…</div>
-      <button class="ghost small" style="margin-top:8px" onclick="freshCopy()">Reload a fresh copy</button>
+      <div class="bar" style="margin-top:8px">
+        <button class="ghost small" onclick="testMic()">Test the microphone</button>
+        <button class="ghost small" onclick="freshCopy()">Reload a fresh copy</button>
+      </div>
+      <div class="hint" id="micTest" style="margin-top:8px"></div>
     </details>
   </div>
 
@@ -711,7 +715,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.17.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.17.2";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1159,19 +1163,26 @@ async function askForMic() {
 
 function micHelp(why) {
   const open = `<a href="${location.href}" target="_blank" rel="noopener">Open it in Safari</a>`;
+  const steps =
+    "On the iPad, two settings have to allow it: " +
+    "<b>Settings → Privacy &amp; Security → Microphone → Safari</b> on, and " +
+    "<b>Settings → Safari → Settings for Websites → Microphone → Ask</b>. " +
+    "If it was ever refused, also clear the site: Settings → Safari → Advanced → Website Data → " +
+    "remove akshaybangalorekar.github.io, then try again.";
+
   if (why === "denied") {
-    return isStandalone()
-      ? `The microphone is not allowed for this app. Open the iPad's Settings → Safari → Microphone and allow it, or ${open} and use the mic there.`
-      : `The microphone is blocked for this site. Tap “aA” in the address bar → Website Settings → Microphone → Allow, then try again.`;
+    return `The microphone is switched off for this site on this device. ${steps}`;
   }
   if (why === "no-mic") return "I cannot find a microphone on this device.";
   if (why === "silent") {
     return isStandalone()
-      ? `No permission prompt appeared — iOS does not ask for the microphone inside a home-screen app on this version. ${open} — the microphone works there. Or type with the pad below.`
-      : `No permission prompt appeared. ${open} and try there, or type with the pad below.`;
+      ? `No prompt appeared. iOS only asks once, and it does not ask inside a home-screen app. ${steps} Or ${open} and use the mic there.`
+      : `No prompt appeared. ${steps}`;
   }
-  if (why === "unavailable") return `This device will not offer a microphone here. ${open} and the mic will work there — or type instead.`;
-  return `The microphone would not start. ${open} and try there, or type instead.`;
+  if (why === "unavailable") {
+    return `This device will not offer a microphone here. ${open} and the mic will work there — or type instead.`;
+  }
+  return `The microphone would not start. ${steps}`;
 }
 
 function startListening(asThink) {
@@ -1388,6 +1399,22 @@ async function paintDiag() {
 }
 
 /* drop the offline copy and load the newest file from the site */
+/* ask for the microphone on its own, and report exactly what came back */
+async function testMic() {
+  const out = $("micTest");
+  if (!out) return;
+  out.textContent = "Asking…";
+  const state = await askForMic();
+  const words = {
+    granted: "The microphone works on this device.",
+    denied: "Refused. " + micHelp("denied"),
+    "no-mic": "No microphone found.",
+    unavailable: "This browser does not offer a microphone to pages.",
+    failed: "The request failed. " + micHelp("failed"),
+  };
+  out.innerHTML = words[state] ?? state;
+}
+
 async function freshCopy() {
   try {
     const regs = await navigator.serviceWorker.getRegistrations();
@@ -3047,7 +3074,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
