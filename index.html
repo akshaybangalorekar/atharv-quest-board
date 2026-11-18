@@ -881,7 +881,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.44.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.45.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -978,8 +978,12 @@ async function paintNote() {
   if (!bar) return;
   const { data } = await sb.rpc("parse_note");
   if (!data) { bar.innerHTML = ""; return; }
-  bar.innerHTML = `<div class="card" style="padding:12px 16px;display:flex;gap:12px;align-items:flex-start">
-      <div style="flex:1"><b>${esc(data.note)}</b></div>
+  const retry = data.status === "failed" && data.paper_id
+    ? `<button class="go small" onclick="retryReading(${data.paper_id}, true)">Try the reading again</button>`
+    : "";
+  bar.innerHTML = `<div class="card" style="padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1 1 240px"><b>${esc(data.note)}</b></div>
+      ${retry}
       <button class="link" onclick="dismissNote(${data.id})">OK</button>
     </div>`;
 
@@ -1921,6 +1925,9 @@ async function loadPapersToRead() {
   const rows = data ?? [];
   if (!rows.length) { card.style.display = "none"; return; }
   card.style.display = "";
+  if (rows.some((r) => r.status === "failed" || (r.pages_total ?? 0) > (r.pages_done ?? 0))) {
+    card.querySelector("details")?.setAttribute("open", "");
+  }
   box.innerHTML = rows.map((r) => {
     const left = (r.pages_total ?? 0) - (r.pages_done ?? 0);
     const state = r.pages_total === 0
@@ -1964,11 +1971,11 @@ async function preparePages(paperId) {
   const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
   const file = new File([bytes], row.title || "paper.pdf", { type: row.mime || "application/pdf" });
 
-  const { data: { user } } = await sb.auth.getUser();
+  const { data: owner } = await sb.rpc("my_student_id");
   const pages = await pdfToImages(file, 40);
   paintTopProgress(0, pages.length, `Saving page 0 of ${pages.length}`);
   for (let i = 0; i < pages.length; i++) {
-    const path = `${user.id}/page-${paperId}-${i + 1}.jpg`;
+    const path = `${owner}/page-${paperId}-${i + 1}.jpg`;
     await sb.storage.from("papers").upload(path, pages[i], { upsert: true, contentType: "image/jpeg" });
     await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: i + 1, path }, { onConflict: "paper_id,page_no" });
     paintTopProgress(i + 1, pages.length, `Saving page ${i + 1} of ${pages.length}`);
@@ -2300,10 +2307,11 @@ async function readInBackground(file, userId, exam, paperId) {
     if (fileKind(file) === "pdf") {
       const pages = await pdfToImages(file, 40);
       await sb.rpc("set_job_total", { p_id: jobId, p_total: pages.length });
+      const { data: owner } = await sb.rpc("my_student_id");
 
       // the pages go into storage once; after this the browser is not needed
       for (let i = 0; i < pages.length; i++) {
-        const path = `${userId}/page-${paperId}-${i + 1}.jpg`;
+        const path = `${owner ?? userId}/page-${paperId}-${i + 1}.jpg`;
         await sb.storage.from("papers").upload(path, pages[i], { upsert: true, contentType: "image/jpeg" });
         await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: i + 1, path }, { onConflict: "paper_id,page_no" });
         paintTopProgress(i + 1, pages.length, `Saving page ${i + 1} of ${pages.length}`);
