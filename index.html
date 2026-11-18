@@ -616,6 +616,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </details>
   </div>
 
+  <div class="card" id="papersCard" style="display:none">
+    <div class="k">Papers</div>
+    <div id="pPapers"></div>
+  </div>
+
   <div class="card">
     <div class="k">Exams and what is loaded</div>
     <table>
@@ -870,7 +875,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.41.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.42.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1902,6 +1907,68 @@ async function saveName() {
   if (!error) { try { localStorage.setItem(LAST_KEY, name); } catch (_) {} }
 }
 
+/* the papers, and a way to read one again when it failed */
+async function loadPapersToRead() {
+  const card = $("papersCard"), box = $("pPapers");
+  if (!card || !box) return;
+  const { data } = await sb.rpc("papers_to_read");
+  const rows = data ?? [];
+  if (!rows.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  box.innerHTML = rows.map((r) => {
+    const left = (r.pages_total ?? 0) - (r.pages_done ?? 0);
+    const state = r.pages_total === 0
+      ? "pages not prepared yet"
+      : left === 0
+        ? `all ${r.pages_total} pages read · ${r.questions ?? 0} questions`
+        : `${r.pages_done} of ${r.pages_total} pages read · ${left} to go`;
+    return `<div class="bar" style="justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)">
+      <div><b>${esc(r.title)}</b><div class="sub">${esc(r.exam)} · ${esc(state)}</div></div>
+      <div class="bar" style="gap:6px">
+        ${left > 0 ? `<button class="go small" onclick="retryReading(${r.id}, false)">Read the rest</button>` : ""}
+        <button class="ghost small" onclick="retryReading(${r.id}, true)">Read it all again</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* read the rest of a paper, or all of it, from the parent view */
+async function retryReading(paperId, all) {
+  const { data: pages } = await sb.rpc("papers_to_read");
+  const row = (pages ?? []).find((p) => p.id === paperId);
+  if (!row) return;
+
+  // no page images yet? make them here, then hand the reading to the server
+  if ((row.pages_total ?? 0) === 0) { await preparePages(paperId); }
+
+  const { error } = await sb.rpc("restart_reading", { p_paper: paperId, p_all: !!all });
+  if (error) { alert(error.message); return; }
+
+  paintTopProgress(0, 1, "Reading…");
+  runServerQueue();
+  loadPapersToRead();
+}
+
+/* turn the stored original back into page images, so the server can read them */
+async function preparePages(paperId) {
+  const { data: row } = await sb.from("papers").select("*").eq("id", paperId).maybeSingle();
+  if (!row) return;
+  const { data: b64 } = await sb.rpc("upload_bytes", { p_id: paperId });
+  if (!b64) { alert("That file could not be read back."); return; }
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const file = new File([bytes], row.title || "paper.pdf", { type: row.mime || "application/pdf" });
+
+  const { data: { user } } = await sb.auth.getUser();
+  const pages = await pdfToImages(file, 40);
+  paintTopProgress(0, pages.length, `Saving page 0 of ${pages.length}`);
+  for (let i = 0; i < pages.length; i++) {
+    const path = `${user.id}/page-${paperId}-${i + 1}.jpg`;
+    await sb.storage.from("papers").upload(path, pages[i], { upsert: true, contentType: "image/jpeg" });
+    await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: i + 1, path }, { onConflict: "paper_id,page_no" });
+    paintTopProgress(i + 1, pages.length, `Saving page ${i + 1} of ${pages.length}`);
+  }
+}
+
 /* the adults who can see this child */
 async function loadParents() {
   const box = $("parentList");
@@ -1926,6 +1993,7 @@ async function removeParent(parentId) {
   });
   if (error || data?.error) { alert(data?.error ?? error?.message ?? "That did not work."); return; }
   loadParents();
+  loadPapersToRead();
 }
 
 /* add a child, or remove one */
@@ -2021,6 +2089,7 @@ async function loadParent() {
   loadAccount();
   loadChildren();
   loadParents();
+  loadPapersToRead();
 }
 
 const BANK_LABEL = {
@@ -3944,7 +4013,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
