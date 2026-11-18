@@ -837,7 +837,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.34.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.35.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1860,6 +1860,16 @@ async function savePassword() {
   if (!error) $("accPw").value = "";
 }
 
+/* the pencil turns the date into a picker, in place */
+function editDate(i, exam, current) {
+  const cell = $("dl" + i)?.parentElement;
+  if (!cell) return;
+  cell.innerHTML = `<input type="date" value="${current ?? ""}" style="font:inherit;padding:5px 7px;border:1px solid var(--line);border-radius:9px">`;
+  const input = cell.querySelector("input");
+  input.onchange = () => setExamDate(exam, input.value);
+  input.focus();
+}
+
 async function setExamDate(exam, value) {
   if (!exam || !value) return;
   const { error } = await sb.rpc("set_exam_date", { p_exam: exam, p_on: value, p_confirmed: true });
@@ -1918,9 +1928,15 @@ async function goParent() {
     }).join("");
     return `<tr>
       <td><b>${esc(r.school)}</b><div class="sub">${esc(r.exam)}</div></td>
-      <td><input type="date" value="${r.sits_on ?? ""}" style="font:inherit;padding:5px 7px;border:1px solid var(--line);border-radius:9px"
-            onchange="setExamDate('${esc(r.calendar_name ?? "")}', this.value)">
-        <div class="sub" style="margin-top:3px">${when ? esc(when) : "no date"}${days !== null ? ` · ${days} days` : ""}</div></td>
+      <td>
+        <span class="dateLine" id="dl${i}">${when ? esc(when) : "no date yet"}${
+          days !== null ? `<span class="sub"> · ${days} days</span>` : ""}</span>
+        <button class="pencil" title="Change the date" onclick="editDate(${i}, this.dataset.exam, this.dataset.on)" data-exam="${esc(r.calendar_name ?? "")}" data-on="${r.sits_on ?? ""}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+      </td>
       <td><span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>
         <details style="margin-top:4px"><summary class="sub" style="cursor:pointer">${r.measured_minutes ?? 0} of ${r.sits_minutes ?? 0} min measured</summary>
           <div style="margin-top:6px">${detail}</div></details></td>
@@ -3752,7 +3768,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
