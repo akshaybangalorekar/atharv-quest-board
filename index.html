@@ -111,6 +111,8 @@ main#session{height:calc(100dvh - 66px);height:calc(100vh - 66px);padding-bottom
   transition:width .25s ease}
 .bannerNote{margin-bottom:12px}
 .bannerNote .card{border-color:#dcd8f4;background:#f7f6ff}
+.figureShot{background:#fff;padding:6px}
+.figureShot img{width:100%;max-height:320px;object-fit:contain;display:block;border-radius:10px}
 .paperShot{background:#fff}
 .paperShot img{width:100%;max-height:340px;object-fit:contain;display:block;border-radius:10px}
 .diagram svg{max-width:100%;max-height:230px;height:auto;width:auto}
@@ -176,6 +178,8 @@ main#session{height:calc(100dvh - 66px);height:calc(100vh - 66px);padding-bottom
   transition:width .25s ease}
 .bannerNote{margin-bottom:12px}
 .bannerNote .card{border-color:#dcd8f4;background:#f7f6ff}
+.figureShot{background:#fff;padding:6px}
+.figureShot img{width:100%;max-height:320px;object-fit:contain;display:block;border-radius:10px}
 .paperShot{background:#fff}
 .paperShot img{width:100%;max-height:340px;object-fit:contain;display:block;border-radius:10px}
 .diagram svg{max-width:100%;max-height:230px;height:auto;width:auto}
@@ -782,7 +786,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.25.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.26.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -923,7 +927,17 @@ async function autoFigure(kind, key, targetId, prompt, existing, q) {
   if (!box) return;
   if (existing) { box.innerHTML = `<div class="diagram">${existing}</div>`; return; }
 
-  // from a paper? show the page itself — that is where the diagram lives
+  // its own cut-out figure first — the real thing, in colour, from the document
+  if (q?.diagram_url) {
+    const { data: signed } = await sb.storage.from("papers").createSignedUrl(q.diagram_url, 3600);
+    const url = signed?.signedUrl;
+    if (url) {
+      box.innerHTML = `<div class="diagram figureShot"><img src="${url}" alt="the figure from the paper"></div>`;
+      return;
+    }
+  }
+
+  // otherwise the page it came from, where the figure sits
   if (q?.paper_id) { if (await showPaperPage(box, q)) return; }
 
   if (!needsFigure(prompt)) return;
@@ -1906,7 +1920,7 @@ async function readInBackground(file, userId, exam, paperId) {
         S.pendingPage = i + 1;
         const got = await callExtractRows(pages[i], exam);
         if (!got.rows.length) continue;
-        const res = await commitRows(got.rows, exam, got.strand);
+        const res = await commitRows(got.rows, exam, got.strand, pages[i]);
         added += res.added; unanswered += res.unanswered;
         strand = res.strand || strand;
         pagesDone = i + 1;
@@ -1917,7 +1931,7 @@ async function readInBackground(file, userId, exam, paperId) {
       }
     } else {
       const got = await callExtractRows(file, exam);
-      const res = await commitRows(got.rows, exam, got.strand);
+      const res = await commitRows(got.rows, exam, got.strand, file);
       added = res.added; unanswered = res.unanswered; strand = res.strand;
       pagesDone = 1;
     }
@@ -1946,10 +1960,55 @@ async function callExtractRows(blobOrFile, exam) {
   return { rows: data?.rows ?? [], strand: data?.strand ?? "" };
 }
 
+/* cut the figure out of the page, and keep it as its own picture */
+async function cropDiagram(pageBlob, box, userId) {
+  try {
+    const url = URL.createObjectURL(pageBlob);
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = url;
+    });
+    const sx = Math.round(box.x * img.naturalWidth);
+    const sy = Math.round(box.y * img.naturalHeight);
+    const sw = Math.max(40, Math.round(box.w * img.naturalWidth));
+    const sh = Math.max(30, Math.round(box.h * img.naturalHeight));
+
+    const pad = 12;
+    const cw = Math.min(img.naturalWidth - sx, sw + pad * 2);
+    const ch = Math.min(img.naturalHeight - sy, sh + pad * 2);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = cw * 2; canvas.height = ch * 2;          // twice the size, so it stays sharp
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, sx - pad, sy - pad, cw, ch, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+    URL.revokeObjectURL(url);
+    if (!blob) return null;
+
+    const path = `${userId}/fig-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.png`;
+    const up = await sb.storage.from("papers").upload(path, blob, { upsert: true, contentType: "image/png" });
+    return up.error ? null : path;
+  } catch (_) { return null; }
+}
+
 /* and rows in, questions in the bank */
-async function commitRows(rows, exam, strandFromReader) {
+async function commitRows(rows, exam, strandFromReader, pageBlob) {
   const opts = rows.map((r) => (Array.isArray(r.options) && r.options.length >= 2 ? r.options : null));
-  const payload = rows.map((r, i) => (opts[i] ? { ...r, options: opts[i] } : r));
+  const payload = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = { ...rows[i] };
+    if (opts[i]) r.options = opts[i];
+    if (r.diagram && pageBlob) {
+      const { data: { user } } = await sb.auth.getUser();
+      const saved = await cropDiagram(pageBlob, r.diagram, user.id);
+      if (saved) { r.diagram_url = saved; r.diagram_kind = r.diagram_kind ?? "complex"; }
+    }
+    payload.push(r);
+  }
   const { data, error } = await sb.rpc("add_questions", {
     p_exam: exam,
     p_strand: $("upStrand")?.value?.trim() || strandFromReader || "General",
