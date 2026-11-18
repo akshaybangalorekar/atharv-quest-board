@@ -311,12 +311,12 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   const SUPABASE_KEY = "sb_publishable_u9waWMPmL79A9TRhmct-Zg_MXiG3Uj_";
 </script>
 
-<div id="noteBar" class="bannerNote" style="max-width:1080px;margin:0 auto;padding:0 22px"></div>
+<div id="noteBar" class="bannerNote hidden" style="max-width:1080px;margin:0 auto;padding:0 22px"></div>
 
 <div class="top">
   <h1 id="appTitle">Quest Coach</h1>
   <div style="display:flex;gap:8px;align-items:center">
-    <div id="topProg" class="topProg hidden" title="Reading the paper">
+    <div id="topProg" class="topProg hidden" title="Reading" style="display:none">
       <div class="topProgText" id="topProgText">Reading…</div>
       <div class="topProgTrack"><span id="topProgBar"></span></div>
     </div>
@@ -883,7 +883,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.49.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.50.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1921,7 +1921,9 @@ async function saveName() {
 }
 
 /* the papers, and a way to read one again when it failed */
+let papersPoll = null;
 async function loadPapersToRead() {
+  if (papersPoll) { clearTimeout(papersPoll); papersPoll = null; }
   const box = $("pPapers");
   if (!box) return;
   const { data } = await sb.rpc("papers_to_read");
@@ -1932,11 +1934,17 @@ async function loadPapersToRead() {
   }
   box.innerHTML = rows.map((r) => {
     const left = (r.pages_total ?? 0) - (r.pages_done ?? 0);
-    const state = (r.pages_total ?? 0) === 0
-      ? "pages not prepared yet"
-      : left === 0
-        ? `all ${r.pages_total} pages read`
-        : `${r.pages_done} of ${r.pages_total} pages read · ${left} to go`;
+    const total = r.pages_total ?? 0;
+    const done = r.pages_done ?? 0;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    const word = (r.status === "failed" || (r.status === "running" && left > 0))
+      ? (r.status === "failed" ? "Stopped partway" : "Reading")
+      : total === 0 ? "Not read yet"
+      : left === 0 ? (r.status === "failed" ? "Stopped partway" : "Read")
+      : "Paused";
+    const state = total === 0
+      ? (r.questions > 0 ? `${r.questions} questions in the bank` : "not read yet")
+      : `${done} of ${total} pages · ${left === 0 ? "all read" : left + " to go"}`;
     const statusIcon = `<details class="fileStatus"><summary title="What was read">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/>
@@ -1950,7 +1958,15 @@ async function loadPapersToRead() {
       </div>
     </details>`;
     return `<div class="bar" style="justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)">
-      <div><b>${esc(r.title)}</b> ${statusIcon}<div class="sub">${esc(r.exam)} · ${esc(state)}</div></div>
+      <div style="flex:1 1 260px">
+        <b>${esc(r.title)}</b> ${statusIcon}
+        <div class="sub">${esc(r.exam)} · ${esc(state)}</div>
+        ${total ? `<div class="rowProg"><span style="width:${pct}%"></span></div>` : ""}
+        <div class="sub" style="margin-top:2px"><b>${esc(word)}</b>${
+          r.questions ? ` · ${r.questions} questions` : ""}${
+          r.diagrams ? ` · ${r.diagrams} with a figure` : ""}${
+          (r.questions ?? 0) > (r.answers ?? 0) ? ` · ${(r.questions ?? 0) - (r.answers ?? 0)} still to answer` : ""}</div>
+      </div>
       <div class="bar" style="gap:6px">
         ${left > 0 ? `<button class="go small" onclick="retryReading(${r.id}, false)">Read the rest</button>` : ""}
         <button class="ghost small" onclick="retryReading(${r.id}, true)">Reload</button>
@@ -1958,6 +1974,11 @@ async function loadPapersToRead() {
       </div>
     </div>`;
   }).join("");
+
+  // if anything is still being read, look again shortly so the row moves
+  if (rows.some((r) => (r.pages_total ?? 0) > (r.pages_done ?? 0) || r.status === "running")) {
+    papersPoll = setTimeout(loadPapersToRead, 4000);
+  }
 }
 
 /* read the rest of a paper, or all of it, from the parent view */
@@ -2395,9 +2416,8 @@ async function runServerQueue() {
       p_strand: prog.strand ?? "", p_pages_done: prog.pages_done ?? 0, p_failed: false,
     });
   }
-  paintTopProgress(1, 1, "Reading done");
-  setTimeout(() => paintTopProgress(0, 0), 5000);
-  paintNote();
+  paintTopProgress(0, 0);
+  loadPapersToRead();
 }
 
 /* one page in, rows out */
