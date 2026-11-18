@@ -881,7 +881,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.46.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.47.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2815,9 +2815,9 @@ function goLanding() {
   const f = S.ctx?.focus;
   if (f && $("focusLine")) {
     const parts = (f.split ?? []).filter((x) => x.pct >= 10)
-      .map((x) => `${x.pct}% ${String(x.exam).replace(" numerical reasoning", "").replace("Olympiad book", "book")}`);
+      .map((x) => `${x.pct}% ${x.exam}`);
     $("focusLine").textContent = parts.length
-      ? `This week: ${parts.join(" · ")} — ${f.primary_exam === "Olympiad book" ? "technique from the book" : "towards " + String(f.primary_exam).replace(" numerical reasoning", "")}`
+      ? `This week: ${parts.join(" · ")} — ${f.primary_exam === "Olympiad" ? "technique from Olympiad" : "towards " + f.primary_exam}`
       : "";
   }
 
@@ -2836,9 +2836,9 @@ async function askCoachWhatNow() {
   const f = S.ctx?.focus;
   if (f && $("focusLine")) {
     const parts = (f.split ?? []).filter((x) => x.pct >= 10)
-      .map((x) => `${x.pct}% ${String(x.exam).replace(" numerical reasoning", "").replace("Olympiad book", "book")}`);
+      .map((x) => `${x.pct}% ${x.exam}`);
     $("focusLine").textContent = parts.length
-      ? `This week: ${parts.join(" · ")} — ${f.primary_exam === "Olympiad book" ? "technique from the book" : "towards " + String(f.primary_exam).replace(" numerical reasoning", "")}`
+      ? `This week: ${parts.join(" · ")} — ${f.primary_exam === "Olympiad" ? "technique from Olympiad" : "towards " + f.primary_exam}`
       : "";
   }
 
