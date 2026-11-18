@@ -564,7 +564,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   <div class="card">
     <div class="k">Exams and what is loaded</div>
     <table>
-      <tr><th>Where</th><th>Sits</th><th>Verdict</th></tr>
+      <tr><th>Where</th><th>Date</th><th>Sits</th><th>Verdict</th></tr>
       <tbody id="pExams"></tbody>
     </table>
     <div class="hint">“Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy.</div>
@@ -815,7 +815,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.31.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.32.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1802,6 +1802,15 @@ async function loadContext() {
 }
 
 /* -------------------------------------------------------------- parent -- */
+/* a parent sets the date the moment the school publishes it */
+async function setExamDate(exam, value) {
+  if (!exam || !value) return;
+  const { error } = await sb.rpc("set_exam_date", { p_exam: exam, p_on: value, p_confirmed: true });
+  if (error) { alert(error.message); return; }
+  await loadParent();
+  goParent();
+}
+
 async function loadParent() {
   const { data } = await sb.rpc("parent_context");
   S.pctx = data ?? {};
@@ -1847,7 +1856,17 @@ async function goParent() {
         : "not measured";
       return `<div class="sub">${esc(x.part)} · ${x.minutes} min · ${mark} — <b>${esc(x.verdict)}</b></div>`;
     }).join("");
+    const when = r.sits_on
+      ? new Date(r.sits_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+      : "";
+    const days = r.sits_on ? Math.round((new Date(r.sits_on) - new Date()) / 86400000) : null;
     return `<tr><td><b>${esc(r.school)}</b><div class="sub">${esc(r.exam)}</div></td>
+      <td>
+        <input type="date" value="${r.sits_on ?? ""}" style="font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:9px"
+               onchange="setExamDate('${esc(r.calendar_name ?? "")}', this.value)">
+        <div class="sub" style="margin-top:4px">${when ? esc(when) : "no date yet"}${days !== null ? ` · ${days} days` : ""}
+          ${r.date_status === "confirmed" ? " · confirmed" : r.date_status ? " · expected" : ""}</div>
+      </td>
       <td>${r.measured_minutes ?? 0} of ${r.sits_minutes ?? 0} min measured</td>
       <td><span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>${detail}</td></tr>`;
   }).join("") || `<tr><td class="sub">Nothing loaded yet.</td><td></td><td></td></tr>`;
