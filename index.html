@@ -574,18 +574,16 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   <div class="card">
     <div class="k">Add questions</div>
     <div class="big" style="font-size:20px" id="upExam">—</div>
-    <div class="sub" style="margin-bottom:12px">Choose the exam, say which strand, then either paste the questions or upload the paper.</div>
+    <div class="sub" style="margin-bottom:12px">Choose the exam, say which strand, then add the paper. It is saved straight away and read in the background — nothing to wait for.</div>
 
     <label class="k">Exam</label>
     <select id="upBank" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px"
             onchange="document.getElementById('upExam').textContent=this.options[this.selectedIndex].text;updateDest()"></select>
 
     <label class="k">Strand</label>
-    <input id="upStrand" placeholder="Sequences, Codes, Data…" style="margin-bottom:12px" oninput="updateDest()">
+    <input id="upStrand" placeholder="Leave blank and the reader will name it" style="margin-bottom:12px" oninput="updateDest()">
 
-    <label class="k">Questions</label>
-    <textarea id="upRows" rows="8" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px"
-      placeholder="One per line, question then a pipe then the answer:&#10;Next: 2, 6, 12, 20, … | 30&#10;Odd one out: 4, 9, 16, 25, 30 | 30&#10;Leave the answer empty if a person should mark it."></textarea>
+    <textarea id="upRows" rows="1" class="hidden"></textarea>
 
     <div class="bar">
       <button class="go small" onclick="document.getElementById('upFile').click()">＋ Add a paper</button>
@@ -597,12 +595,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <div class="hint" id="upProgText" style="margin-top:6px"></div>
     </div>
     <div class="hint" id="upDest" style="color:var(--acc);font-weight:600">Going into: —</div>
-    <div class="hint" id="upNote">Files are read and the questions land in the box above, for you to check before anything is saved.</div>
+    <div class="hint" id="upNote">The questions are added as each page is read. A note appears at the top when it is done.</div>
 
     <div class="bar" style="margin-top:14px">
-      <button class="go small" id="upAdd" onclick="submitUpload()">Add these questions</button>
-      <button class="ghost small" onclick="solveBlanks()">Work out the missing answers</button>
-      <button class="ghost small" onclick="goParent()">Cancel</button>
+      <button class="ghost small" onclick="solveBlanks()">Work out any missing answers</button>
+      <button class="ghost small" onclick="goParent()">← Back</button>
     </div>
     <div class="err" id="upErr"></div>
     <div class="fb hidden" id="upDone"></div>
@@ -785,7 +782,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.25.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.25.2";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1907,9 +1904,9 @@ async function readInBackground(file, userId, exam, paperId) {
       const pages = await pdfToImages(file, 40);
       for (let i = 0; i < pages.length; i++) {
         S.pendingPage = i + 1;
-        const rows = await callExtractRows(pages[i], exam);
-        if (!rows.length) continue;
-        const res = await commitRows(rows, exam);
+        const got = await callExtractRows(pages[i], exam);
+        if (!got.rows.length) continue;
+        const res = await commitRows(got.rows, exam, got.strand);
         added += res.added; unanswered += res.unanswered;
         strand = res.strand || strand;
         pagesDone = i + 1;
@@ -1919,8 +1916,8 @@ async function readInBackground(file, userId, exam, paperId) {
         });
       }
     } else {
-      const rows = await callExtractRows(file, exam);
-      const res = await commitRows(rows, exam);
+      const got = await callExtractRows(file, exam);
+      const res = await commitRows(got.rows, exam, got.strand);
       added = res.added; unanswered = res.unanswered; strand = res.strand;
       pagesDone = 1;
     }
@@ -1945,17 +1942,17 @@ async function callExtractRows(blobOrFile, exam) {
   const { data, error } = await sb.functions.invoke("extract-questions", {
     body: { path, exam, strand: $("upStrand")?.value?.trim() || "" },
   });
-  if (error || data?.error) return [];
-  return data?.rows ?? [];
+  if (error || data?.error) return { rows: [], strand: "" };
+  return { rows: data?.rows ?? [], strand: data?.strand ?? "" };
 }
 
 /* and rows in, questions in the bank */
-async function commitRows(rows, exam) {
+async function commitRows(rows, exam, strandFromReader) {
   const opts = rows.map((r) => (Array.isArray(r.options) && r.options.length >= 2 ? r.options : null));
   const payload = rows.map((r, i) => (opts[i] ? { ...r, options: opts[i] } : r));
   const { data, error } = await sb.rpc("add_questions", {
     p_exam: exam,
-    p_strand: $("upStrand")?.value?.trim() || "General",
+    p_strand: $("upStrand")?.value?.trim() || strandFromReader || "General",
     p_rows: payload,
     p_paper: S.pendingPaper ?? null,
     p_pages: S.pendingPages?.length === rows.length ? S.pendingPages : null,
@@ -2042,8 +2039,8 @@ function fileKind(f) {
 
 function updateDest() {
   const exam = $("upBank").value;
-  const strand = $("upStrand").value.trim() || "General";
-  $("upDest").textContent = `Going into: ${BANK_LABEL[exam] ?? exam} · ${strand}`;
+  const strand = $("upStrand").value.trim();
+  $("upDest").textContent = `Going into: ${BANK_LABEL[exam] ?? exam} · ${strand || "the strand the reader finds"}`;
 }
 
 async function extractOne(blob, uid, name, onStrand) {
