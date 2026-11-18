@@ -883,7 +883,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.48.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.49.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1932,13 +1932,25 @@ async function loadPapersToRead() {
   }
   box.innerHTML = rows.map((r) => {
     const left = (r.pages_total ?? 0) - (r.pages_done ?? 0);
-    const state = r.pages_total === 0
+    const state = (r.pages_total ?? 0) === 0
       ? "pages not prepared yet"
       : left === 0
-        ? `all ${r.pages_total} pages read · ${r.questions ?? 0} questions`
+        ? `all ${r.pages_total} pages read`
         : `${r.pages_done} of ${r.pages_total} pages read · ${left} to go`;
+    const statusIcon = `<details class="fileStatus"><summary title="What was read">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/>
+          <path d="M12 8v.01M11 12h1v4h1"/></svg>
+      </summary>
+      <div class="sub" style="margin-top:6px;line-height:1.7">
+        Questions read: <b>${r.questions ?? 0}</b><br>
+        With a figure: <b>${r.diagrams ?? 0}</b><br>
+        With an answer: <b>${r.answers ?? 0}</b>
+        ${(r.questions ?? 0) > (r.answers ?? 0) ? `<br>Still to answer: <b>${(r.questions ?? 0) - (r.answers ?? 0)}</b>` : ""}
+      </div>
+    </details>`;
     return `<div class="bar" style="justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)">
-      <div><b>${esc(r.title)}</b><div class="sub">${esc(r.exam)} · ${esc(state)}</div></div>
+      <div><b>${esc(r.title)}</b> ${statusIcon}<div class="sub">${esc(r.exam)} · ${esc(state)}</div></div>
       <div class="bar" style="gap:6px">
         ${left > 0 ? `<button class="go small" onclick="retryReading(${r.id}, false)">Read the rest</button>` : ""}
         <button class="ghost small" onclick="retryReading(${r.id}, true)">Reload</button>
