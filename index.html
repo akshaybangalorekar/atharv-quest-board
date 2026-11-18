@@ -616,9 +616,12 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </details>
   </div>
 
-  <div class="card" id="papersCard" style="display:none"><details>
-    <summary class="foldHead">Papers</summary>
-    <div id="pPapers" style="margin-top:10px"></div>
+  <div class="card"><details id="papersDetails" open>
+    <summary class="foldHead">Sample questions</summary>
+    <div style="margin-top:10px">
+      <div id="pPapers"><div class="sub">Nothing uploaded yet.</div></div>
+      <div class="bar" style="margin-top:10px"><button class="go small" onclick="openUpload()">＋ Add a file</button></div>
+    </div>
   </details></div>
 
   <div class="card"><details>
@@ -629,7 +632,6 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <tbody id="pExams"></tbody>
     </table>
     <div class="hint">“Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy.</div>
-    <div class="bar"><button class="go small" onclick="openUpload()">＋ Add questions</button></div>
     </div>
   </details></div>
 
@@ -881,7 +883,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.47.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.48.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1920,14 +1922,13 @@ async function saveName() {
 
 /* the papers, and a way to read one again when it failed */
 async function loadPapersToRead() {
-  const card = $("papersCard"), box = $("pPapers");
-  if (!card || !box) return;
+  const box = $("pPapers");
+  if (!box) return;
   const { data } = await sb.rpc("papers_to_read");
   const rows = data ?? [];
-  if (!rows.length) { card.style.display = "none"; return; }
-  card.style.display = "";
+  if (!rows.length) { box.innerHTML = `<div class="sub">Nothing uploaded yet.</div>`; return; }
   if (rows.some((r) => r.status === "failed" || (r.pages_total ?? 0) > (r.pages_done ?? 0))) {
-    card.querySelector("details")?.setAttribute("open", "");
+    $("papersDetails")?.setAttribute("open", "");
   }
   box.innerHTML = rows.map((r) => {
     const left = (r.pages_total ?? 0) - (r.pages_done ?? 0);
@@ -1940,7 +1941,8 @@ async function loadPapersToRead() {
       <div><b>${esc(r.title)}</b><div class="sub">${esc(r.exam)} · ${esc(state)}</div></div>
       <div class="bar" style="gap:6px">
         ${left > 0 ? `<button class="go small" onclick="retryReading(${r.id}, false)">Read the rest</button>` : ""}
-        <button class="ghost small" onclick="retryReading(${r.id}, true)">Read it all again</button>
+        <button class="ghost small" onclick="retryReading(${r.id}, true)">Reload</button>
+        <button class="ghost small" style="border-color:#f2c9c9;color:#b8383d" onclick="deletePaper(${r.id})">Delete</button>
       </div>
     </div>`;
   }).join("");
@@ -1960,6 +1962,14 @@ async function retryReading(paperId, all) {
 
   paintTopProgress(0, 1, "Reading…");
   runServerQueue();
+  loadPapersToRead();
+}
+
+/* remove a sample: the file, its pages and the questions that came from it */
+async function deletePaper(paperId) {
+  if (!confirm("Delete this sample and the questions that came from it? This cannot be undone.")) return;
+  const { data, error } = await sb.rpc("delete_paper", { p_id: paperId });
+  if (error) { alert(error.message); return; }
   loadPapersToRead();
 }
 
@@ -4037,7 +4047,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
