@@ -562,9 +562,24 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   </div>
 
   <div class="card">
+    <details>
+      <summary style="cursor:pointer;font-weight:650;font-size:15.5px">Your account</summary>
+      <div style="margin-top:10px">
+        <label class="k">The name you sign in with</label>
+        <div class="bar"><input id="accName" placeholder="akshay" style="flex:1 1 160px">
+          <button class="ghost small" onclick="saveName()">Save name</button></div>
+        <label class="k" style="margin-top:12px">A new password</label>
+        <div class="bar"><input id="accPw" type="password" placeholder="at least 8 characters" style="flex:1 1 160px">
+          <button class="ghost small" onclick="savePassword()">Save password</button></div>
+        <div class="hint" id="accMsg" style="margin-top:8px"></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
     <div class="k">Exams and what is loaded</div>
     <table>
-      <tr><th>Where</th><th>Date</th><th>Sits</th><th>Verdict</th></tr>
+      <tr><th>Where</th><th>Date</th><th>How it is going</th></tr>
       <tbody id="pExams"></tbody>
     </table>
     <div class="hint">“Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy.</div>
@@ -815,7 +830,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.32.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.33.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1803,6 +1818,27 @@ async function loadContext() {
 
 /* -------------------------------------------------------------- parent -- */
 /* a parent sets the date the moment the school publishes it */
+/* the name you sign in with, and the password, changed from here */
+async function loadAccount() {
+  const { data } = await sb.rpc("my_account");
+  if ($("accName") && data?.name) $("accName").value = data.name;
+}
+
+async function saveName() {
+  const name = $("accName").value.trim().toLowerCase();
+  const { error } = await sb.rpc("set_username", { p_name: name });
+  $("accMsg").textContent = error ? error.message : `Done — sign in as “${name}” from now on.`;
+  if (!error) { try { localStorage.setItem(LAST_KEY, name); } catch (_) {} }
+}
+
+async function savePassword() {
+  const pw = $("accPw").value;
+  if (pw.length < 8) { $("accMsg").textContent = "Use at least 8 characters."; return; }
+  const { error } = await sb.auth.updateUser({ password: pw });
+  $("accMsg").textContent = error ? error.message : "Password changed.";
+  if (!error) $("accPw").value = "";
+}
+
 async function setExamDate(exam, value) {
   if (!exam || !value) return;
   const { error } = await sb.rpc("set_exam_date", { p_exam: exam, p_on: value, p_confirmed: true });
@@ -1816,6 +1852,7 @@ async function loadParent() {
   S.pctx = data ?? {};
   const { data: sr } = await sb.rpc("readiness_by_school");
   S.schoolReadiness = sr?.schools ?? [];
+  loadAccount();
 }
 
 const BANK_LABEL = {
@@ -1844,31 +1881,29 @@ async function goParent() {
   const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
                   thin: "Need more data", no_content: "Nothing yet" };
 
-  // one line per school, over exactly the sections that school sits
+  // one line per school: where, when, and the one-word verdict. Detail folds away.
   const rows = S.schoolReadiness ?? [];
-  if ($("pVer")) $("pVer").textContent = `Version ${APP_VERSION} · ${rows.length} schools`;
+  if ($("pVer")) $("pVer").textContent = `Version ${APP_VERSION} · ${rows.length} exams`;
   const cls = (v) => v === "solid" ? "ok" : v === "needs work" ? "red"
     : v === "partly measured" ? "amber" : "grey";
-  $("pExams").innerHTML = rows.map((r) => {
-    const detail = (r.sections ?? []).map((x) => {
-      const mark = x.covered
-        ? `${x.tried} tried${x.accuracy === null ? "" : ` · ${x.accuracy}%`}`
-        : "not measured";
-      return `<div class="sub">${esc(x.part)} · ${x.minutes} min · ${mark} — <b>${esc(x.verdict)}</b></div>`;
-    }).join("");
+  $("pExams").innerHTML = rows.map((r, i) => {
     const when = r.sits_on
       ? new Date(r.sits_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
       : "";
     const days = r.sits_on ? Math.round((new Date(r.sits_on) - new Date()) / 86400000) : null;
-    return `<tr><td><b>${esc(r.school)}</b><div class="sub">${esc(r.exam)}</div></td>
-      <td>
-        <input type="date" value="${r.sits_on ?? ""}" style="font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:9px"
-               onchange="setExamDate('${esc(r.calendar_name ?? "")}', this.value)">
-        <div class="sub" style="margin-top:4px">${when ? esc(when) : "no date yet"}${days !== null ? ` · ${days} days` : ""}
-          ${r.date_status === "confirmed" ? " · confirmed" : r.date_status ? " · expected" : ""}</div>
-      </td>
-      <td>${r.measured_minutes ?? 0} of ${r.sits_minutes ?? 0} min measured</td>
-      <td><span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>${detail}</td></tr>`;
+    const detail = (r.sections ?? []).map((x) => {
+      const mark = x.covered ? `${x.tried} tried${x.accuracy === null ? "" : ` · ${x.accuracy}%`}` : "not measured";
+      return `<div class="sub">${esc(x.part)} · ${x.minutes} min · ${mark} — <b>${esc(x.verdict)}</b></div>`;
+    }).join("");
+    return `<tr>
+      <td><b>${esc(r.school)}</b><div class="sub">${esc(r.exam)}</div></td>
+      <td><input type="date" value="${r.sits_on ?? ""}" style="font:inherit;padding:5px 7px;border:1px solid var(--line);border-radius:9px"
+            onchange="setExamDate('${esc(r.calendar_name ?? "")}', this.value)">
+        <div class="sub" style="margin-top:3px">${when ? esc(when) : "no date"}${days !== null ? ` · ${days} days` : ""}</div></td>
+      <td><span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>
+        <details style="margin-top:4px"><summary class="sub" style="cursor:pointer">${r.measured_minutes ?? 0} of ${r.sits_minutes ?? 0} min measured</summary>
+          <div style="margin-top:6px">${detail}</div></details></td>
+    </tr>`;
   }).join("") || `<tr><td class="sub">Nothing loaded yet.</td><td></td><td></td></tr>`;
 
   const weak = c.weak ?? [];
@@ -3696,7 +3731,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, setExamDate, saveName, savePassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
