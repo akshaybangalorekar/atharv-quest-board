@@ -411,6 +411,12 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 
 <!-- track home -->
 <main id="track" class="hidden">
+  <div class="card" id="partsCard" style="display:none">
+    <div class="k">What this paper contains</div>
+    <div id="partsList"></div>
+    <div class="hint" id="partsNote" style="margin-top:8px"></div>
+  </div>
+
   <div class="card" id="paperCard" style="display:none">
     <div class="k">Papers you have uploaded</div>
     <div id="paperList"></div>
@@ -802,7 +808,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.28.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.29.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2574,6 +2580,25 @@ function barRow(label, value, pct, colour) {
 
 /* --------------------------------------------------------------- track -- */
 /* the uploaded papers for this exam, and a way to read them */
+/* readiness per section, not one number for the whole thing */
+async function loadParts(family) {
+  const card = $("partsCard"), list = $("partsList");
+  if (!card || !list) return;
+  const { data } = await sb.rpc("readiness_parts", { p_family: family });
+  if (!data?.parts?.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  const pill = (v) => v === "solid" ? "ok" : v === "needs work" ? "amber"
+    : v === "not measured here" || v === "no questions yet" ? "grey" : "amber";
+  list.innerHTML = data.parts.map((p) => `
+    <div class="bar" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:8px 0">
+      <div><b>${esc(p.part)}</b>
+        <div class="sub">${p.minutes} minutes${p.coverage === "not covered" ? "" : ` · ${p.loaded} questions · ${p.practised} tried`}</div>
+      </div>
+      <span class="pill ${pill(p.verdict)}">${esc(p.verdict)}</span>
+    </div>`).join("");
+  $("partsNote").textContent = data.note ?? "";
+}
+
 async function loadPapers(exam) {
   const card = $("paperCard"), list = $("paperList");
   if (!card || !list) return;
@@ -2668,6 +2693,7 @@ async function openTrack(id) {
   } else {
     S.familyKind = null;
   }
+  loadParts(id);
   loadPapers(id);
   $("subBook").textContent = id === "amc" ? "From the book" : "The book";
   $("subDj").textContent = id === "amc" ? "AMC papers" : "Division J";
@@ -3639,7 +3665,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
