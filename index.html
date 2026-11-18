@@ -866,7 +866,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.37.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.38.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -920,14 +920,34 @@ function paintTopProgress(done, total, label) {
   txt.textContent = label ?? `Reading ${done} of ${total}`;
 }
 
-/* a job still running from an earlier visit */
+/* watch the reading, wherever he is in the app */
+let jobWatch = null;
 async function checkRunningJob() {
-  const { data } = await sb.from("parse_jobs")
-    .select("id,pages_done,pages_total,status")
-    .eq("status", "running").order("created_at", { ascending: false }).limit(1);
-  const job = data?.[0];
+  const { data } = await sb.rpc("parse_progress");
+  const job = data ?? null;
   if (!job) { paintTopProgress(0, 0); return; }
-  paintTopProgress(job.pages_done ?? 0, job.pages_total || 1, "Reading a paper…");
+
+  if (job.status === "running") {
+    const total = job.pages_total || 1;
+    paintTopProgress(job.pages_done ?? 0, total,
+      total > 1 ? `Reading ${job.pages_done ?? 0} of ${total}` : "Reading…");
+    startJobWatch();
+    return;
+  }
+
+  paintTopProgress(1, 1, job.status === "failed" ? "Reading failed" : "Reading done");
+  setTimeout(() => paintTopProgress(0, 0), 6000);
+  stopJobWatch();
+  paintNote();
+}
+
+function startJobWatch() {
+  if (jobWatch) return;
+  jobWatch = setInterval(checkRunningJob, 2500);
+}
+
+function stopJobWatch() {
+  if (jobWatch) { clearInterval(jobWatch); jobWatch = null; }
 }
 
 /* a note that follows him across screens */
@@ -938,8 +958,11 @@ async function paintNote() {
   if (!data) { bar.innerHTML = ""; return; }
   bar.innerHTML = `<div class="card" style="padding:12px 16px;display:flex;gap:12px;align-items:flex-start">
       <div style="flex:1"><b>${esc(data.note)}</b></div>
-      <button class="link" onclick="dismissNote(${data.id})">Got it</button>
+      <button class="link" onclick="dismissNote(${data.id})">OK</button>
     </div>`;
+
+  // a parent keeps it until they say so; a child's screen lets it go after three minutes
+  if (!S.isParent) setTimeout(() => { if ($("noteBar")?.textContent) dismissNote(data.id); }, 180000);
 }
 
 async function dismissNote(id) {
@@ -2158,7 +2181,9 @@ async function readInBackground(file, userId, exam, paperId) {
 
     if (fileKind(file) === "pdf") {
       const pages = await pdfToImages(file, 40);
+      await sb.rpc("set_job_total", { p_id: jobId, p_total: pages.length });
       paintTopProgress(0, pages.length, `Reading 0 of ${pages.length}`);
+      startJobWatch();
       for (let i = 0; i < pages.length; i++) {
         S.pendingPage = i + 1;
         const got = await callExtractRows(pages[i], exam);
