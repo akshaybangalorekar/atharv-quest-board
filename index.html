@@ -557,7 +557,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   <div class="card">
     <div class="k">Exams and what is loaded</div>
     <table>
-      <tr><th>Exam</th><th>Loaded</th><th>Practised</th><th>Mastered</th><th>Verdict</th></tr>
+      <tr><th>Exam</th><th>Loaded</th><th>Tried</th><th>Verdict</th></tr>
       <tbody id="pExams"></tbody>
     </table>
     <div class="hint">“Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy.</div>
@@ -808,7 +808,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.29.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.30.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1823,22 +1823,19 @@ async function goParent() {
     `${c.accuracy_7d ?? 0}% right this week · ${c.sessions_7d ?? 0} sessions logged · ` +
     `${(c.xp ?? 0).toLocaleString()} XP · streak ${c.streak ?? 0} days`;
 
-  const byExam = {};
-  (c.readiness ?? []).forEach((r) => { byExam[r.exam] = r; });
-  const exams = (c.banks ?? []).map((b) => b.exam);
-  (c.readiness ?? []).forEach((r) => { if (!exams.includes(r.exam)) exams.push(r.exam); });
-
   const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
                   thin: "Need more data", no_content: "Nothing yet" };
 
-  $("pExams").innerHTML = exams.map((name) => {
-    const r = byExam[name];
-    const v = r ? r.verdict : "no_content";
+  // one row per exam family — Edutest covers two schools, Olympiad covers the book and Division J
+  const rows = c.readiness ?? [];
+  $("pExams").innerHTML = rows.map((r) => {
+    const v = r.verdict ?? "no_content";
     const cls = v === "ready" ? "ok" : v === "too_early" ? "grey" : v === "in_progress" ? "amber" : "red";
-    return `<tr><td><b>${esc(BANK_LABEL[name] ?? name)}</b></td>
-      <td>${r ? r.items : 0}</td><td>${r ? r.practised : 0}</td><td>${r ? r.mastered : 0}</td>
+    const schools = r.schools ? `<div class="sub">${esc(r.schools)}</div>` : "";
+    return `<tr><td><b>${esc(r.exam)}</b>${schools}</td>
+      <td>${r.items ?? 0}</td><td>${r.practised ?? 0}</td>
       <td><span class="pill ${cls}">${words[v] ?? v}</span></td></tr>`;
-  }).join("");
+  }).join("") || `<tr><td class="sub">Nothing loaded yet.</td><td></td><td></td><td></td></tr>`;
 
   const weak = c.weak ?? [];
   $("pWeak").innerHTML = weak.length
