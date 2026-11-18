@@ -214,6 +214,8 @@ h1{font-size:17px;letter-spacing:-.01em}
   padding:11px 8px;font-size:13.5px}
 .timer.warn{color:var(--amber)}
 .timer.over{color:var(--red)}
+.paperPage{margin:10px 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+.paperPage img{width:100%;display:block}
 .flight svg{width:100%;height:auto;display:block;border-radius:16px}
 .flightFoot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:12px}
 .gauge{height:8px;border-radius:99px;background:#eceaf6;overflow:hidden;min-width:180px}
@@ -345,6 +347,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 
 <!-- track home -->
 <main id="track" class="hidden">
+  <div class="card" id="paperCard" style="display:none">
+    <div class="k">Papers you have uploaded</div>
+    <div id="paperList"></div>
+  </div>
+
   <div class="card">
     <div class="k" id="trackName">Olympiad</div>
     <div class="big" style="font-size:20px" id="todayPlan">—</div>
@@ -562,6 +569,16 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 </main>
 
 <!-- logging work done away from the app -->
+<!-- reading a paper -->
+<main id="paper" class="hidden">
+  <div class="card">
+    <div class="k">Paper</div>
+    <div class="big" style="font-size:20px" id="paperTitle">—</div>
+  </div>
+  <div id="paperPages"></div>
+  <div class="card"><button class="ghost" onclick="openTrack(S.track)">← Back</button></div>
+</main>
+
 <!-- the journal -->
 <main id="journal" class="hidden">
   <div class="card">
@@ -715,7 +732,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.18.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.19.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -761,7 +778,7 @@ function saveRoute() {
 function show(id) {
   S.view = id;
   if (!S.restoring) saveRoute();
-  ["boot", "signin", "landing", "track", "session", "chapter", "exam", "results", "parent", "upload", "pchat", "dash", "journal", "formula"].forEach((m) => $(m).classList.add("hidden"));
+  ["boot", "signin", "landing", "track", "session", "chapter", "exam", "results", "parent", "upload", "pchat", "dash", "journal", "formula", "paper"].forEach((m) => $(m).classList.add("hidden"));
   const signing = id === "signin";
   document.body.classList.toggle("signing", signing);
   if (!signing) document.body.style.background = "";   // back to plain white
@@ -1665,10 +1682,25 @@ function openUpload() {
 }
 
 /* any file: images and pdf pages go up as pictures, documents are read as words */
+/* the file is stored as a paper first, so there is something to open later */
+async function keepPaper(file, userId, exam, pages, questions) {
+  try {
+    const clean = safeName(file.name || "paper.pdf");
+    const path = `${userId}/${Date.now()}-${clean}`;
+    const up = await sb.storage.from("papers").upload(path, file, { upsert: true, contentType: file.type || "application/pdf" });
+    if (up.error) return null;
+    const { data } = await sb.from("papers").insert({
+      student_id: userId, exam, title: file.name || "Paper", path, pages, questions,
+    }).select("id").single();
+    return data?.id ?? null;
+  } catch (_) { return null; }
+}
+
 async function readPaper(input) {
   const files = [...(input.files ?? [])];
   if (!files.length) return;
   const { data: { user } } = await sb.auth.getUser();
+  const exam = $("upBank")?.value || "ELMS";
   const note = $("upNote");
   $("upErr").textContent = "";
   let added = 0, suggested = "";
@@ -1680,12 +1712,15 @@ async function readPaper(input) {
 
       if (kind === "image") {
         added += await extractOne(file, user.id, `${Date.now()}-${safeName(file.name)}`, (st) => { suggested = suggested || st; });
+        await keepPaper(file, user.id, exam, 1, 1);
       } else if (kind === "pdf") {
-        const pages = await pdfToImages(file, 10);
+        const pages = await pdfToImages(file, 40);
+        const before = added;
         for (let i = 0; i < pages.length; i++) {
           note.textContent = `Reading ${file.name}, page ${i + 1} of ${pages.length}…`;
           added += await extractOne(pages[i], user.id, `${Date.now()}-p${i + 1}.jpg`, (st) => { suggested = suggested || st; });
         }
+        await keepPaper(file, user.id, exam, pages.length, added - before);
       } else if (kind === "text") {
         const text = await file.text();
         added += await extractText(text, (st) => { suggested = suggested || st; });
@@ -2109,6 +2144,44 @@ function barRow(label, value, pct, colour) {
 
 
 /* --------------------------------------------------------------- track -- */
+/* the uploaded papers for this exam, and a way to read them */
+async function loadPapers(exam) {
+  const card = $("paperCard"), list = $("paperList");
+  if (!card || !list) return;
+  const { data } = await sb.from("papers").select("*").eq("exam", exam).order("created_at", { ascending: false });
+  const rows = data ?? [];
+  card.style.display = rows.length ? "" : "none";
+  if (!rows.length) return;
+  list.innerHTML = rows.map((r) => `
+    <div class="bar" style="justify-content:space-between;align-items:center;margin-top:8px">
+      <div><b>${esc(r.title)}</b><div class="sub">${r.pages} page${r.pages === 1 ? "" : "s"} · ${r.questions} questions taken from it</div></div>
+      <button class="go small" onclick="openPaper(${r.id})">Open</button>
+    </div>`).join("");
+}
+
+async function openPaper(id) {
+  const { data: row } = await sb.from("papers").select("*").eq("id", id).maybeSingle();
+  if (!row) return;
+  show("paper");
+  $("paperTitle").textContent = row.title;
+  $("paperPages").innerHTML = `<div class="sub">Opening…</div>`;
+
+  const { data: blob } = await sb.storage.from("papers").download(row.path);
+  if (!blob) { $("paperPages").innerHTML = `<div class="sub">Could not open that file.</div>`; return; }
+
+  if ((blob.type || "").includes("pdf") || row.path.toLowerCase().endsWith(".pdf")) {
+    try {
+      const pages = await pdfToImages(blob, 40);
+      $("paperPages").innerHTML = pages.map((p, i) =>
+        `<div class="paperPage"><div class="k">page ${i + 1}</div><img src="${URL.createObjectURL(p)}" alt="page ${i + 1}"></div>`).join("");
+    } catch (e) {
+      $("paperPages").innerHTML = `<div class="sub">Could not read that PDF: ${esc(e.message)}</div>`;
+    }
+  } else {
+    $("paperPages").innerHTML = `<div class="paperPage"><img src="${URL.createObjectURL(blob)}" alt="page"></div>`;
+  }
+}
+
 async function openTrack(id) {
   S.track = id;
   S.shelf = "book";
@@ -2132,6 +2205,7 @@ async function openTrack(id) {
   if (!S.restoring) saveRoute();
   $("subBook").classList.add("on"); $("subDj").classList.remove("on");
   $("mockTab").style.display = (S.ctx?.mock?.due) ? "" : "none";
+  loadPapers(id);
   $("subBook").textContent = id === "amc" ? "From the book" : "The book";
   $("subDj").textContent = id === "amc" ? "AMC papers" : "Division J";
   S.shelf = "book";
@@ -3078,7 +3152,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, openPaper, loadPapers, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
