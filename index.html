@@ -616,33 +616,36 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </details>
   </div>
 
-  <div class="card" id="papersCard" style="display:none">
-    <div class="k">Papers</div>
-    <div id="pPapers"></div>
-  </div>
+  <div class="card" id="papersCard" style="display:none"><details>
+    <summary class="foldHead">Papers</summary>
+    <div id="pPapers" style="margin-top:10px"></div>
+  </details></div>
 
-  <div class="card">
-    <div class="k">Exams and what is loaded</div>
+  <div class="card"><details>
+    <summary class="foldHead">Exams and what is loaded</summary>
+    <div style="margin-top:10px">
     <table>
       <tr><th>Where</th><th>Date</th><th>How it is going</th></tr>
       <tbody id="pExams"></tbody>
     </table>
     <div class="hint">“Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy.</div>
     <div class="bar"><button class="go small" onclick="openUpload()">＋ Add questions</button></div>
-  </div>
+    </div>
+  </details></div>
 
-  <div class="card">
-    <div class="k">Weakest techniques</div>
-    <ul id="pWeak" style="margin:6px 0 0;padding-left:18px"><li class="sub">Nothing recorded yet.</li></ul>
-  </div>
+  <div class="card"><details>
+    <summary class="foldHead">Weakest techniques</summary>
+    <ul id="pWeak" style="margin:10px 0 0;padding-left:18px"><li class="sub">Nothing recorded yet.</li></ul>
+  </details></div>
 
-  <div class="card">
-    <div class="k">Recent tests</div>
-    <table><tbody id="pTests"><tr><td class="sub">No tests yet.</td></tr></tbody></table>
-  </div>
+  <div class="card"><details>
+    <summary class="foldHead">Recent tests</summary>
+    <table style="margin-top:10px"><tbody id="pTests"><tr><td class="sub">No tests yet.</td></tr></tbody></table>
+  </details></div>
 
-  <div class="card">
-    <div class="k">The coach checking its own content</div>
+  <div class="card"><details>
+    <summary class="foldHead">The coach checking its own content</summary>
+    <div style="margin-top:10px">
     <div class="sub">It reworks the questions most likely to be wrong — blanks, answers it wrote itself, and questions that mention a diagram — and proposes corrections. Nothing changes until you tick and apply.</div>
     <div class="bar"><button class="ghost small" id="scanBtn" onclick="scanContent()">Check the content</button></div>
     <div id="contentList" style="margin-top:12px"></div>
@@ -650,16 +653,19 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <button class="go small" onclick="applyContent()">Apply the ticked ones</button>
     </div>
     <div class="err" id="contentMsg"></div>
-  </div>
+    </div>
+  </details></div>
 
-  <div class="card" style="border-color:#f2c9c9">
-    <div class="k" style="color:var(--red)">Start again</div>
+  <div class="card" style="border-color:#f2c9c9"><details>
+    <summary class="foldHead" style="color:var(--red)">Start again</summary>
+    <div style="margin-top:10px">
     <div class="sub">Wipes every attempt, score, badge, streak, chat and weekly note for him, and puts his XP back to zero. The timetable, the question bank and the logins are kept. It cannot be undone.</div>
     <div class="bar">
       <button class="ghost small" style="border-color:#f2c9c9;color:var(--red)" onclick="resetProgress()">Reset all progress…</button>
     </div>
     <div class="err" id="resetMsg"></div>
-  </div>
+    </div>
+  </details></div>
 </main>
 
 <!-- upload questions -->
@@ -875,7 +881,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.42.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.44.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2103,7 +2109,16 @@ const BANK_LABEL = {
 
 async function goParent() {
   await loadParent();
-  sb.rpc("journey").then(({ data }) => { if ($("pFlight")) $("pFlight").innerHTML = journeyChart(data); });
+  sb.rpc("journey").then(({ data, error }) => {
+    if (!$("pFlight")) return;
+    if (error) {
+      $("pFlight").innerHTML = `<div class="sub">The flight plan could not load: ${esc(error.message)}</div>`;
+      return;
+    }
+    $("pFlight").innerHTML = journeyChart(data);
+  }).catch((e) => {
+    if ($("pFlight")) $("pFlight").innerHTML = `<div class="sub">The flight plan could not load: ${esc(e.message)}</div>`;
+  });
   show("parent");
   S.view = "parent";
   const c = S.pctx ?? {};
@@ -4013,7 +4028,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
