@@ -711,7 +711,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.17.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.17.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1165,6 +1165,11 @@ function micHelp(why) {
       : `The microphone is blocked for this site. Tap “aA” in the address bar → Website Settings → Microphone → Allow, then try again.`;
   }
   if (why === "no-mic") return "I cannot find a microphone on this device.";
+  if (why === "silent") {
+    return isStandalone()
+      ? `No permission prompt appeared — iOS does not ask for the microphone inside a home-screen app on this version. ${open} — the microphone works there. Or type with the pad below.`
+      : `No permission prompt appeared. ${open} and try there, or type with the pad below.`;
+  }
   if (why === "unavailable") return `This device will not offer a microphone here. ${open} and the mic will work there — or type instead.`;
   return `The microphone would not start. ${open} and try there, or type instead.`;
 }
@@ -1179,7 +1184,11 @@ function startListening(asThink) {
   if (listening) { if (asThink && !thinkMode) { thinkMode = true; paintMic(); } return; }
 
   $("micState").textContent = "Asking for the microphone…";
+  const silent = setTimeout(() => {
+    if (!listening) $("micState").innerHTML = micHelp("silent");
+  }, 6000);
   askForMic().then((state) => {
+    clearTimeout(silent);
     if (state === "denied" || state === "no-mic" || state === "unavailable") {
       $("micState").innerHTML = micHelp(state);
       if (state === "unavailable") openPad($("say"), "text");
@@ -1371,7 +1380,10 @@ async function paintDiag() {
     const { data } = await sb.auth.getSession();
     sess = data?.session ? "signed in" : "none";
   } catch (_) { sess = "unknown"; }
-  box.innerHTML = `Version <b>${APP_VERSION}</b> · offline cache: ${sw} · session: ${sess}` +
+  const ios = (navigator.userAgent.match(/OS (\d+)[._](\d+)/) || []);
+  const iosVer = ios[1] ? `iOS ${ios[1]}.${ios[2] ?? 0}` : "not iOS";
+  const mode = isStandalone() ? "home-screen app" : "browser tab";
+  box.innerHTML = `Version <b>${APP_VERSION}</b> · ${iosVer} · ${mode}<br>offline cache: ${sw} · session: ${sess}` +
     `<br>If this is not the version I told you about, tap the button below.`;
 }
 
