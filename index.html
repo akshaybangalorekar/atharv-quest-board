@@ -883,7 +883,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.50.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.51.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2311,10 +2311,11 @@ async function uploadAndRead(input) {
   wrap.classList.remove("hidden");
   $("upErr").textContent = "";
 
+  const saved = [];
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    txt.textContent = `Saving ${file.name}…`;
-    bar.style.width = "8%";
+    txt.textContent = `Saving ${i + 1} of ${files.length}: ${file.name}…`;
+    bar.style.width = String(Math.round(((i + 0.1) / files.length) * 100)) + "%";
 
     const b64 = await fileToBase64(file).catch(() => "");
     bar.style.width = "45%";
@@ -2332,14 +2333,22 @@ async function uploadAndRead(input) {
     await sb.storage.from("papers").upload(path, file, { upsert: true, contentType: file.type });
     await sb.from("papers").update({ path, size_bytes: file.size || null, mime: file.type || null }).eq("id", paperId);
 
-    bar.style.width = "100%";
-    txt.textContent = "Saved. Reading it in the background — you can carry on.";
-
-    // and now the reading, without making anyone wait
-    readInBackground(file, user.id, exam, paperId);
-
-    setTimeout(() => { bar.style.width = "0"; wrap.classList.add("hidden"); }, 900);
+    bar.style.width = String(Math.round(((i + 0.9) / files.length) * 100)) + "%";
+    saved.push({ file, paperId });
   }
+
+  bar.style.width = "100%";
+  txt.textContent = saved.length === 1
+    ? "Saved. Reading it now — you can carry on."
+    : `Saved ${saved.length} files. Reading them one after another — you can carry on.`;
+  setTimeout(() => { bar.style.width = "0"; wrap.classList.add("hidden"); }, 1200);
+
+  // the reading runs behind all of them, page by page
+  for (const { file, paperId } of saved) {
+    await readInBackground(file, user.id, exam, paperId);
+  }
+  runServerQueue();
+  loadPapersToRead();
 }
 
 /* the reading is the server's job now; this just keeps asking it for the next page */
@@ -2410,12 +2419,6 @@ async function runServerQueue() {
     return;
   }
 
-  if (prog && prog.status === "running") {
-    await sb.rpc("finish_parse_job", {
-      p_id: prog.id, p_added: prog.added ?? 0, p_unanswered: prog.unanswered ?? 0,
-      p_strand: prog.strand ?? "", p_pages_done: prog.pages_done ?? 0, p_failed: false,
-    });
-  }
   paintTopProgress(0, 0);
   loadPapersToRead();
 }
@@ -4079,7 +4082,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
