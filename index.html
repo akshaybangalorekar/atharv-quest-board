@@ -786,7 +786,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.26.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.27.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -867,10 +867,10 @@ const S = {
 /* how each exam is introduced. Anything registered in exam_banks appears,
    whether or not it is listed here — this only supplies the friendly words. */
 const TRACK_LOOK = {
-  olympiad: { name: "Olympiad", school: "The book and the Division J sets", note: "24 chapters · 200 Division J questions" },
+  olympiad: { name: "Olympiad", school: "The book · APSMO Division J", note: "24 chapters · 200 Division J questions · contests May to September" },
   amc:      { name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Thirty questions, sixty minutes" },
-  aas:      { name: "AAS", school: "Camberwell Grammar School", note: "Scholarship test · February 2027" },
-  edutest:  { name: "Edutest", school: "Kilvington Grammar · February 2027", note: "Numerical reasoning · shares practice with ELMS at McKinnon" },
+  aas:      { name: "AAS", school: "Camberwell Grammar", note: "Scholarship test · February 2027" },
+  edutest:  { name: "Edutest", school: "Kilvington Grammar · McKinnon Secondary (ELMS)", note: "One paper family · same year level · February and September 2027" },
   icas:     { name: "ICAS", school: "ICAS Mathematics · 23–27 August 2027", note: "Paper D · 40 questions, 60 minutes" },
   elms:     { name: "ELMS", school: "Edutest · McKinnon Secondary College", note: "Enhanced Learning in Maths · early September 2027 · Year 6 standard" },
 };
@@ -884,11 +884,23 @@ function buildTracks(banks) {
   const seen = new Set();
   const out = [];
   const order = ["olympiad", "amc", "apsmo", "aas", "edutest", "icas", "elms"];
+  const byFamily = {};
   (banks ?? []).forEach((b) => {
-    const id = b.kind;
-    if (!id || seen.has(id) || id === "apsmo") return;   // Division J lives inside Olympiad
-    seen.add(id);
-    out.push({ id, ...(TRACK_LOOK[id] ?? { name: b.exam, school: "", note: "" }) });
+    const fam = b.family ?? b.kind;
+    if (!fam) return;
+    byFamily[fam] = byFamily[fam] ?? [];
+    byFamily[fam].push({ kind: b.kind, exam: b.exam, school: b.school ?? "" });
+  });
+
+  Object.entries(byFamily).forEach(([fam, members]) => {
+    const look = TRACK_LOOK[fam] ?? { name: fam, school: "", note: "" };
+    const schools = members.map((m) => m.school).filter(Boolean);
+    out.push({
+      id: fam,
+      ...look,
+      school: schools.length > 1 ? schools.join(" · ") : (schools[0] ?? look.school),
+      members,
+    });
   });
   out.sort((a, b) => (order.indexOf(a.id) + 99 * (order.indexOf(a.id) < 0)) - (order.indexOf(b.id) + 99 * (order.indexOf(b.id) < 0)));
   if (out.length) TRACKS = out;
@@ -2592,6 +2604,28 @@ async function openTrack(id) {
   if (!S.restoring) saveRoute();
   $("subBook").classList.add("on"); $("subDj").classList.remove("on");
   $("mockTab").style.display = (S.ctx?.mock?.due) ? "" : "none";
+
+  // a family shows its schools as extra shelves
+  const fam = TRACKS.find((t) => t.id === id);
+  const tabs = $("subTabs");
+  [...tabs.querySelectorAll(".famTab")].forEach((b) => b.remove());
+  if (fam?.members?.length > 1) {
+    fam.members.forEach((m, i) => {
+      const b = document.createElement("button");
+      b.className = "famTab" + (i === 0 ? " on" : "");
+      b.textContent = m.school || m.exam;
+      b.onclick = () => {
+        [...tabs.querySelectorAll(".famTab")].forEach((x) => x.classList.remove("on"));
+        b.classList.add("on");
+        S.familyKind = m.kind;
+        renderShelf();
+      };
+      tabs.appendChild(b);
+    });
+    S.familyKind = fam.members[0].kind;
+  } else {
+    S.familyKind = null;
+  }
   loadPapers(id);
   $("subBook").textContent = id === "amc" ? "From the book" : "The book";
   $("subDj").textContent = id === "amc" ? "AMC papers" : "Division J";
@@ -3563,7 +3597,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, fileToBase64, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
