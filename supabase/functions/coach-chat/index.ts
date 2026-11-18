@@ -187,6 +187,10 @@ once, kindly, and make it the last thing — "Before you go, put the ten-minus-o
 
 How to choose:
 - If "placement needed" is yes, action "placement" — that comes before anything else.
+- Read "THIS WEEK'S FOCUS". It names the exam that leads the week, the chapter to teach for it, and
+  the split between that exam and the book. Choose the chapter from the focus, not from the old plan,
+  and say which exam you are working towards in your one-line reason. When the focus changes in a
+  later week, follow it — that is the calendar talking, not a change of mind.
 - If there is no evidence at all yet — no attempts, no tests — action "placement": twelve questions
   across the book so you can see where he stands before you plan anything else. Say why in one line.
 - If he has done four or more sessions since his last test, action "mock" — a timed paper in the
@@ -306,6 +310,7 @@ Deno.serve(async (req) => {
       `Work he reported doing on paper: ${JSON.stringify(c.self_reports ?? [])}`,
       `What he did in the app on his own: ${JSON.stringify(solo ?? {})}`,
       `Still missing from his formula board: ${JSON.stringify(boardPending ?? [])}`,
+      `THIS WEEK'S FOCUS (decided by the calendar, not by mood): ${JSON.stringify(c.focus ?? {})}`,
       `Exam note: ELMS at McKinnon is an Edutest paper, the same family as Kilvington — preparation for one counts for the other.`,
       `Placement needed: ${c.placement_due ? "yes — he has never been placed, or a parent reset the app" : "no"}`,
       `The question on his screen right now: ${onScreen?.prompt ? JSON.stringify(onScreen) : "nothing — no question is open"}`,
