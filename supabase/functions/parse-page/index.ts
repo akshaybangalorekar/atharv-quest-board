@@ -142,6 +142,36 @@ Deno.serve(async (req) => {
       .eq("paper_id", paper_id).eq("page_no", page);
 
     const unanswered = rows.filter((x: any) => !x.a).length;
+
+    // keep this paper's own job up to date, so several papers can be read at once
+    const { data: counts } = await admin.from("paper_pages")
+      .select("done", { count: "exact" }).eq("paper_id", paper_id);
+    const { count: totalPages } = await admin.from("paper_pages")
+      .select("*", { count: "exact", head: true }).eq("paper_id", paper_id);
+    const { count: donePages } = await admin.from("paper_pages")
+      .select("*", { count: "exact", head: true }).eq("paper_id", paper_id).eq("done", true);
+
+    const { data: job } = await admin.from("parse_jobs")
+      .select("id, added, unanswered").eq("paper_id", paper_id).eq("status", "running")
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+    if (job) {
+      const finished = (donePages ?? 0) >= (totalPages ?? 0);
+      await admin.from("parse_jobs").update({
+        added: (job.added ?? 0) + (added?.added ?? 0),
+        unanswered: (job.unanswered ?? 0) + unanswered,
+        strand,
+        pages_done: donePages ?? 0,
+        pages_total: totalPages ?? 0,
+        status: finished ? "done" : "running",
+        note: finished
+          ? `Questions added to ${strand}. ${(job.added ?? 0) + (added?.added ?? 0)} in all`
+            + ((job.unanswered ?? 0) + unanswered > 0 ? `, ${(job.unanswered ?? 0) + unanswered} without an answer yet.` : ".")
+          : null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", job.id);
+    }
+
     return json({ ok: true, added: added?.added ?? 0, improved: added?.improved ?? 0, unanswered, strand, page });
   } catch (e) {
     return json({ error: String(e) }, 500);
