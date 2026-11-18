@@ -572,6 +572,13 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
         <div class="bar"><input id="accPw" type="password" placeholder="at least 8 characters" style="flex:1 1 160px">
           <button class="ghost small" onclick="savePassword()">Save password</button></div>
         <div class="hint" id="accMsg" style="margin-top:8px"></div>
+
+        <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+          <label class="k">Set your child’s password</label>
+          <div class="bar"><input id="kidPw" type="password" placeholder="at least 8 characters" style="flex:1 1 160px">
+            <button class="ghost small" onclick="saveChildPassword()">Set it</button></div>
+          <div class="hint" id="kidMsg" style="margin-top:8px">For when he has forgotten it. He signs in with his name and this password.</div>
+        </div>
       </div>
     </details>
   </div>
@@ -830,7 +837,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.33.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.34.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1829,6 +1836,20 @@ async function saveName() {
   const { error } = await sb.rpc("set_username", { p_name: name });
   $("accMsg").textContent = error ? error.message : `Done — sign in as “${name}” from now on.`;
   if (!error) { try { localStorage.setItem(LAST_KEY, name); } catch (_) {} }
+}
+
+/* a parent sets the child's password, for when it is forgotten */
+async function saveChildPassword() {
+  const pw = $("kidPw").value;
+  if (pw.length < 8) { $("kidMsg").textContent = "Use at least 8 characters."; return; }
+  $("kidMsg").textContent = "Setting it…";
+  const { data, error } = await sb.functions.invoke("set-child-password", { body: { password: pw } });
+  if (error || data?.error) {
+    $("kidMsg").textContent = data?.error ?? error?.message ?? "That did not work.";
+    return;
+  }
+  $("kidPw").value = "";
+  $("kidMsg").textContent = "Done. He can sign in with his name and that password now.";
 }
 
 async function savePassword() {
@@ -3731,7 +3752,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, setExamDate, saveName, savePassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
