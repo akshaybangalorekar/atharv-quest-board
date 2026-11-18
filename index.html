@@ -685,7 +685,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.11.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.12.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1352,6 +1352,20 @@ async function start() {
     S.restoring = false;
     return;
   }
+  // a reset on any device must win over the conversation saved on this one
+  const { data: ctx } = await sb.rpc("coach_context");
+  const resetStamp = ctx?.reset_at ?? null;
+  const lastStamp = (() => { try { return localStorage.getItem("quest.resetAt"); } catch (_) { return null; } })();
+
+  if (resetStamp && resetStamp !== lastStamp) {
+    clearSession();
+    try { localStorage.setItem("quest.resetAt", resetStamp); } catch (_) {}
+    try { localStorage.removeItem(ROUTE_KEY); } catch (_) {}
+  }
+
+  // never placed? then today starts with the placement, not an old chat
+  if (ctx?.placement_due) { clearSession(); return; }
+
   if (restorableSession()) { resumeSession(); return; }
 
   if (route && route.view === "chapter" && route.chapter) {
@@ -1369,7 +1383,8 @@ async function loadBanks() {
 }
 
 async function loadContext() {
-  await loadBanks();                     // which exams exist decides which cards appear
+  await loadBanks();
+  await checkReset();                     // which exams exist decides which cards appear
   const { data } = await sb.rpc("coach_context");
   S.ctx = data ?? {};
   const { data: prof } = await sb.from("profiles").select("*").limit(1).maybeSingle();
@@ -1812,10 +1827,23 @@ async function askCoachWhatNow() {
     ? "A rest day is part of the plan."
     : `${S.planAction.action === "paper" ? "A full paper" : S.planAction.action === "quiz" ? "A chapter quiz" : S.planAction.action === "drill" ? "Drill on what you got wrong" : "Chapter " + S.planAction.chapter} · about ${S.planAction.minutes} minutes`;
   go.disabled = S.planAction.action === "rest";
-  const half = restorableSession();
+  const half = restorableSession() && !S.ctx?.placement_due;
   go.textContent = half ? "Resume where you left off →"
     : S.planAction.action === "rest" ? "Nothing to start" : "Start →";
   go.dataset.mode = half ? "resume" : "plan";
+}
+
+async function checkReset() {
+  const { data: ctx } = await sb.rpc("coach_context");
+  const stamp = ctx?.reset_at ?? null;
+  let last = null;
+  try { last = localStorage.getItem("quest.resetAt"); } catch (_) {}
+  if (stamp && stamp !== last) {
+    clearSession();
+    try { localStorage.setItem("quest.resetAt", stamp); } catch (_) {}
+    return true;
+  }
+  return false;
 }
 
 function runCoachPlan() {
@@ -2850,7 +2878,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, paintPad, growSay, stickBottom, bubble, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, paintPad, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
