@@ -337,10 +337,9 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 
     <div class="field">
       <label for="email">Name or email</label>
-      <input id="email" type="text" placeholder="atharv" autocomplete="username" autocapitalize="none"
+      <input id="email" type="text" placeholder="Name or email" autocomplete="username" autocapitalize="none"
              spellcheck="false" enterkeyhint="go"
              onkeydown="if(event.key==='Enter'){event.preventDefault();signIn()}">
-      <div class="hint" style="margin-top:6px">atharv, pooja or akshay — or your full email address.</div>
     </div>
     <div class="field">
       <label for="pw">Password</label>
@@ -577,6 +576,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
           <button class="ghost small" onclick="createChild()">Create the account</button>
         </div>
         <div class="hint" id="newKidMsg" style="margin-top:8px"></div>
+
+        <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+          <label class="k">Parents with access</label>
+          <div id="parentList" class="sub">—</div>
+        </div>
 
         <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
           <label class="k">Remove a child</label>
@@ -866,7 +870,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.38.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.39.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1735,7 +1739,7 @@ async function signIn() {
       if (lookErr) {
         error = { message: "Could not check that name. Check the connection and try again." };
       } else if (!found) {
-        error = { message: `There is no one called “${typed}” here. Try atharv, pooja or akshay — or your full email.` };
+        error = { message: `There is no one called “${typed}” here. Check the name, or use your full email address.` };
       } else {
         const res = await sb.auth.signInWithPassword({ email: found, password });
         error = res.error;
@@ -1890,6 +1894,32 @@ async function saveName() {
   if (!error) { try { localStorage.setItem(LAST_KEY, name); } catch (_) {} }
 }
 
+/* the adults who can see this child */
+async function loadParents() {
+  const box = $("parentList");
+  if (!box) return;
+  const { data } = await sb.rpc("list_guardians");
+  const rows = data ?? [];
+  if (!rows.length) { box.textContent = "Nobody linked yet."; return; }
+  box.innerHTML = rows.map((g) => `
+    <div class="bar" style="justify-content:space-between;align-items:center;padding:6px 0">
+      <span>${esc(g.name ?? g.email ?? "parent")}</span>
+      <button class="link" onclick="removeParent('${g.parent_id}')">Remove access</button>
+    </div>`).join("");
+}
+
+async function removeParent(parentId) {
+  const { data: c } = await sb.rpc("parent_context");
+  const childId = c?.student_id;
+  if (!childId) return;
+  if (!confirm("Remove this parent's access to the child?")) return;
+  const { data, error } = await sb.functions.invoke("manage-student", {
+    body: { action: "remove-parent", parent_id: parentId, student_id: childId },
+  });
+  if (error || data?.error) { alert(data?.error ?? error?.message ?? "That did not work."); return; }
+  loadParents();
+}
+
 /* add a child, or remove one */
 async function loadChildren() {
   const { data } = await sb.rpc("parent_context");
@@ -1982,6 +2012,7 @@ async function loadParent() {
   S.schoolReadiness = sr?.schools ?? [];
   loadAccount();
   loadChildren();
+  loadParents();
 }
 
 const BANK_LABEL = {
@@ -3875,7 +3906,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
