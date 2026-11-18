@@ -92,6 +92,15 @@ main#session .composer{flex:0 0 auto;margin-top:8px}
 .qcard .q{font-size:19px;margin:6px 0 12px;line-height:1.5}
 .diagram{display:flex;justify-content:center;align-items:center;margin:10px 0;padding:10px;
   background:#fcfcfe;border:1px solid var(--line);border-radius:12px}
+.opts{display:grid;gap:8px;margin-top:10px}
+.opts:empty{display:none}
+.opt{display:flex;gap:10px;align-items:flex-start;text-align:left;width:100%;
+  background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  font:inherit;font-size:15px;color:var(--ink);cursor:pointer;touch-action:manipulation}
+.opt b{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:var(--acc-soft);color:var(--acc);
+  display:flex;align-items:center;justify-content:center;font-size:12.5px}
+.opt.on{border-color:var(--acc);box-shadow:0 0 0 3px rgba(75,63,196,.12)}
+.opt.on b{background:var(--acc);color:#fff}
 .paperShot{background:#fff}
 .paperShot img{width:100%;max-height:340px;object-fit:contain;display:block;border-radius:10px}
 .diagram svg{max-width:100%;max-height:230px;height:auto;width:auto}
@@ -139,6 +148,15 @@ body.signing .top,body.signing footer{display:none}
 /* ---- diagrams and hint line ---- */
 .diagram{display:flex;justify-content:center;align-items:center;margin:10px 0;padding:10px;
   background:#fcfcfe;border:1px solid var(--line);border-radius:12px}
+.opts{display:grid;gap:8px;margin-top:10px}
+.opts:empty{display:none}
+.opt{display:flex;gap:10px;align-items:flex-start;text-align:left;width:100%;
+  background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  font:inherit;font-size:15px;color:var(--ink);cursor:pointer;touch-action:manipulation}
+.opt b{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:var(--acc-soft);color:var(--acc);
+  display:flex;align-items:center;justify-content:center;font-size:12.5px}
+.opt.on{border-color:var(--acc);box-shadow:0 0 0 3px rgba(75,63,196,.12)}
+.opt.on b{background:var(--acc);color:#fff}
 .paperShot{background:#fff}
 .paperShot img{width:100%;max-height:340px;object-fit:contain;display:block;border-radius:10px}
 .diagram svg{max-width:100%;max-height:230px;height:auto;width:auto}
@@ -737,7 +755,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.21.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.22.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1853,6 +1871,9 @@ async function callExtract(body, onStrand) {
     const box = $("upRows");
     box.value = (box.value ? box.value.trim() + "\n" : "") +
       rows.map((r) => `${r.q} | ${r.a ?? ""}`).join("\n");
+    // multiple choice options travel beside the text, not inside it
+    S.pendingOptions = S.pendingOptions ?? [];
+    for (const r of rows) S.pendingOptions.push(Array.isArray(r.options) ? r.options : null);
   }
   return rows.length;
 }
@@ -1902,12 +1923,16 @@ async function submitUpload() {
   if (!rows.length) { $("upErr").textContent = "Nothing to add — put one question per line."; return; }
 
   $("upErr").textContent = "";
+  // attach any options the reader found, in the same order as the rows
+  const opts = S.pendingOptions ?? [];
+  const rowsWithOptions = rows.map((r, i) => (opts[i]?.length >= 2 ? { ...r, options: opts[i] } : r));
+
   const { data, error } = await sb.rpc("add_questions", {
-    p_exam: $("upBank").value, p_strand: $("upStrand").value.trim() || "General", p_rows: rows,
+    p_exam: $("upBank").value, p_strand: $("upStrand").value.trim() || "General", p_rows: rowsWithOptions,
     p_paper: S.pendingPaper ?? null,
     p_pages: (S.pendingPages ?? []).length === rows.length ? S.pendingPages : null,
   });
-  S.pendingPaper = null; S.pendingPages = []; S.pendingPage = null;
+  S.pendingPaper = null; S.pendingPages = []; S.pendingPage = null; S.pendingOptions = [];
   if (error) { $("upErr").textContent = error.message; return; }
   $("upDone").className = "fb right";
   const dupes = data.skipped_duplicates ?? 0;
@@ -2696,6 +2721,27 @@ function revealExample(btn) {
   $("exNext").classList.remove("hidden");
 }
 
+/* multiple choice: tap an option, then Check */
+function paintOptions(q) {
+  const box = $("qOpts");
+  if (!box) return;
+  const opts = Array.isArray(q.options) ? q.options : [];
+  if (opts.length < 2) { box.innerHTML = ""; return; }
+  box.innerHTML = opts.map((o, i) => {
+    const letter = String(o).trim().match(/^([A-H])[).:\s]/i)?.[1] ?? String.fromCharCode(65 + i);
+    const text = String(o).trim().replace(/^[A-H][).:\s]\s*/i, "");
+    return `<button class="opt" data-letter="${letter}" data-full="${esc(String(o))}"
+              onclick="pickOption(this)"><b>${letter}</b><span>${esc(text)}</span></button>`;
+  }).join("");
+}
+
+function pickOption(btn) {
+  document.querySelectorAll("#qOpts .opt").forEach((b) => b.classList.remove("on"));
+  btn.classList.add("on");
+  const box = $("ans");
+  if (box) box.value = btn.dataset.full || btn.dataset.letter;
+}
+
 function showQuestion(q) {
   S.forceScroll = true;
   const el = document.createElement("div");
@@ -2704,6 +2750,7 @@ function showQuestion(q) {
     <div class="n">CHAPTER ${q.chapter} · QUESTION ${q.idx} · ${S.si + 1} of ${S.script.length}</div>
     <div class="q">${esc(q.prompt)}</div>
     <div id="qFig"></div>
+    <div id="qOpts" class="opts"></div>
     <div style="display:flex;gap:8px">
       <input id="ans" placeholder="Your answer" inputmode="none" autocomplete="off"
              readonly onclick="openPad(this,'num')" onkeydown="if(event.key==='Enter')check()">
@@ -2713,6 +2760,7 @@ function showQuestion(q) {
     <div id="qfb"></div>`;
   $("chatWrap").appendChild(el);
   stickBottom();
+  paintOptions(q);
   autoFigure("question", q.idx, "qFig", q.prompt, q.diagram_svg, q);
   S.startedAt = Date.now(); S.nudged = 0;
   S.onScreen = { chapter: q.chapter, idx: q.idx, prompt: q.prompt };
@@ -3232,7 +3280,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, needsFigure, openPaper, loadPapers, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, needsFigure, openPaper, loadPapers, pickOption, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
