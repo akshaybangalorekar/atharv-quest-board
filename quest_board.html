@@ -685,7 +685,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.12.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.13.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1275,9 +1275,8 @@ async function signIn() {
   const btn = document.querySelector("#signin button.go");
   $("err").textContent = "";
   if (!createClient) { $("err").textContent = "The app has no database library loaded. Reload the page."; return; }
-  const email = resolveUser($("email").value), password = $("pw").value;
-  if (!email || !password) { $("err").textContent = "Type your name and the password."; return; }
-  if (!email.includes("@")) { $("err").textContent = "I do not know that name on this device. Use the full email once."; return; }
+  const typed = $("email").value.trim(), password = $("pw").value;
+  if (!typed || !password) { $("err").textContent = "Type your name and the password."; return; }
 
   const wantRemember = $("remember")?.checked !== false;
   localStorage.setItem(REMEMBER_KEY, wantRemember ? "1" : "0");
@@ -1285,20 +1284,40 @@ async function signIn() {
 
   let error = null;
   try {
-    const res = await sb.auth.signInWithPassword({ email, password });
-    error = res.error;
+    if (typed.includes("@")) {
+      const res = await sb.auth.signInWithPassword({ email: typed, password });
+      error = res.error;
+    } else {
+      // a short name: the server swaps it for the account and hands back a session
+      const { data, error: fnErr } = await sb.functions.invoke("login", {
+        body: { username: typed.toLowerCase(), password },
+      });
+      if (fnErr) {
+        error = { message: "Could not reach the server. Check the connection and try again." };
+      } else if (data?.error) {
+        error = { message: data.error };
+      } else if (data?.access_token) {
+        const set = await sb.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+        });
+        error = set.error;
+      } else {
+        error = { message: "That did not work. Try again." };
+      }
+    }
   } catch (e) {
     error = { message: "Could not reach the server: " + (e?.message ?? e) };
   }
   if (btn) { btn.disabled = false; btn.textContent = "Sign in"; }
 
   if (error) {
-    $("err").textContent = error.message === "Invalid login credentials"
-      ? "That email and password do not match. Check the password, or use “Forgot the password?”."
+    $("err").textContent = /invalid|credentials|do not match/i.test(error.message)
+      ? "That name and password do not match. Check the password, or use “Forgot the password?”."
       : error.message;
     return;
   }
-  rememberUser(email);
+  rememberUser(typed);
   if (!wantRemember) sessionStorage.setItem("quest.mem-only", "1");
   start();
 }
