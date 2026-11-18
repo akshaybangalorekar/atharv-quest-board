@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
 <title>Atharv's Coach</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#5b4fcf">
@@ -236,6 +237,12 @@ h1{font-size:17px;letter-spacing:-.01em}
 .pk.wide{flex:1.6;background:var(--acc);color:#fff;border-color:transparent}
 #padKeys > .pkRow > .pk{flex:1}
 body:has(.pad:not(.hidden)) footer{margin-bottom:220px}
+/* one tap is one tap: the browser stops treating a quick second tap as "zoom in",
+   while a two-finger pinch still zooms for anyone who wants it */
+html{touch-action:manipulation;-webkit-text-size-adjust:100%}
+body{touch-action:manipulation}
+button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
+*{-webkit-tap-highlight-color:transparent}
 </style>
 </head>
 <body>
@@ -704,7 +711,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.16.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.16.2";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
