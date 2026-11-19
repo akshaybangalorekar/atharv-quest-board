@@ -1115,7 +1115,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.35.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.36.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1667,7 +1667,7 @@ function journeyChart(j) {
       <div>
         <div class="k" style="margin:0 0 6px">Portion done</div>
         <div class="gauge"><span style="width:${portionPct}%"></span></div>
-        <div class="sub" style="margin-top:6px">${j.chapters_mastered ?? 0} of ${j.chapters_total ?? 0} chapters mastered · ${j.questions ?? 0} questions · ${j.accuracy ?? 0}% right</div>
+        <div class="sub" style="margin-top:6px">${j.topics_done ?? 0} of ${j.topics_total ?? 0} topics mastered across ${j.exams ?? 0} exams · ${j.questions ?? 0} questions answered · ${j.accuracy ?? 0}% right</div>
       </div>
       <div style="text-align:right">
         <div class="k" style="margin:0 0 6px">Next paper</div>
@@ -2743,7 +2743,7 @@ async function loadParents() {
   box.innerHTML = rows.map((a) => {
     const work = a.is_child
       ? `${kid.questions_answered ?? 0} questions answered · ${kid.right ?? 0}% right · ` +
-        `${kid.chapters_mastered ?? 0} chapters mastered · ${kid.sessions ?? 0} sessions`
+        `${kid.chapters_mastered ?? 0} topics mastered · ${kid.sessions ?? 0} sessions`
       : a.sees_child ? "Can see this child" : "No access to this child";
     return `<div class="acctRow">
       <div style="flex:1 1 200px">
@@ -2770,7 +2770,7 @@ async function startDeleteAccount(userId, isChild) {
     const k = data ?? {};
     const msg = `This deletes ${k.name ?? "the child"}'s account and everything recorded under it:\n\n` +
       `${k.questions_answered ?? 0} questions answered, ${k.right ?? 0}% right\n` +
-      `${k.chapters_mastered ?? 0} chapters mastered, ${k.sessions ?? 0} sessions, ${k.tests ?? 0} tests\n\n` +
+      `${k.chapters_mastered ?? 0} topics mastered, ${k.sessions ?? 0} sessions, ${k.tests ?? 0} tests\n\n` +
       `This cannot be undone. Type the child's password to go ahead.`;
     password = prompt(msg) ?? "";
     if (!password) return;
