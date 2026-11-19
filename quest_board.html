@@ -400,6 +400,17 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 .msg .msgList{margin:0 0 8px;padding-left:18px;display:grid;gap:5px}
 .msg .msgList:last-child{margin-bottom:0}
 .msg .msgList li{line-height:1.45}
+
+.specRow{display:grid;grid-template-columns:78px 1fr auto;gap:10px;align-items:baseline;
+  padding:5px 0;border-top:1px solid var(--line);font-size:13.5px}
+.specRow:first-child{border-top:0}
+.specName{font-weight:700}
+.specWhere{color:var(--mut);font-size:12.5px}
+.specTime{color:var(--ink);font-size:12.5px;white-space:nowrap}
+.specMore{grid-column:2 / -1}
+.specMore summary{list-style:none;cursor:pointer;color:var(--acc);font-size:11.5px}
+.specMore summary::-webkit-details-marker{display:none}
+.specParts{margin-top:4px;font-size:12.5px;color:var(--mut);display:grid;gap:2px}
 </style>
 </head>
 <body>
@@ -891,6 +902,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 <!-- timetable -->
 <main id="timetable" class="hidden">
   <div class="card">
+    <div class="k">How long each paper is</div>
+    <div class="sub" style="margin-bottom:6px">These are the exam times, not practice times. Practice is set by the plan below.</div>
+    <div id="ttSpecs"></div>
+  </div>
+  <div class="card">
     <div class="k">The plan</div>
     <div class="sub">Each exam's topics, spread evenly between today and the day it is sat.
       A topic counts as done when his work in it reaches 60 per cent.</div>
@@ -1093,7 +1109,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.19.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.20.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1213,6 +1229,19 @@ async function openTimetable() {
   show("timetable");
   const box = $("ttBody");
   box.innerHTML = `<div class="card"><div class="sub">Working out where you are…</div></div>`;
+  const { data: specs } = await sb.rpc("exam_specs");
+  $("ttSpecs").innerHTML = (specs ?? []).map((x) => `
+    <div class="specRow">
+      <span class="specName">${esc(x.family)}</span>
+      <span class="specWhere">${esc(x.sits)}</span>
+      <span class="specTime"><b>${x.minutes} min</b> in the exam${x.questions ? ` · about ${x.questions} questions` : ""}</span>
+      <details class="specMore"><summary>sections</summary>
+        <div class="specParts">${(x.sections ?? []).map((y) =>
+          `<div>${esc(y.part)} — <b>${y.minutes} min</b></div>`).join("")}
+          <div class="sub" style="margin-top:6px">${esc(x.note ?? "")}</div></div>
+      </details>
+    </div>`).join("");
+
   const { data, error } = await sb.rpc("timetable");
   if (error) { box.innerHTML = `<div class="card"><div class="sub">${esc(error.message)}</div></div>`; return; }
   const rows = data ?? [];
@@ -2856,7 +2885,7 @@ async function goParent() {
       const days = r.sits_on ? Math.round((new Date(r.sits_on) - new Date()) / 86400000) : null;
       const sections = (r.sections ?? []).map((x) => {
         const mark = x.covered ? `${x.tried} tried${x.accuracy === null ? "" : ` · ${x.accuracy}%`}` : "not measured";
-        return `<div>${esc(x.part)} · ${x.minutes} min · ${mark} — <b>${esc(x.verdict)}</b></div>`;
+        return `<div>${esc(x.part)} · <b>${x.minutes} min in the exam</b> · ${mark} — <b>${esc(x.verdict)}</b></div>`;
       }).join("");
       return `<div class="exSchool">
         <span class="exWhere">${esc(r.school)}</span>
@@ -2867,8 +2896,8 @@ async function goParent() {
                stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
         <span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>
-        <details class="exMore"><summary title="Minutes of the paper this app can test">${
-          r.measured_minutes ?? 0} of ${r.sits_minutes ?? 0} min</summary>
+        <details class="exMore"><summary title="Of the paper's exam minutes, this is how many we can test">${
+          r.measured_minutes ?? 0} of the paper's ${r.sits_minutes ?? 0} min</summary>
           <div class="exParts">${sections}${(() => {
             const topics = (topicMap[fam] ?? []).filter((t) => (t.questions ?? 0) > 0);
             if (!topics.length) return "";
@@ -4155,10 +4184,10 @@ function startBudget(mins) {
   bar.classList.remove("hidden");
   const sit = S.sitting;
   $("budgetLabel").textContent = sit
-    ? `${sit.minutes} minutes · chapter ${sit.chapter}` +
+    ? `This session: ${sit.minutes} minutes · chapter ${sit.chapter}` +
       (sit.parts > 1 ? ` · part ${sit.part} of ${sit.parts}` : "") +
       (sit.topup_questions ? ` · then ${sit.topup_questions} from chapter ${sit.topup_chapter}` : "")
-    : `${mins} minutes · work on your own, then come back`;
+    : `Your time for this session · ${mins} minutes`;
   const tick = () => {
     const m = Math.floor(left / 60), sec = left % 60;
     $("budgetClock").textContent = `${m}:${String(sec).padStart(2, "0")}`;
@@ -4514,7 +4543,8 @@ function paintQuestionClock() {
   const s = Math.floor((Date.now() - S.startedAt) / 1000);
   const budget = S.qBudget ?? 150;
   const mm = (x) => `${Math.floor(x / 60)}:${String(x % 60).padStart(2, "0")}`;
-  el.textContent = `${mm(s)} / ${mm(budget)}`;
+  el.textContent = `${mm(s)} / aim ${mm(budget)}`;
+  el.title = "Your time on this question, and the aim for it — not the exam clock";
   el.classList.toggle("warn", s >= budget);
   el.classList.toggle("over", s >= budget * 2);
 }
