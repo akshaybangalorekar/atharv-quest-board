@@ -579,6 +579,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
           <p><b>What she may mention.</b> Only what is on his screen: Start or Resume, Chapter N, Check where I am,
           Paper is due, Skip this one, Chapter quiz, Talk, Photo, Pause for now, Talk to Ananya, Back to Ananya,
           Progress, Journal, Formula board.</p>
+          <p><b>Keeping the bank ahead of him.</b> She writes new questions herself, modelled on the samples you
+          upload and aimed at his level — accuracy and speed together decide whether the next set is harder, the
+          same, or easier. Only for the three exams she is allowed to write for: <b>AAS, Edutest and Olympiad</b>.
+          Every time the app opens it counts the questions he has not tried in each of those; when fewer than
+          <b>20</b> are left, she writes 20 more, in that exam's own scope. Nothing outside the paper's range.</p>
           <p><b>Never.</b> Invent a button, a screen or a feature. Invent a score, a date or a fact. Send him to another
           screen in the middle of a chapter. Scold him for missing days.</p>
           <p>If she writes something outside these lines, it is a fault in her instructions — send me the words she used.</p>
@@ -891,7 +896,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.66.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.67.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1918,11 +1923,33 @@ async function loadBanks() {
   buildTracks(data);
 }
 
+/* keep 20 untried questions in front of him, in the exams the coach writes for */
+let toppingUp = false;
+async function keepBankAhead() {
+  if (toppingUp) return;
+  toppingUp = true;
+  try {
+    const { data } = await sb.rpc("topup_needed");
+    const short = data ?? [];
+    for (const want of short) {
+      const { data: made, error } = await sb.functions.invoke("make-questions", {
+        body: { exam: want.exam, count: want.want ?? 20 },
+      });
+      await sb.rpc("log_topup", {
+        p_exam: want.exam, p_asked: want.want ?? 20, p_made: made?.added ?? 0,
+        p_reason: error ? error.message : "fewer than 20 left to try",
+      });
+    }
+  } catch (_) { /* quietly try again next time */ }
+  toppingUp = false;
+}
+
 async function loadContext() {
   await loadBanks();
   await checkReset();
   checkRunningJob();
-  runServerQueue();                     // which exams exist decides which cards appear
+  runServerQueue();
+  keepBankAhead();                     // which exams exist decides which cards appear
   const { data } = await sb.rpc("coach_context");
   S.ctx = data ?? {};
   const { data: prof } = await sb.from("profiles").select("*").limit(1).maybeSingle();
@@ -4261,7 +4288,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, startDeleteAccount, loadParents, openHelp, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, startDeleteAccount, loadParents, openHelp, keepBankAhead, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
