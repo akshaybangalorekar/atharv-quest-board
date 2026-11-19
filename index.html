@@ -507,8 +507,8 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </div>
     <div class="sub" id="shelfNote" style="margin-top:10px"></div>
     <div class="hint" id="shelfEmpty" style="display:none;margin-top:10px">
-      Nothing here yet. A parent adds questions from <b>Sample questions</b> in the parent view — upload a paper
-      or press Generate.
+      No questions in here yet. <b>Ask Ananya</b> for some — say “can I have more questions” and she will write them
+      for this exam. A parent can add a paper too.
     </div>
     <div class="chapterlist" id="shelf" style="margin-top:6px"></div>
   </div>
@@ -1004,7 +1004,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.06.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.07.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -3767,7 +3767,7 @@ async function openTrack(id) {
   if (!hasQuestions) {
     // nothing to teach in this exam yet: say so, do not invent a chapter
     $("todayPlan").textContent = "No questions yet";
-    $("todayNote").textContent = "Nothing loaded for this exam yet. A parent adds questions from the parent view.";
+    $("todayNote").textContent = "Nothing in here yet — ask Ananya for questions and she will write some.";
   } else {
     $("todayPlan").textContent = lane
       ? `${lane.lane === "Q" ? "Quest" : lane.lane === "M" ? "Test" : lane.lane === "D" ? "Drill" : lane.lane}${lane.chapter ? " · Chapter " + lane.chapter : ""} · ${lane.minutes} min`
