@@ -807,6 +807,10 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
               on them stay.</div>
             <div class="bar"><button class="ghost small" onclick="wipe('generated')">Delete generated content…</button></div>
           </div>
+          <div id="wipeProg" class="hidden" style="margin-top:6px">
+            <div class="rowProg" style="margin-bottom:6px"><span id="wipeBar" style="width:0%"></span></div>
+            <div class="sub" id="wipeText">Working…</div>
+          </div>
           <div class="err" id="resetMsg"></div>
         </div>
       </details>
@@ -1082,7 +1086,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.24.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.26.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2427,25 +2431,48 @@ async function wipe(kind) {
     : "every question the coach wrote";
   if (!confirm(`Delete ${what}?\n\nThis cannot be undone.`)) return;
 
-  const rpc = kind === "all" ? "reset_all" : kind === "uploaded" ? "clear_uploaded" : "clear_generated";
-  const { data, error } = await sb.rpc(rpc);
-  if (error) { $("resetMsg").textContent = error.message; return; }
+  // a visible bar, so the wipe is not a silent wait
+  const wrap = $("wipeProg"), bar = $("wipeBar"), txt = $("wipeText");
+  wrap.classList.remove("hidden");
+  $("resetMsg").textContent = "";
+  const step = (pct, said) => { bar.style.width = pct + "%"; txt.textContent = said; };
+  step(8, kind === "all" ? "Clearing his work…" : "Removing questions…");
 
-  const n = data?.questions_removed ?? data?.questions ?? 0;
-  $("resetMsg").textContent = kind === "all"
-    ? "Done. Back to day one."
-    : `Done — ${n} questions removed.`;
-
-  if (kind === "uploaded") {
+  let files = [];
+  if (kind === "uploaded" || kind === "all") {
     const { data: paths } = await sb.from("papers").select("path");
-    const list = (paths ?? []).map((p) => p.path).filter(Boolean);
-    for (let i = 0; i < list.length; i += 100) {
-      await sb.storage.from("papers").remove(list.slice(i, i + 100)).then(() => {}, () => {});
-    }
+    files = (paths ?? []).map((p) => p.path).filter(Boolean);
   }
+
+  const rpc = kind === "all" ? "reset_all" : kind === "uploaded" ? "clear_uploaded" : "clear_generated";
+  step(35, "Deleting from the database…");
+  const { data, error } = await sb.rpc(rpc);
+  if (error) {
+    wrap.classList.add("hidden");
+    $("resetMsg").textContent = error.message;
+    return;
+  }
+  step(70, "Tidying the stored files…");
+
+  for (let i = 0; i < files.length; i += 100) {
+    await sb.storage.from("papers").remove(files.slice(i, i + 100)).then(() => {}, () => {});
+  }
+
+  step(90, "Checking what is left…");
+  const { data: left } = await sb.from("problems").select("chapter").limit(1000);
+  const remaining = (left ?? []).length;
+
+  step(100, "Done.");
+  const n = data?.questions_removed ?? data?.questions ?? 0;
+  const f = data?.files_removed ?? data?.files ?? 0;
+  $("resetMsg").textContent = kind === "all"
+    ? `Done — back to day one. ${remaining} questions left in the bank.`
+    : `Done — ${n} questions and ${f} files removed. ${remaining} questions left.`;
+
   await loadPapersToRead().catch(() => {});
   loadTough();
-  goParent();
+  await goParent();
+  setTimeout(() => wrap.classList.add("hidden"), 4000);
 }
 
 /* a parent can ask for the mock early; printing questions never sets one */
@@ -4158,7 +4185,7 @@ function cleanCoachText(text) {
   const t = String(text ?? "");
   if (!/\{\s*"?(say|speak|log)"/.test(t)) return t;
   const m = /"say"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"(?:speak|log)"|\})/.exec(t);
-  if (m) return m[1].replace(/\\n/g, " ").replace(/\\"/g, '"').trim();
+  if (m) return m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').trim();
   return t.replace(/\{.*\}/s, "").trim() || "…";
 }
 
