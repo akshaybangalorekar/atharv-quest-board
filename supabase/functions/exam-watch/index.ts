@@ -63,6 +63,10 @@ Deno.serve(async (req) => {
   const { data: { user } } = await asUser.auth.getUser();
   if (!user) return json({ error: "not signed in" }, 401);
 
+  // a test email, so the parent can prove delivery without waiting for news
+  let mode = "check";
+  try { mode = (await req.json())?.mode ?? "check"; } catch (_) {}
+
   const { data: kidId } = await asUser.rpc("viewing_student");
   const student = (kidId as string) ?? user.id;
 
@@ -72,6 +76,26 @@ Deno.serve(async (req) => {
   const { data: recipients } = await supa.from("alert_recipients").select("email");
 
   const exams = (cal ?? []) as Array<{ id: string; exam: string; sits_on: string | null }>;
+
+  if (mode === "test") {
+    const key0 = Deno.env.get("RESEND_API_KEY");
+    const from0 = Deno.env.get("ALERT_FROM");
+    const to0 = (recipients ?? []).map((r) => r.email).filter(Boolean);
+    if (!key0 || !from0) return json({ sent: false, reason: "no mail key or sender set", to: to0 });
+    if (!to0.length) return json({ sent: false, reason: "no addresses", to: [] });
+
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${key0}` },
+      body: JSON.stringify({
+        from: from0, to: to0,
+        subject: "Quest Coach — test email",
+        html: "<p>This is a test from Quest Coach. Exam updates for Atharv will arrive at this address.</p>",
+      }),
+    });
+    return json({ sent: r.ok, status: r.status, detail: r.ok ? null : await r.text(), to: to0 });
+  }
+
   if (!exams.length) return json({ checked: 0, alerts: [] });
 
   const brief = exams.map((r) => {
