@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.76.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.77.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -3413,28 +3413,34 @@ async function openTrack(id) {
     `${(S.ctx?.xp ?? 0).toLocaleString()} XP · streak ${S.ctx?.streak ?? 0} days · ` +
     `day ${S.ctx?.days_in ?? 1} of the programme`;
 
-  const twoShelves = id === "olympiad" || id === "amc";
-  $("subDj").style.display = twoShelves ? "" : "none";
+  // the family's own banks are the shelves; the old book/contest pair is gone
+  $("subBook").style.display = "none";
+  $("subDj").style.display = "none";
   if (!S.restoring) saveRoute();
-  $("subBook").classList.add("on"); $("subDj").classList.remove("on");
   $("mockTab").style.display = (S.ctx?.mock?.due) ? "" : "none";
 
   // a family shows its schools as extra shelves
   const fam = TRACKS.find((t) => t.id === id);
   const tabs = $("subTabs");
   [...tabs.querySelectorAll(".famTab")].forEach((b) => b.remove());
-  if (fam?.members?.length > 1) {
+  const SHELF_NAME = {
+    book: "The book", olympiad: "The book", apsmo: "Contest sets",
+    edutest: "Kilvington", elms: "McKinnon", aas: "Camberwell", icas: "ICAS", amc: "AMC",
+  };
+  if (fam?.members?.length) {
     fam.members.forEach((m, i) => {
       const b = document.createElement("button");
       b.className = "famTab" + (i === 0 ? " on" : "");
-      b.textContent = m.school || m.exam;
+      b.textContent = SHELF_NAME[m.kind] ?? (m.school || m.exam);
       b.onclick = () => {
         [...tabs.querySelectorAll(".famTab")].forEach((x) => x.classList.remove("on"));
         b.classList.add("on");
         S.familyKind = m.kind;
+        S.shelf = (m.kind === "apsmo" || m.kind === "amc") ? "dj" : "book";
         renderShelf();
       };
       tabs.appendChild(b);
+      if (i === 0) { S.familyKind = m.kind; S.shelf = (m.kind === "apsmo" || m.kind === "amc") ? "dj" : "book"; }
     });
     S.familyKind = fam.members[0].kind;
   } else {
