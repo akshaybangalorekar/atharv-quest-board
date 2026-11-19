@@ -969,7 +969,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.02.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.03.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -3677,10 +3677,19 @@ async function openTrack(id) {
   const t = TRACKS.find((x) => x.id === id);
   $("trackName").textContent = t.name;
   const lane = S.plan.find((p) => p.lane !== "R");
-  $("todayPlan").textContent = lane
-    ? `${lane.lane === "Q" ? "Quest" : lane.lane === "M" ? "Test" : lane.lane === "D" ? "Drill" : lane.lane}${lane.chapter ? " · Chapter " + lane.chapter : ""} · ${lane.minutes} min`
-    : "Rest day";
-  $("todayNote").textContent = lane ? (lane.note ?? "") : "Nothing scheduled today.";
+  const famNow = TRACKS.find((x) => x.id === id);
+  const hasQuestions = (famNow?.members ?? []).some((m) => m.count > 0);
+
+  if (!hasQuestions) {
+    // nothing to teach in this exam yet: say so, do not invent a chapter
+    $("todayPlan").textContent = "No questions yet";
+    $("todayNote").textContent = "Nothing loaded for this exam yet. A parent adds questions from the parent view.";
+  } else {
+    $("todayPlan").textContent = lane
+      ? `${lane.lane === "Q" ? "Quest" : lane.lane === "M" ? "Test" : lane.lane === "D" ? "Drill" : lane.lane}${lane.chapter ? " · Chapter " + lane.chapter : ""} · ${lane.minutes} min`
+      : "Rest day";
+    $("todayNote").textContent = lane ? (lane.note ?? "") : "Nothing scheduled today.";
+  }
 
   const ready = S.readiness.find((r) => (r.exam || "").toLowerCase().includes(bankFor(id).toLowerCase().split(" ")[0]));
   $("trackHint").textContent = ready ? ready.message : "";
