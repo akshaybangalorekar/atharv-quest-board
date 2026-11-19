@@ -112,7 +112,29 @@ async function handle(req: Request) {
 
   let body: any = {};
   try { body = await req.json(); } catch (_) {}
-  const mode = body?.mode ?? "fetch";
+  let mode = body?.mode ?? "all";
+
+  // "all" is the single path: uploads first, then the sources, then the check
+  if (mode === "all") {
+    const inner = async (m: string) => {
+      const r = await handle(new Request(req.url, {
+        method: "POST",
+        headers: { authorization: auth, "content-type": "application/json" },
+        body: JSON.stringify({ mode: m }),
+      }));
+      try { return await r.json(); } catch { return {}; }
+    };
+    const up = await inner("upload");
+    const fe = await inner("fetch");
+    const ve = await inner("verify");
+    return json({
+      mode: "all",
+      uploads: up?.papers ?? 0,
+      fetched: fe?.fetched ?? 0,
+      checked: ve?.checked ?? 0,
+      failed: ve?.failed ?? [],
+    });
+  }
 
   // ---------------------------------------------------------------- verify --
   if (mode === "verify") {
@@ -156,7 +178,13 @@ async function handle(req: Request) {
         .select("page_no, text").eq("paper_id", p.id).order("page_no");
       const all = (pages ?? []).map((x: any) => String(x.text ?? "")).join("\n").trim();
       if (all.length < 80) continue;
-      const chunks = chunk(all).map((b) => ({ body: b, topic: p.title ?? "uploaded paper" }));
+      // the questions taken from this paper are material too: she should be able to read them
+      const { data: qs } = await supa.from("problems")
+        .select("chapter, idx, prompt, options").eq("paper_id", p.id).order("chapter").order("idx");
+      const qText = (qs ?? []).map((q: any) =>
+        `Q: ${q.prompt}${Array.isArray(q.options) ? ` Options: ${q.options.join(" / ")}` : ""}`).join("\n\n");
+
+      const chunks = chunk(all + (qText ? "\n\n" + qText : "")).map((b) => ({ body: b, topic: p.title ?? "uploaded paper" }));
       const { error: upErr } = await supa.rpc("store_doc", {
         p_kind: "upload", p_title: p.title ?? `paper ${p.id}`, p_url: p.url ?? null,
         p_source_id: null, p_chunks: chunks,
