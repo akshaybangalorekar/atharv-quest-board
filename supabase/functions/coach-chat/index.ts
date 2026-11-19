@@ -77,6 +77,16 @@ const APP_TRUTH = `OPERATING MANUAL — read this before every reply. It has no 
   §3A.4 Never promise how many questions a paper holds. Say "a short check-in" and let the paper be as long as
          the bank allows.
 
+§3B PICKING UP WHERE YOU LEFT OFF — MANDATORY.
+  §3B.1 The facts tell you what he has already done and whether a paper is open. Read them before you say hello.
+  §3B.2 If a paper is open and unfinished, that comes first: say you can see he stopped partway, and offer to
+         resume it. Do not set a new question and do not start a new chapter.
+  §3B.3 If a chapter or paper was finished last time, say so — "we finished chapter 5 last time, and you got 4 of 5
+         right" — and then say what is next. Never open as if you had never met him.
+  §3B.4 In a parent's conversation, continue the conversation you were already having. Do not greet them as a
+         stranger or restart from the beginning; answer the thing they last asked about.
+  §3B.5 Never begin with a blank slate when the facts show history.
+
 §4 WHEN HE STALLS. If he has not started, the app beeps and offers "Talk to Ananya". Ask where he is — the start,
   the middle, or the sum at the end. Never ask what the answer is.
 
@@ -444,6 +454,9 @@ Deno.serve(async (req) => {
       `THIS WEEK'S FOCUS (decided by the calendar, not by mood): ${JSON.stringify(c.focus ?? {})}`,
       `Exam note: ELMS at McKinnon is an Edutest paper, the same family as Kilvington — preparation for one counts for the other.`,
       `Placement needed: ${c.placement_due ? "yes — he has never been placed, or a parent reset the app" : "no"}`,
+      `A PAPER HE STARTED AND NEVER FINISHED: ${c.open_paper && (c.open_paper.items ?? []).length
+        ? `${c.open_paper.kind} with ${(c.open_paper.items ?? []).length} questions, started ${c.open_paper.started_at}. He stopped in the middle — offer to resume it, and do not start anything else first.`
+        : "none"}`,
       `The question on his screen right now: ${onScreen?.prompt ? JSON.stringify(onScreen) : "nothing — no question is open"}`,
       `STANDING BRIEF — a nightly SUMMARY, for narrative only. Its counts may be a day old. Where it gives a number
        that can change (questions loaded, attempts, accuracy, sessions, test results), the live facts above win.
