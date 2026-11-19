@@ -1335,7 +1335,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.64.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.66.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -3970,7 +3970,11 @@ async function askParent(text) {
   keepChat("atharv", text, "parent");
   pBubble("think", "…");
   const { data, error } = await sb.functions.invoke("coach-chat", {
-    body: { mode: "parent", messages: [{ role: "atharv", content: text }], note: text },
+    body: {
+      mode: "parent",
+      messages: [{ role: "atharv", content: text }],
+      note: `${text}\n\n(Continue our conversation. Do not greet me as a stranger.)`,
+    },
   });
   document.querySelector("#pchatWrap .msg.think")?.remove();
   const said = data?.reply ?? data?.say ?? "";
@@ -4191,6 +4195,16 @@ async function askCoachWhatNow() {
     ? "A rest day is part of the plan."
     : `${S.planAction.action === "paper" ? "A full paper" : S.planAction.action === "quiz" ? "A chapter quiz" : S.planAction.action === "drill" ? "Drill on what you got wrong" : "Chapter " + S.planAction.chapter} · about ${S.planAction.minutes} minutes`;
   go.disabled = S.planAction.action === "rest";
+  const { data: openP } = await sb.rpc("open_paper").catch(() => ({ data: null }));
+  if (openP && (openP.items ?? []).length) {
+    go.textContent = "Resume the paper you stopped →";
+    go.dataset.mode = "paper";
+    S.openPaper = openP;
+    $("coachWhy").textContent = `${openP.items.length} questions · ${openP.kind}`;
+    go.disabled = false;
+    return;
+  }
+
   const half = restorableSession() && !S.ctx?.placement_due;
   go.textContent = half ? "Resume where you left off →"
     : S.planAction.action === "rest" ? "Nothing to start" : "Start →";
@@ -4211,6 +4225,7 @@ async function checkReset() {
 }
 
 function runCoachPlan() {
+  if (S.openPaper) { S.openPaper = null; return resumePaper(); }   // a stopped paper comes first
   if (restorableSession()) return resumeSession();     // never throw away a half-finished session
   const p = S.planAction;
   if (!p) return;
@@ -4717,6 +4732,16 @@ async function startSession(chapterOverride, forceMode, mode) {
     S.chapter = open.length ? open[open.length - 1].chapter : 1;
   }
 
+  // the conversation is kept: show what was said before she speaks again
+  try {
+    const { data: tr0 } = await sb.rpc("truth");
+    const past = tr0?.chat ?? [];
+    if (past.length) {
+      past.slice(-30).forEach((m) => bubble(m.role === "atharv" ? "me" : "coach", m.body));
+      S.chat = past.slice(-30).map((m) => ({ role: m.role, text: m.body }));
+    }
+  } catch (_) {}
+
   // the tap itself says hi, and that is what makes her start talking
   bubble("me", "hi");
   S.chat.push({ role: "atharv", text: "hi" });
@@ -4726,7 +4751,7 @@ async function startSession(chapterOverride, forceMode, mode) {
     mode: "greet",
     note: mode === "solo"
       ? "He has just said hi, and he chose this chapter himself rather than following the plan. Acknowledge that and open the session."
-      : "He has just said hi. Answer him and open the session.",
+      : "He has just said hi, and you have your history with him in the facts. Pick up where you left off: if a chapter or paper was finished last time, say what was done and what is next; if he stopped partway, say you can see that. Never open as if you had never met him.",
   });
   think.remove();
   bubble(
@@ -5452,6 +5477,41 @@ async function runExam(body, label) {
   tick(); T.timer = setInterval(tick, 1000);
 }
 
+/* the paper he walked away from, if there is one */
+async function resumePaper() {
+  const { data } = await sb.rpc("open_paper");
+  if (!data || !(data.items ?? []).length) { await closeEmptyPaper(); return; }
+  T.id = data.exam_id;
+  const spent = Math.floor((Date.now() - new Date(data.started_at).getTime()) / 1000);
+  const total = (data.minutes || 60) * 60;
+  T.left = Math.max(60, total - spent);          // never less than a minute to finish
+
+  show("exam");
+  $("examKind").textContent = data.kind === "placement" ? "Placement check" : data.kind === "quiz" ? "Chapter quiz" : "Test";
+  $("examName").textContent = testName();
+  $("examWhere").textContent = `${data.items.length} question${data.items.length === 1 ? "" : "s"} · you stopped partway, this is where you left off`;
+  $("examList").innerHTML = data.items.map((q, n) => `
+    <div class="qcard" style="border-width:1px;border-color:var(--line)">
+      <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
+      <div class="q" style="font-size:17px">${esc(q.prompt)}</div>
+      ${q.diagram_svg ? `<div class="diagram">${q.diagram_svg}</div>` : ""}
+      <input data-chapter="${q.chapter}" data-idx="${q.idx}" placeholder="Your answer" autocomplete="off">
+    </div>`).join("");
+  clearInterval(T.timer);
+  const tick = () => {
+    const m = Math.floor(T.left / 60), sec = T.left % 60;
+    $("clock").textContent = `${m}:${String(sec).padStart(2, "0")}`;
+    if (T.left <= 0) { clearInterval(T.timer); submitTest(); }
+    T.left--;
+  };
+  tick(); T.timer = setInterval(tick, 1000);
+}
+
+/* an empty paper is not worth resuming: close it quietly */
+async function closeEmptyPaper() {
+  try { await sb.rpc("abandon_paper"); } catch (_) {}
+}
+
 async function startTest(chapter, minutes) {
   const isQuiz = !!chapter;
   const { data, error } = await sb.rpc("start_exam", isQuiz
@@ -5587,7 +5647,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
