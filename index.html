@@ -1326,7 +1326,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.62.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.63.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -4080,6 +4080,8 @@ function resumeSession() {
     paintActions();
   }
   S.restoring = false;
+  // a resumed chapter keeps its clock: it was already running when he left
+  if (S.script?.length) startBudget(S.sitting?.minutes ?? 60);
   return true;
 }
 
@@ -4699,7 +4701,6 @@ async function startSession(chapterOverride, forceMode, mode) {
   const planned = S.planAction?.minutes ?? (S.plan.find((p) => p.lane !== "R")?.minutes) ?? 60;
   const mins = Math.max(60, planned);        // a sitting is an hour unless the plan asks for more
   await planSitting(mins);
-  startBudget(S.sitting?.minutes ?? mins);
 
   const lane = S.plan.find((p) => p.lane !== "R");
   const bankChapter = await pickChapterForTrack();
@@ -4729,6 +4730,22 @@ async function startSession(chapterOverride, forceMode, mode) {
   );
   if (greet) S.chat.push({ role: "coach", text: greet });
 
+  // the clock belongs to the chapter: it starts when he starts, not when the screen opens
+  $("budgetBar")?.classList.add("hidden");
+  const card = document.createElement("div");
+  card.className = "qcard";
+  card.id = "startBar";
+  card.innerHTML = `<div class="q" style="font-size:16px">Chapter ${S.chapter ?? ""} — shall we start?</div>
+    <div class="sub" style="margin:2px 0 8px">Your ${S.sitting?.minutes ?? mins} minutes start when you tap.</div>
+    <div class="bar"><button class="go small" onclick="beginNow()">Start this →</button></div>`;
+  $("chatWrap").appendChild(card);
+  paintActions();
+}
+
+/* he said go: the clock starts here, and so does the work */
+async function beginNow() {
+  document.getElementById("startBar")?.remove();
+  startBudget(S.sitting?.minutes ?? 60);
   await beginWork();
 }
 
@@ -5564,7 +5581,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
