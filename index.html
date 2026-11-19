@@ -1092,7 +1092,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.32.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.33.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -3555,7 +3555,7 @@ async function loadChat(boxId, parentSide) {
   const box = $(boxId);
   if (!box) return;
   const { data } = await sb.rpc("truth");
-  const history = data?.chat ?? [];
+  const history = (parentSide ? data?.parent_chat : data?.chat) ?? [];
   box.innerHTML = "";
   if (!history.length) {
     const hello = parentSide
@@ -3579,9 +3579,12 @@ async function loadChat(boxId, parentSide) {
 }
 
 /* every message is kept, not just the last few */
-async function keepChat(role, body) {
-  try { await sb.from("chat_messages").insert({ student_id: S.studentId ?? null, role, body }); }
-  catch (_) { /* the conversation still works if the save fails */ }
+async function keepChat(role, body, thread) {
+  try {
+    await sb.from("chat_messages").insert({
+      student_id: S.studentId ?? null, role, body, thread: thread ?? "child",
+    });
+  } catch (_) { /* the conversation still works if the save fails */ }
 }
 
 function pBubble(role, text) {
@@ -3594,14 +3597,14 @@ function pBubble(role, text) {
 }
 
 async function askParent(text) {
-  keepChat("atharv", text);
+  keepChat("atharv", text, "parent");
   pBubble("think", "…");
   const { data, error } = await sb.functions.invoke("coach-chat", {
     body: { mode: "parent", messages: [{ role: "atharv", content: text }], note: text },
   });
   document.querySelector("#pchatWrap .msg.think")?.remove();
   const said = data?.reply ?? data?.say ?? "";
-  if (said) keepChat("coach", said);
+  if (said) keepChat("coach", said, "parent");
   if (error || data?.error) { pBubble("coach", "I could not reach the coach. Try again in a moment."); return; }
   pBubble("coach", said || "I could not reach the coach. Try again in a moment.");
 }
@@ -3612,7 +3615,7 @@ async function sendParent() {
   if (!text) return;
   box.value = "";
   S.forceScroll = true;
-  keepChat("atharv", text);
+  keepChat("atharv", text, "child");
   heard = "";                    // the microphone must not put it back
   if (box.style) box.style.height = "";
   pBubble("me", text);
@@ -3688,7 +3691,7 @@ async function parentWeekly() {
   const { data, error } = await sb.functions.invoke("coach-chat", { body: { mode: "parent-weekly" } });
   document.querySelector("#pchatWrap .msg.think")?.remove();
   const said = data?.reply ?? data?.say ?? "";
-  if (said) keepChat("coach", said);
+  if (said) keepChat("coach", said, "parent");
   pBubble("coach", error || data?.error ? "The coach is unavailable right now." : data.reply);
 }
 
@@ -4647,7 +4650,7 @@ async function sendMe() {
   if (!text) return;
   box.value = "";
   S.forceScroll = true;
-  keepChat("atharv", text);
+  keepChat("atharv", text, "child");
   heard = "";                    // the microphone must not put it back
   if (box.style) box.style.height = "";
   bubble("me", text);
@@ -4668,7 +4671,7 @@ async function sendMe() {
   if (reply) {
     bubble("coach", reply, replySpoken);
     S.chat.push({ role: "coach", text: reply });
-    keepChat("coach", reply);
+    keepChat("coach", reply, "child");
   } else bubble("coach", "I could not reach the coach just then. Try again in a moment.");
   if (S.pendingStart) await beginWork();
 }
