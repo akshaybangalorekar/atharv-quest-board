@@ -531,7 +531,9 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 <!-- a test -->
 <main id="exam" class="hidden">
   <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-    <div><div class="k" id="examKind">Test</div><div class="big" style="font-size:20px" id="examWhere"></div></div>
+    <div><div class="k" id="examKind">Test</div>
+      <div class="big" style="font-size:20px"><span id="examName">—</span>
+        <span class="sub" style="font-size:14px;font-weight:400"> — <span id="examWhere"></span></span></div></div>
     <div style="text-align:right"><div class="k">Time left</div><div class="big" id="clock" style="font-size:24px">--:--</div></div>
   </div>
   <div class="card">
@@ -972,7 +974,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.04.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.05.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -4641,8 +4643,9 @@ async function startPlacement() {
   if (error) { alert(error.message); return; }
   T.id = data.exam_id; T.left = (data.minutes || 20) * 60;
   show("exam");
-  $("examKind").textContent = "Placement check · 12 questions, 20 minutes";
-  $("examWhere").textContent = "Twelve questions from across the topics, easiest first";
+  $("examKind").textContent = "Placement check";
+  $("examName").textContent = testName();
+  $("examWhere").textContent = "12 questions, 20 minutes · from across the topics, easiest first";
   $("examList").innerHTML = data.items.map((q, n) => `
     <div class="qcard" style="border-width:1px;border-color:var(--line)">
       <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
@@ -4660,12 +4663,26 @@ async function startPlacement() {
   tick(); T.timer = setInterval(tick, 1000);
 }
 
+/* which exam this paper belongs to, in its proper name */
+function testName() {
+  const fam = (TRACKS.find((t) => t.id === S.track) ?? {}).name;
+  if (!fam) return "Test";
+  return ({
+    Olympiad: "Olympiad paper",
+    AMC: "AMC Upper Primary",
+    AAS: "AAS — Camberwell Grammar",
+    Edutest: "Edutest — Kilvington and McKinnon",
+    ICAS: "ICAS Mathematics",
+  })[fam] ?? fam;
+}
+
 async function runExam(body, label) {
   const { data, error } = await sb.rpc("start_exam", body);
   if (error) { alert(error.message); return; }
   T.id = data.exam_id; T.left = (data.minutes || 20) * 60;
   show("exam");
   $("examKind").textContent = label || "Test";
+  $("examName").textContent = testName();
   $("examWhere").textContent = `${data.items.length} questions`;
   $("examList").innerHTML = data.items.map((q, n) => `
     <div class="qcard" style="border-width:1px;border-color:var(--line)">
@@ -4692,8 +4709,10 @@ async function startTest(chapter, minutes) {
   if (error) { alert(error.message); return; }
   T.id = data.exam_id; T.left = (data.minutes || 20) * 60;
   show("exam");
-  $("examKind").textContent = isQuiz ? "Chapter quiz" : "AMC paper";
-  $("examWhere").textContent = isQuiz ? `Chapter ${chapter} · ${data.items.length} questions` : `${data.items.length} questions · 135 marks`;
+  $("examKind").textContent = isQuiz ? "Chapter quiz" : "Test";
+  $("examName").textContent = isQuiz ? `Chapter ${chapter}` : testName();
+  $("examWhere").textContent = isQuiz ? `${data.items.length} questions`
+    : `${data.items.length} questions · 135 marks`;
   $("examList").innerHTML = data.items.map((q, n) => `
     <div class="qcard" style="border-width:1px;border-color:var(--line)">
       <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
