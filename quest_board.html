@@ -1115,7 +1115,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.36.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.37.2";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2557,7 +2557,7 @@ async function loadPapersToRead() {
   if (papersPoll) { clearTimeout(papersPoll); papersPoll = null; }
   const box = $("pPapers");
   if (!box) return;
-  const { data } = await sb.rpc("papers_to_read");
+  const { data } = (S.TR?.uploads ? { data: S.TR.uploads } : await sb.rpc("papers_to_read"));
   const rows = data ?? [];
   if (!rows.length) {
     box.innerHTML = `<div class="sub">No files yet. Add a PDF, a photo or a page of questions and it will
@@ -2945,6 +2945,23 @@ async function goParent() {
     const sitsMin = Math.max(0, ...(f.schools_list ?? []).map((x) => x.sits_minutes ?? 0));
     const coveredMin = Math.max(0, ...(f.schools_list ?? []).map((x) => x.measured_minutes ?? 0));
     const pct = sitsMin ? Math.round((coveredMin / sitsMin) * 100) : 0;
+
+    if (!totalQ) {
+      return `<div class="card ttExam">
+        <div class="ttHead">
+          <span class="ttName">${esc(fam)}</span>
+          <span class="pill grey">nothing loaded</span>
+          <span class="ttMeta">${esc(when)}${f.days_left !== null ? ` · ${f.days_left} days` : ""}</span>
+          <span class="ttMeta" style="margin-left:auto">0 questions</span>
+        </div>
+        <div class="sub" style="margin:8px 0 0">No questions for this exam yet — nothing uploaded, nothing written.
+          ${(f.schools_list ?? []).map((r) => esc(r.school)).join(", ")} sits it on ${esc(when)}.</div>
+        <div class="bar" style="margin-top:10px">
+          <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
+          <button class="mini" data-print="${esc(fam)}">Print</button>
+        </div>
+      </div>`;
+    }
 
     const schools = (f.schools_list ?? []).map((r, i) => {
       const d = r.sits_on
@@ -3894,8 +3911,8 @@ function runCoachPlan() {
 
 async function openDash() {
   show("dash");
-  sb.rpc("journey").then(({ data }) => { if ($("dashFlight")) $("dashFlight").innerHTML = journeyChart(data); });
-  const { data, error } = await sb.rpc("progress_dashboard");   // dashboard is its own read
+  { const j = S.TR?.journey ?? null; if ($("dashFlight")) $("dashFlight").innerHTML = journeyChart(j); }
+  const { data, error } = { data: (S.TR ?? {}).progress ?? null, error: null };   // dashboard is its own read
   if (error || !data) { $("dashHead").textContent = "Could not load the numbers."; return; }
   const d = data;
   const behind = (d.planned_questions || 0) - (d.done_questions || 0);
@@ -4528,7 +4545,7 @@ function showQuestion(q) {
   S.qBudget = 150;
   sb.rpc("question_budget", { p_chapter: q.chapter, p_idx: q.idx }).then(({ data }) => {
     if (typeof data === "number" && data > 0) {
-      S.qBudget = data;
+      S.qBudget = data ?? S.TR?.budget ?? 150;
       const t = $("qtimer");
       if (t && !$("qfb")?.textContent) t.dataset.budget = String(data);
       paintQuestionClock();
@@ -4792,7 +4809,7 @@ async function openJournal() {
 
 async function openFormula() {
   show("formula");
-  const { data, error } = await sb.rpc("formula_board_view");
+  const { data, error } = { data: (S.TR ?? {}).board ?? null, error: null };
   if (error) { $("formulaList").innerHTML = `<div class="sub">${esc(error.message)}</div>`; return; }
   const rows = data ?? [];
   const byChapter = {};
