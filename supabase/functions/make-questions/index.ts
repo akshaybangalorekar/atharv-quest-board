@@ -58,6 +58,8 @@ Rules:
   length, angle, label and value. The question must be answerable from that drawing alone.
 - For the rest, no "fig" key at all.
 - Vary the wording. Do not start three questions the same way.
+- NEVER write a question that is already in the strand, word for word, or with only a number changed. Every
+  question must be a new situation: different scenario, different names, different numbers, different phrasing.
 - Keep each question under 40 words.
 - About half the questions should be multiple choice. For those add "options": four short choices,
   each one plausible, with EXACTLY ONE correct — and that correct choice must be the same value as "a".
