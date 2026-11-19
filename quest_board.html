@@ -584,6 +584,12 @@ main#session, main#pchat{
 }
 #sComposer textarea{resize:none;max-height:96px;overflow-y:auto}
 #pComposer input{height:40px}
+
+.srcRow{display:grid;grid-template-columns:14px 1fr auto auto;gap:10px;align-items:center;
+  padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.srcRow:first-child{border-top:0}
+.srcName{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.srcWhen{color:var(--mut);font-size:12px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -1101,9 +1107,9 @@ main#session, main#pchat{
 
 <!-- help -->
 <main id="help" class="hidden">
-  <div class="card" id="trainCard">
-    <div class="k">Where the coach learns from</div>
-    <div class="sub" style="margin-top:4px">She is not trained on the open internet. She works from these sources and
+  <div class="card" id="trainCard"><details id="trainFold">
+    <summary class="foldHead">Where the coach learns from</summary>
+    <div class="sub" style="margin-top:6px">She is not trained on the open internet. She works from these sources and
       from whatever has been uploaded — nothing else.</div>
     <div id="trainList" style="margin-top:10px"></div>
     <div id="trainUploads" style="margin-top:10px"></div>
@@ -1121,7 +1127,7 @@ main#session, main#pchat{
       </div>
       <div class="err" id="trMsg"></div>
     </div>
-  </div>
+  </details></div>
 
   <div class="card">
     <div class="k">Help</div>
@@ -1357,7 +1363,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.69.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.70.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1466,6 +1472,7 @@ async function paintNote() {
   // a parent keeps it until they say so; a child's screen lets it go after three minutes
   if (!S.isParent) setTimeout(() => { if ($("noteBar")?.textContent) dismissNote(data.id); }, 180000);
   checkExamDates();
+  autoTrain();
 }
 
 async function dismissNote(id) {
@@ -1592,11 +1599,17 @@ async function loadTraining() {
 
   const KIND = { official: "Official", popular: "Popular", uploaded: "Uploaded" };
   const rows = v.sources ?? [];
+  const when = (d) => {
+    if (!d) return "never read";
+    const days = Math.round((Date.now() - new Date(d)) / 86400000);
+    return days <= 0 ? "read today" : days === 1 ? "read yesterday" : `read ${days} days ago`;
+  };
   list.innerHTML = rows.length ? rows.map((x) => `
-    <div class="upRow">
-      <span class="upName">${esc(x.name)}${x.active ? "" : ` <span class="sub">· paused</span>`}
-        <span class="sub" style="display:block">${esc(KIND[x.kind] ?? x.kind)}${x.url ? ` · ${esc(String(x.url).replace(/^https?:\/\//, ""))}` : ""}</span>
-      </span>
+    <div class="srcRow">
+      <span class="dot ${x.passages ? "green" : x.active ? "amber" : "grey"}"></span>
+      <span class="srcName">${esc(x.name)}
+        <span class="sub" style="display:block">${esc(KIND[x.kind] ?? x.kind)}${x.url ? ` · ${esc(String(x.url).replace(/^https?:\/\//, ""))}` : ""}</span></span>
+      <span class="srcWhen">${x.passages ? `${x.passages} passages · ${when(x.last_read)}` : when(x.last_read)}</span>
       ${S.isParent ? `<button class="mini" data-id="${x.id}" data-on="${x.active ? "1" : ""}"
           onclick="toggleTrainingSource(this.dataset.id, this.dataset.on !== '1')">${x.active ? "Pause" : "Resume"}</button>` : ""}
     </div>`).join("") : `<div class="sub">No sources yet.</div>`;
@@ -1620,6 +1633,19 @@ async function loadTraining() {
 }
 
 /* read the sources, keep your uploads, and check the bank */
+/* she reads the sources on her own once a day, in the background, so nobody waits */
+async function autoTrain() {
+  try {
+    const { data: due } = await sb.rpc("train_due", { p_hours: 24 });
+    if (!due) return;
+    sb.functions.invoke("train-coach", { body: { mode: "fetch" } })
+      .then(() => sb.functions.invoke("train-coach", { body: { mode: "upload" } }))
+      .then(() => sb.functions.invoke("train-coach", { body: { mode: "verify" } }))
+      .then(() => { if ($("trainList")) loadTraining(); })
+      .catch(() => {});
+  } catch (_) {}
+}
+
 async function trainNow() {
   $("trainMsg").textContent = "Reading the sources… this takes a minute.";
   const a = await sb.functions.invoke("train-coach", { body: { mode: "fetch" } }).catch((e) => ({ data: { error: e.message } }));
@@ -5742,7 +5768,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
