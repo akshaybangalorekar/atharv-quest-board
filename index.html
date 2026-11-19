@@ -425,10 +425,28 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 /* both conversations: messages from the top, composer pinned to the bottom, full width */
 main#pchat{height:calc(100dvh - 62px);height:calc(100vh - 62px);display:flex;flex-direction:column;
   overflow:hidden;padding:0;max-width:none;width:100%}
-#pchatWrap{flex:1 1 auto;overflow-y:auto;display:grid;gap:10px;align-content:start;
-  padding:14px clamp(12px,3vw,40px)}
-#pComposer{position:sticky;bottom:0;width:100%;margin:0;border-radius:0;border-left:0;border-right:0;
+#pComposer{position:relative;bottom:0;width:100%;margin:0;border-radius:0;border-left:0;border-right:0;
   border-bottom:0;padding:10px clamp(12px,3vw,40px) 12px;background:#fff;z-index:5}
+
+/* the screen itself never scrolls: only the conversation inside it does */
+html, body { height: 100%; }
+html:has(#session:not(.hidden)),
+html:has(#pchat:not(.hidden)),
+body:has(#session:not(.hidden)),
+body:has(#pchat:not(.hidden)) { overflow: hidden; height: 100%; }
+
+main#session{height:calc(100dvh - 62px);height:calc(100vh - 62px);display:flex;flex-direction:column;
+  overflow:hidden;padding:0;max-width:none;width:100%;gap:0}
+main#session > .card{flex:0 0 auto}
+#chatWrap{flex:1 1 0%;height:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;display:grid;gap:10px;align-content:start;
+  padding:12px clamp(12px,3vw,40px)}
+
+main#pchat{height:calc(100dvh - 62px);height:calc(100vh - 62px);display:flex;flex-direction:column;
+  overflow:hidden;padding:0;max-width:none;width:100%}
+main#pchat > .card{flex:0 0 auto}
+#pchatWrap{flex:1 1 0%;height:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  display:grid;gap:10px;align-content:start;padding:14px clamp(12px,3vw,40px)}
 </style>
 </head>
 <body>
@@ -1092,7 +1110,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.33.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.34.3";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
