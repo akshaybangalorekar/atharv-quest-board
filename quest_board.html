@@ -547,7 +547,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   <div class="card"><details id="papersDetails" open>
     <summary class="foldHead">Sample questions</summary>
     <div style="margin-top:10px">
-      <div id="pPapers"><div class="sub">Nothing uploaded yet.</div></div>
+      <div id="pPapers"><div class="sub">No files yet.</div></div>
       <div class="bar" style="margin-top:10px"><button class="go small" onclick="openUpload()">＋ Add a file</button></div>
     </div>
   </details></div>
@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.63.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.64.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1021,12 +1021,16 @@ async function openHelp() {
 function show(id) {
   S.view = id;
   if (!S.restoring) saveRoute();
-  ["boot", "signin", "landing", "track", "session", "chapter", "exam", "results", "parent", "upload", "pchat", "dash", "journal", "formula", "paper", "help"].forEach((m) => $(m).classList.add("hidden"));
+  ["boot", "signin", "landing", "track", "session", "chapter", "exam", "results",
+   "parent", "pchat", "dash", "journal", "formula", "paper", "help"]
+    .forEach((m) => { const el = $(m); if (el) el.classList.add("hidden"); });
   const signing = id === "signin";
   document.body.classList.toggle("signing", signing);
   if (!signing) document.body.style.background = "";   // back to plain white
-  $(id).classList.remove("hidden");
-  $("homeBtn").classList.toggle("hidden", id === "landing" || id === "signin");
+  const want = $(id);
+  if (!want) { console.warn("no screen called", id); return; }
+  want.classList.remove("hidden");
+  $("homeBtn")?.classList.toggle("hidden", id === "landing" || id === "signin");
   window.scrollTo(0, 0);
 }
 
@@ -1959,7 +1963,11 @@ async function loadPapersToRead() {
   if (!box) return;
   const { data } = await sb.rpc("papers_to_read");
   const rows = data ?? [];
-  if (!rows.length) { box.innerHTML = `<div class="sub">Nothing uploaded yet.</div>`; return; }
+  if (!rows.length) {
+    box.innerHTML = `<div class="sub">No files yet. Add a PDF, a photo or a page of questions and it will
+      be saved first, then read page by page.</div>`;
+    return;
+  }
   if (rows.some((r) => r.status === "failed" || (r.pages_total ?? 0) > (r.pages_done ?? 0))) {
     $("papersDetails")?.setAttribute("open", "");
   }
