@@ -469,8 +469,8 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </div>
     <div class="row3">
       <button class="ghost small" id="micBtn" onclick="toggleMic()">Talk</button>
-      <button class="ghost small" onclick="document.getElementById('doubt').click()">Photo</button>
-      <button class="ghost small" onclick="endSession()">Pause for now</button>
+      <button class="ghost small" onclick="takePhoto()">Photo</button>
+      <button class="ghost small" onclick="endSession()">Pause session</button>
     </div>
     <div class="footLine">
       <span class="hint" id="micState" style="flex:1 1 auto;margin:0;display:none"></span>
@@ -524,6 +524,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <button class="go small" onclick="openParentChat()">Ask the coach →</button>
       <button class="ghost small" onclick="openDash()">Progress</button>
       <button class="ghost small" onclick="parentWeekly()">This week's summary</button>
+      <button class="ghost small" onclick="askForEarlyMock()">Bring the next mock forward</button>
       <button class="ghost small" onclick="goLanding()">Go to his screen →</button>
     </div>
   </div>
@@ -582,7 +583,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
           answered, accuracy, chapters started and mastered, weakest techniques, test results, the next real exam and
           how far off it is, and what is missing from his formula board.</p>
           <p><b>What she may mention.</b> Only what is on his screen: Start or Resume, Chapter N, Check where I am,
-          Paper is due, Skip this one, Chapter quiz, Talk, Photo, Pause for now, Talk to Ananya, Back to Ananya,
+          Paper is due, Skip this one, Chapter quiz, Talk, Photo, Pause session, Talk to Ananya, Back to Ananya,
           Progress, Journal, Formula board.</p>
           <p><b>Keeping the bank ahead of him.</b> She writes new questions herself, modelled on the samples you
           upload and aimed at his level — accuracy and speed together decide whether the next set is harder, the
@@ -915,7 +916,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.83.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.87.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1995,7 +1996,11 @@ async function bootInner() {
   // and he still gets a screen to look at
   if (ctx?.placement_due) { clearSession(); goLanding(); return; }
 
-  if (restorableSession()) { resumeSession(); return; }
+  if (restorableSession()) {
+    bubble("coach", "You stopped partway last time — tap Resume and we will carry on from where you were.");
+    resumeSession();
+    return;
+  }
 
   if (route && route.view === "chapter" && route.chapter) {
     S.restoring = true;
@@ -2142,6 +2147,16 @@ async function printQuestions(fam) {
   w.document.close();
   w.focus();
   setTimeout(() => w.print(), 400);
+}
+
+/* a parent can ask for the mock early; printing questions never sets one */
+async function askForEarlyMock() {
+  if (!confirm("Ask the coach to set a paper now? She will only do it if she thinks he is ready.")) return;
+  const { data, error } = await sb.functions.invoke("coach-chat", {
+    body: { mode: "decide", note: "parent asks for an early mock", forceMock: true, track: S.track },
+  });
+  if (error || data?.error) { alert(data?.error ?? error?.message ?? "That did not work."); return; }
+  await goParent();
 }
 
 /* a parent sets the date the moment the school publishes it */
@@ -2669,6 +2684,24 @@ async function keepPaper(file, userId, exam, pages, questions, savedId) {
 }
 
 /* one button: save the file with a progress bar, then read it in the background */
+/* the Photo button: either his working, or a question he cannot start */
+function askPhotoReason() {
+  return new Promise((resolve) => {
+    const wrap = document.createElement("div");
+    wrap.className = "qcard";
+    wrap.innerHTML = `<div class="q" style="font-size:16px">What is the photo?</div>
+      <div class="bar">
+        <button class="go small" data-a="working">My working so far</button>
+        <button class="ghost small" data-a="stuck">I am stuck on this one</button>
+      </div>`;
+    $("chatWrap").appendChild(wrap);
+    stickBottom();
+    wrap.querySelectorAll("button").forEach((b) => {
+      b.onclick = () => { wrap.remove(); resolve(b.dataset.a); };
+    });
+  });
+}
+
 async function uploadAndRead(input) {
   const files = [...(input.files ?? [])];
   input.value = "";
@@ -3639,6 +3672,12 @@ async function renderShelf() {
 }
 
 /* one mock, shaped like the real thing for that exam */
+/* the chapter quiz comes when the chapter is done and done well, not on a streak */
+async function quizReady(chapter) {
+  const { data } = await sb.rpc("chapter_ready_for_quiz", { p_chapter: chapter });
+  return data ?? { ready: false, why: "no answer yet" };
+}
+
 async function startMock() {
   const id = S.track;
   let body;
@@ -3945,7 +3984,7 @@ function nextStep() {
     done.innerHTML = `<div class="q" style="font-size:16px">What next?</div>
       <div class="bar">${S.returnToCoach
         ? `<button class="go small" onclick="backToCoach()">Back to ${COACH} →</button>`
-        : `<button class="go small" onclick="endSession()">Pause for now</button>`}
+        : `<button class="go small" onclick="endSession()">Pause session</button>`}
       <button class="ghost small" onclick="startSolo(S.chapter)">Another one</button>
       <button class="ghost small" onclick="openDash()">See progress</button></div>`;
     $("chatWrap").appendChild(done);
@@ -4232,7 +4271,11 @@ function backButton() {
 }
 
 function returnToSession() {
-  if (restorableSession()) { resumeSession(); return; }
+  if (restorableSession()) {
+    bubble("coach", "You stopped partway last time — tap Resume and we will carry on from where you were.");
+    resumeSession();
+    return;
+  }
   goLanding();
 }
 
@@ -4316,11 +4359,22 @@ function examForDoubt() {
   return "AAS numerical reasoning";
 }
 
+/* one button, and she is told which of the two things the photo is */
+async function takePhoto() {
+  S.photoReason = await askPhotoReason();
+  document.getElementById("doubt").click();
+}
+
 function handlePhoto(input) {
+  // he has already told her which it is; fall back to the words he typed
+  const reason = S.photoReason;
+  S.photoReason = null;
+  if (reason === "stuck") return askDoubt(input);
+  if (reason === "working") return uploadWorking(input);
+
   const said = ($("say")?.value || "").toLowerCase();
-  const doubtish = /stuck|doubt|help|understand|don'?t know|explain|how do i/.test(said) || !said;
-  if (doubtish) return askDoubt(input);
-  return uploadWorking(input);
+  const doubtish = /stuck|doubt|help|understand|don'?t know|explain|how do i/.test(said);
+  return doubtish ? askDoubt(input) : uploadWorking(input);
 }
 
 async function askDoubt(input) {
@@ -4591,7 +4645,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
