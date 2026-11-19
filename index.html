@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.72.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.73.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1950,6 +1950,8 @@ async function keepBankAhead() {
 
 async function loadContext() {
   await loadBanks();
+  const { data: fresh } = await sb.rpc("family_freshness");
+  S.freshness = fresh ?? [];
   await checkReset();
   checkRunningJob();
   runServerQueue();
@@ -3152,22 +3154,27 @@ function goLanding() {
   const words = { ready: "Content is enough", too_early: "Just started", in_progress: "Keep going",
                   thin: "Need more data", no_content: "No questions uploaded yet" };
 
+  const fresh = {};
+  (S.freshness ?? []).forEach((x) => { fresh[x.family] = x; });
+
   $("examCards").innerHTML = TRACKS.map((t) => {
     const v = readinessFor(t.id);
     return `<button class="exam" onclick="openTrack('${t.id}')">
       <h3>${t.name}</h3>
       <div class="school">${t.school}</div>
-      <div class="state"><span class="pill ${v === "ready" ? "ok" : v === "no_content" ? "grey" : "amber"}">${words[v] ?? v}</span>
+      <div class="state">
+        <span class="pill ${v === "ready" ? "ok" : v === "no_content" ? "grey" : "amber"}">${words[v] ?? v}</span>
+        ${freshPill(fresh[t.id])}
       <div class="sub" style="margin-top:8px">${t.note}</div></div>
     </button>`;
   }).join("");
 
   const f = S.ctx?.focus;
   if (f && $("focusLine")) {
-    const parts = (f.split ?? []).filter((x) => x.pct >= 10)
-      .map((x) => `${x.pct}% ${x.exam}`);
-    $("focusLine").textContent = parts.length
-      ? `This week: ${parts.join(" · ")} — ${f.primary_exam === "Olympiad" ? "technique from Olympiad" : "towards " + f.primary_exam}`
+    $("focusLine").textContent = f.primary_exam
+      ? (f.primary_exam === "Olympiad"
+          ? "This week Ananya is building technique — nothing is close yet."
+          : `This week Ananya is working towards ${f.primary_exam} — its exam is the nearest one.`)
       : "";
   }
 
@@ -3181,14 +3188,29 @@ function goLanding() {
     `streak ${c.streak ?? 0} days · ${(c.xp ?? 0).toLocaleString()} XP`;
 }
 
+/* when he last worked on this exam: a fact, not a score */
+function freshPill(f) {
+  if (!f) return "";
+  const word = f.state === "today" ? "practised today"
+    : f.state === "yesterday" ? "practised yesterday"
+    : f.state === "recent" ? `${f.days_since} days ago`
+    : f.state === "slipping" ? `${f.days_since} days ago — slipping`
+    : f.state === "cold" ? `${f.days_since} days ago — cold`
+    : "not started";
+  const cls = f.state === "today" || f.state === "yesterday" ? "ok"
+    : f.state === "recent" ? "amber"
+    : f.state === "slipping" || f.state === "cold" ? "red" : "grey";
+  return `<span class="pill ${cls}" style="margin-left:6px">${esc(word)}</span>`;
+}
+
 async function askCoachWhatNow() {
   const say = $("coachSay"), go = $("coachGo");
   const f = S.ctx?.focus;
   if (f && $("focusLine")) {
-    const parts = (f.split ?? []).filter((x) => x.pct >= 10)
-      .map((x) => `${x.pct}% ${x.exam}`);
-    $("focusLine").textContent = parts.length
-      ? `This week: ${parts.join(" · ")} — ${f.primary_exam === "Olympiad" ? "technique from Olympiad" : "towards " + f.primary_exam}`
+    $("focusLine").textContent = f.primary_exam
+      ? (f.primary_exam === "Olympiad"
+          ? "This week Ananya is building technique — nothing is close yet."
+          : `This week Ananya is working towards ${f.primary_exam} — its exam is the nearest one.`)
       : "";
   }
 
@@ -4422,7 +4444,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
