@@ -38,12 +38,30 @@ const TYPES = [
   "a fractions comparison",
 ];
 
-const PROMPT = (focus: string, difficulty: number, seeds: string, scope: string) => `You are writing practice questions for an 11-year-old preparing for Australian
+const SUBJECT_RULES: Record<string, string> = {
+  maths: "",
+  reasoning: `This is a REASONING question, not arithmetic. Types: verbal reasoning (analogies, odd-one-out,
+word relationships, letter and number codes, logic puzzles), numerical reasoning (number series, matrices,
+two-step word problems), figural reasoning (which shape comes next, rotation, reflection, folding),
+spatial reasoning (nets, plans, views). The answer is one short word, letter or number.
+For figural questions the figure must be supplied as "fig" and the question answerable from it alone.`,
+  reading: `This is a READING COMPREHENSION question. Write a short passage (60-110 words, Year 6 level),
+then one question about it: main idea, locating detail, inference, vocabulary in context, or author purpose.
+Put the passage in the question text, followed by the question. Four options, exactly one correct.`,
+  writing: `This is a WRITTEN EXPRESSION task, not a multiple-choice question. Give one clear prompt — persuasive
+or narrative — of no more than 30 words, and say what form to write in and roughly how long.
+The answer is a short note of what a good response must contain (three or four points), not a sentence.
+Do NOT give options for a writing task.`,
+};
+
+const PROMPT = (focus: string, difficulty: number, seeds: string, scope: string, subject = "maths") => `You are writing practice questions for an 11-year-old preparing for Australian
 maths competitions and scholarship tests.
 
 Write exactly the number asked for. This set must focus on: ${focus}.
 
 ${scope ? `It must stay inside this exam's scope: ${scope}. Nothing outside that.` : ""}
+
+${SUBJECT_RULES[subject] ?? ""}
 
 Difficulty ${difficulty} of 3 (1 = straightforward, 2 = two steps, 3 = needs a real insight).
 
@@ -137,7 +155,7 @@ Deno.serve(async (req) => {
     let ch: any = null;
     if (chapter) {
       const { data } = await admin.from("chapters")
-        .select("n, title, source, practice").eq("n", chapter).single();
+        .select("n, title, source, practice, subject").eq("n", chapter).single();
       ch = data;
     } else if (exam) {
       // every bank that answers for this exam: Edutest is Kilvington and McKinnon,
@@ -155,7 +173,7 @@ Deno.serve(async (req) => {
       if (kinds.length) {
         // the strand with the fewest questions, so new ones spread rather than pile up
         const { data } = await admin.from("chapters")
-          .select("n, title, source, practice").in("source", kinds)
+          .select("n, title, source, practice, subject").in("source", kinds)
           .order("practice", { ascending: true }).order("n", { ascending: true })
           .limit(1).maybeSingle();
         ch = data;
@@ -213,7 +231,7 @@ Deno.serve(async (req) => {
         temperature: 0.85,
         max_tokens: 3600,
         messages: [
-          { role: "system", content: PROMPT(focus, difficulty, seeds, scope) },
+          { role: "system", content: PROMPT(focus, difficulty, seeds, scope, ch.subject ?? "maths") },
           { role: "user", content:
             `Topic: ${String(ch.title).split(" · ").pop()} (${ch.title}). ` +
             `This is one of the official topics for this exam. Write ${n} questions inside it.` },

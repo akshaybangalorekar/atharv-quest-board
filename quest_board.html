@@ -1364,7 +1364,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.72.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.73.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2791,8 +2791,20 @@ const FAMILY_EXAM = {
 async function generateFor(fam, count, btn) {
   const exam = FAMILY_EXAM[fam] ?? fam;
   if (btn) { btn.disabled = true; btn.textContent = "Writing…"; }
+
+  // the non-maths sections of this exam get their own questions too
+  let extra = 0;
+  try {
+    const { data: chs } = await sb.from("chapters").select("n, subject, source").neq("subject", "maths").limit(80);
+    const mine = (chs ?? []).filter((c) => String(c.source ?? "").toLowerCase() === String(fam).toLowerCase());
+    for (const c of mine.slice(0, 8)) {
+      const r = await sb.functions.invoke("make-questions", { body: { chapter: c.n, count: 3 } });
+      extra += r?.data?.added ?? 0;
+    }
+  } catch (_) {}
+
   const { data, error } = await sb.functions.invoke("make-questions", { body: { exam, count } });
-  const added = data?.added ?? 0;
+  const added = (data?.added ?? 0) + extra;
   const figs = data?.figures ?? 0;
   await sb.rpc("log_topup", {
     p_exam: exam, p_asked: count, p_made: added,
@@ -5287,7 +5299,7 @@ async function writeMoreQuestions() {
   const fam = (TRACKS.find((t) => t.id === S.track) ?? {}).name ?? "Olympiad";
   const exam = FAMILY_EXAM[fam] ?? "Olympiad book";
   const { data, error } = await sb.functions.invoke("make-questions", { body: { exam, count: 20 } });
-  const added = data?.added ?? 0;
+  const added = (data?.added ?? 0) + extra;
   const figs = data?.figures ?? 0;
   await sb.rpc("log_topup", {
     p_exam: exam, p_asked: 20, p_made: added,
