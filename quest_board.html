@@ -416,6 +416,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 .ttPaper{margin:8px 0 10px;padding:8px 10px;background:#faf9ff;border:1px solid var(--line);border-radius:10px}
 .ttPaperHead{font-weight:600;font-size:12.5px;margin-bottom:3px}
 .ttPaperPart{font-size:12.5px;color:var(--mut)}
+
+.ttSection{margin:8px 0 2px}
+.ttSectionHead{font-size:12.5px;font-weight:600;color:var(--ink);margin:8px 0 2px}
+.ttNone{font-size:12px;color:var(--mut);padding:2px 0 2px 18px}
+.ttPaperHead{font-weight:600;font-size:13px;margin:10px 0 2px}
 </style>
 </head>
 <body>
@@ -1109,7 +1114,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.21.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.22.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1241,19 +1246,55 @@ async function openTimetable() {
   const colour = (st) => st === "done" ? "green" : st === "behind" ? "red"
     : st === "due" ? "amber" : st === "no_date" ? "grey" : "green";
 
+  // which bank answers for which section of the paper
+  const SOURCE_SECTION = {
+    edutest: "Numerical reasoning",
+    elms: "Mathematics",
+    aas: "Mathematics",
+    icas: "Whole paper",
+    amc: "Whole paper",
+    book: "Each contest",
+    apsmo: "Each contest",
+  };
+
+  const topicRow = (t) => `
+    <div class="ttRow">
+      <span class="dot ${t.preparedness >= 60 ? "green" : t.preparedness > 0 ? "amber" : "grey"}"></span>
+      <span class="ttTopic">${esc(String(t.title).split(" · ").pop())}
+        <span class="sub">${t.questions ? `${t.questions} questions` : "no questions yet"}</span></span>
+      <span class="ttTarget">${t.target_on
+        ? new Date(t.target_on).toLocaleDateString("en-AU", { day: "numeric", month: "short" }) : "—"}</span>
+      <span class="bar2" style="width:80px"><i style="width:${t.preparedness}%"></i></span>
+    </div>`;
+
   box.innerHTML = rows.map((x) => {
     const done = x.topics_done ?? 0, all = x.topics_all ?? 0, behind = x.behind ?? 0;
     const due = x.due_by_now ?? 0;
     const verdict = behind > 0 ? `${behind} behind` : done >= due && due > 0 ? "on track" : done > due ? "ahead" : "not started";
     const vcls = behind > 0 ? "red" : done > due ? "green" : due > 0 ? "amber" : "grey";
     const pct = all ? Math.round((done / all) * 100) : 0;
-    const mine = specFor[x.label] ?? [];
-    const specLine = mine.map((y) =>
-      `<b>${y.minutes} min</b> in the exam${y.questions ? ` · about ${y.questions} questions` : ""}` +
-      (y.sits && mine.length > 1 ? ` <span class="sub">(${esc(y.sits)})</span>` : "")).join(" · ");
     const examWhen = x.exam_on
       ? new Date(x.exam_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
       : "no date";
+
+    const mine = specFor[x.label] ?? [];
+    const topics = x.rows ?? [];
+
+    // the paper, section by section, with that section's topics underneath
+    const paper = mine.map((y) => {
+      const sections = (y.sections ?? []).map((sec) => {
+        const own = topics.filter((t) => (SOURCE_SECTION[t.source] ?? "Whole paper") === sec.part);
+        return `<div class="ttSection">
+          <div class="ttSectionHead">${esc(sec.part)} <span class="sub">· ${sec.minutes} min in the exam</span></div>
+          ${own.length ? own.map(topicRow).join("") : `<div class="ttNone">no questions for this section yet</div>`}
+        </div>`;
+      }).join("");
+      return `<div class="ttPaperHead">${esc(y.sits)} — ${y.minutes} min in the exam</div>${sections}`;
+    }).join("");
+
+    const loose = topics.filter((t) => !mine.some((y) => (y.sections ?? []).some(
+      (sec) => (SOURCE_SECTION[t.source] ?? "Whole paper") === sec.part)));
+
     return `<div class="card ttExam">
       <div class="ttHead">
         <span class="ttName">${esc(x.label)}</span>
@@ -1261,27 +1302,9 @@ async function openTimetable() {
         <span class="ttMeta">${examWhen}${x.days_left !== null ? ` · ${x.days_left} days` : ""}</span>
         <span class="ttMeta" style="margin-left:auto">${done} of ${all} topics</span>
       </div>
-      ${specLine ? `<div class="ttSpecLine">${specLine}</div>` : ""}
       <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
-      <details class="ttMore"><summary>the topics and the paper</summary>
-        ${mine.length ? `<div class="ttPaper">${mine.map((y) => `
-          <div class="ttPaperHead">${esc(y.sits)} — ${y.minutes} min in the exam</div>
-          ${(y.sections ?? []).map((z) => `<div class="ttPaperPart">${esc(z.part)} — <b>${z.minutes} min</b></div>`).join("")}
-          ${y.note ? `<div class="sub" style="margin:2px 0 6px">${esc(y.note)}</div>` : ""}`).join("")}</div>` : ""}
-        <div class="ttRows">
-          ${(x.rows ?? []).map((r) => {
-            const target = r.target_on
-              ? new Date(r.target_on).toLocaleDateString("en-AU", { day: "numeric", month: "short" })
-              : "—";
-            return `<div class="ttRow">
-              <span class="dot ${colour(r.state)}"></span>
-              <span class="ttTopic">${esc(String(r.title).split(" · ").pop())}</span>
-              <span class="ttTarget">${target}</span>
-              <span class="bar2" style="width:80px"><i style="width:${r.preparedness}%"></i></span>
-            </div>`;
-          }).join("")}
-        </div>
-      </details>
+      ${mine.length ? paper : topics.map(topicRow).join("")}
+      ${loose.length ? `<div class="ttSection"><div class="ttSectionHead">Other topics</div>${loose.map(topicRow).join("")}</div>` : ""}
     </div>`;
   }).join("");
 }
