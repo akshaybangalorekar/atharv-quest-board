@@ -75,7 +75,7 @@ button.small{padding:8px 14px;font-size:14px;border-radius:10px}
 /* chat */
 #chatWrap{display:grid;gap:10px;width:100%;max-width:none;margin:0;
   padding:0 clamp(12px, 3vw, 40px) 8px;
-  align-content:end;
+  align-content:start;
   overflow-y:auto;overscroll-behavior:contain;padding-bottom:6px;
   flex:1 1 auto;min-height:0}   /* min-height:0 is what lets it give room to the box */
 main#session{display:flex;flex-direction:column;
@@ -106,8 +106,8 @@ main#session .composer{flex:0 0 auto;margin-top:8px}
 .footLine{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
 .footLine .keys summary{font-size:12px}
 body:has(#session:not(.hidden)) footer{display:none}
-main#session{height:calc(100dvh - 62px);height:calc(100vh - 62px);padding:0 0 0;gap:0;
-  max-width:none;width:100%}
+main#session{height:calc(100dvh - 62px);height:calc(100vh - 62px);padding:0;gap:0;
+  max-width:none;width:100%;display:flex;flex-direction:column;overflow:hidden}
 .topProg{display:flex;flex-direction:column;gap:3px;min-width:120px;max-width:190px}
 .topProg.hidden{display:none}
 .topProgText{font-size:11px;color:var(--mut);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -180,8 +180,8 @@ body.signing .top,body.signing footer{display:none}
 .footLine{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
 .footLine .keys summary{font-size:12px}
 body:has(#session:not(.hidden)) footer{display:none}
-main#session{height:calc(100dvh - 62px);height:calc(100vh - 62px);padding:0 0 0;gap:0;
-  max-width:none;width:100%}
+main#session{height:calc(100dvh - 62px);height:calc(100vh - 62px);padding:0;gap:0;
+  max-width:none;width:100%;display:flex;flex-direction:column;overflow:hidden}
 .topProg{display:flex;flex-direction:column;gap:3px;min-width:120px;max-width:190px}
 .topProg.hidden{display:none}
 .topProgText{font-size:11px;color:var(--mut);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -421,6 +421,14 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 .ttSectionHead{font-size:12.5px;font-weight:600;color:var(--ink);margin:8px 0 2px}
 .ttNone{font-size:12px;color:var(--mut);padding:2px 0 2px 18px}
 .ttPaperHead{font-weight:600;font-size:13px;margin:10px 0 2px}
+
+/* both conversations: messages from the top, composer pinned to the bottom, full width */
+main#pchat{height:calc(100dvh - 62px);height:calc(100vh - 62px);display:flex;flex-direction:column;
+  overflow:hidden;padding:0;max-width:none;width:100%}
+#pchatWrap{flex:1 1 auto;overflow-y:auto;display:grid;gap:10px;align-content:start;
+  padding:14px clamp(12px,3vw,40px)}
+#pComposer{position:sticky;bottom:0;width:100%;margin:0;border-radius:0;border-left:0;border-right:0;
+  border-bottom:0;padding:10px clamp(12px,3vw,40px) 12px;background:#fff;z-index:5}
 </style>
 </head>
 <body>
@@ -868,13 +876,13 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 
 <!-- parent chat -->
 <main id="pchat" class="hidden">
-  <div id="pchatWrap" style="display:grid;gap:10px"></div>
-  <div class="card" style="position:sticky;bottom:0;padding:12px">
+  <div id="pchatWrap"></div>
+  <div class="card" id="pComposer">
     <div style="display:flex;gap:8px">
       <input id="pSay" placeholder="Ask the coach…" onkeydown="if(event.key==='Enter')sendParent()">
       <button class="go small" onclick="sendParent()">Send</button>
+      <button class="ghost small" onclick="goParent()">← Back</button>
     </div>
-    <div class="bar"><button class="ghost small" onclick="goParent()">← Back</button></div>
   </div>
 </main>
 
@@ -1084,7 +1092,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.31.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.32.2";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2819,6 +2827,7 @@ async function setExamDate(exam, value) {
 async function loadParent() {
   const { data } = await sb.rpc("truth");
   S.TR = data ?? {};
+  S.studentId = data?.student?.id ?? S.studentId ?? null;
   S.pctx = data ?? {};
   S.schoolReadiness = (data?.families ?? []).map((f) => ({
     exam: f.label, school: f.schools, sits_on: f.exam_on, headline: f.verdict,
@@ -3536,12 +3545,43 @@ async function submitUpload() {
   loadPapersToRead();
 }
 
-function openParentChat() {
+async function openParentChat() {
   show("pchat");
-  if (!$("pchatWrap").dataset.started) {
-    $("pchatWrap").dataset.started = "1";
-    pBubble("coach", "Hello. Ask me anything about how he is going — what he has done this week, which technique is costing him marks, or what to add next.");
+  await loadChat("pchatWrap", true);
+}
+
+/* the whole conversation, kept for good, read from the one place */
+async function loadChat(boxId, parentSide) {
+  const box = $(boxId);
+  if (!box) return;
+  const { data } = await sb.rpc("truth");
+  const history = data?.chat ?? [];
+  box.innerHTML = "";
+  if (!history.length) {
+    const hello = parentSide
+      ? "Hello. Ask me anything about how he is going — what he has done this week, which technique is costing him marks, or what to add next."
+      : "Hello — good to see you. Ready when you are.";
+    if (parentSide) pBubble("coach", hello); else bubble("coach", hello);
+    return;
   }
+  history.forEach((m) => {
+    const role = m.role === "atharv" ? "me" : "coach";
+    if (parentSide) {
+      const d = document.createElement("div");
+      d.className = "msg " + role;
+      d.innerHTML = formatCoachHtml(m.body);
+      box.appendChild(d);
+    } else {
+      bubble(role, m.body);
+    }
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+/* every message is kept, not just the last few */
+async function keepChat(role, body) {
+  try { await sb.from("chat_messages").insert({ student_id: S.studentId ?? null, role, body }); }
+  catch (_) { /* the conversation still works if the save fails */ }
 }
 
 function pBubble(role, text) {
@@ -3554,13 +3594,16 @@ function pBubble(role, text) {
 }
 
 async function askParent(text) {
+  keepChat("atharv", text);
   pBubble("think", "…");
   const { data, error } = await sb.functions.invoke("coach-chat", {
     body: { mode: "parent", messages: [{ role: "atharv", content: text }], note: text },
   });
   document.querySelector("#pchatWrap .msg.think")?.remove();
+  const said = data?.reply ?? data?.say ?? "";
+  if (said) keepChat("coach", said);
   if (error || data?.error) { pBubble("coach", "I could not reach the coach. Try again in a moment."); return; }
-  pBubble("coach", data.reply);
+  pBubble("coach", said || "I could not reach the coach. Try again in a moment.");
 }
 
 async function sendParent() {
@@ -3569,6 +3612,7 @@ async function sendParent() {
   if (!text) return;
   box.value = "";
   S.forceScroll = true;
+  keepChat("atharv", text);
   heard = "";                    // the microphone must not put it back
   if (box.style) box.style.height = "";
   pBubble("me", text);
@@ -3643,6 +3687,8 @@ async function parentWeekly() {
   pBubble("think", "…");
   const { data, error } = await sb.functions.invoke("coach-chat", { body: { mode: "parent-weekly" } });
   document.querySelector("#pchatWrap .msg.think")?.remove();
+  const said = data?.reply ?? data?.say ?? "";
+  if (said) keepChat("coach", said);
   pBubble("coach", error || data?.error ? "The coach is unavailable right now." : data.reply);
 }
 
@@ -4601,6 +4647,7 @@ async function sendMe() {
   if (!text) return;
   box.value = "";
   S.forceScroll = true;
+  keepChat("atharv", text);
   heard = "";                    // the microphone must not put it back
   if (box.style) box.style.height = "";
   bubble("me", text);
@@ -4618,8 +4665,11 @@ async function sendMe() {
   bubble("think", "…");
   const reply = await callCoach({ mode: "reply" });
   document.querySelector(".msg.think")?.remove();
-  if (reply) { bubble("coach", reply, replySpoken); S.chat.push({ role: "coach", text: reply }); }
-  else bubble("coach", "I could not reach the coach just then. Try again in a moment.");
+  if (reply) {
+    bubble("coach", reply, replySpoken);
+    S.chat.push({ role: "coach", text: reply });
+    keepChat("coach", reply);
+  } else bubble("coach", "I could not reach the coach just then. Try again in a moment.");
   if (S.pendingStart) await beginWork();
 }
 
@@ -5072,7 +5122,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, loadChat, keepChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
