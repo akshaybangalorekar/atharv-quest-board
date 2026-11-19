@@ -831,6 +831,11 @@ main#pchat > .card{flex:0 0 auto}
               on them stay.</div>
             <div class="bar"><button class="ghost small" onclick="wipe('generated')">Delete generated content…</button></div>
           </div>
+          <div>
+            <div class="sub"><b>Both conversations.</b> Everything said to the coach — his thread and yours. Nothing
+              else is touched: his work, the files and the questions stay.</div>
+            <div class="bar"><button class="ghost small" onclick="wipe('chats')">Clear both conversations…</button></div>
+          </div>
           <div id="wipeProg" class="hidden" style="margin-top:6px">
             <div class="rowProg" style="margin-bottom:6px"><span id="wipeBar" style="width:0%"></span></div>
             <div class="sub" id="wipeText">Working…</div>
@@ -1110,7 +1115,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.34.3";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.35.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1662,7 +1667,7 @@ function journeyChart(j) {
       <div>
         <div class="k" style="margin:0 0 6px">Portion done</div>
         <div class="gauge"><span style="width:${portionPct}%"></span></div>
-        <div class="sub" style="margin-top:6px">${j.chapters_mastered ?? 0} of ${j.chapters_total ?? 0} chapters mastered · ${j.questions} questions · ${j.accuracy}% right</div>
+        <div class="sub" style="margin-top:6px">${j.chapters_mastered ?? 0} of ${j.chapters_total ?? 0} chapters mastered · ${j.questions ?? 0} questions · ${j.accuracy ?? 0}% right</div>
       </div>
       <div style="text-align:right">
         <div class="k" style="margin:0 0 6px">Next paper</div>
@@ -2460,8 +2465,9 @@ async function printQuestions(fam) {
 
 /* three wipes: everything, the files, or the coach's own questions */
 async function wipe(kind) {
-  const what = kind === "all" ? "EVERYTHING — his work, every file, every question, the timetable"
+  const what = kind === "all" ? "EVERYTHING — his work, every file, every question, the timetable, both conversations"
     : kind === "uploaded" ? "every uploaded file and the questions taken from them"
+    : kind === "chats" ? "both conversations with the coach — his thread and yours"
     : "every question the coach wrote";
   if (!confirm(`Delete ${what}?\n\nThis cannot be undone.`)) return;
 
@@ -2470,7 +2476,8 @@ async function wipe(kind) {
   wrap.classList.remove("hidden");
   $("resetMsg").textContent = "";
   const step = (pct, said) => { bar.style.width = pct + "%"; txt.textContent = said; };
-  step(8, kind === "all" ? "Clearing his work…" : "Removing questions…");
+  step(8, kind === "all" ? "Clearing his work…"
+    : kind === "chats" ? "Clearing the conversations…" : "Removing questions…");
 
   let files = [];
   if (kind === "uploaded" || kind === "all") {
@@ -2478,7 +2485,9 @@ async function wipe(kind) {
     files = (paths ?? []).map((p) => p.path).filter(Boolean);
   }
 
-  const rpc = kind === "all" ? "reset_all" : kind === "uploaded" ? "clear_uploaded" : "clear_generated";
+  const rpc = kind === "all" ? "reset_all"
+    : kind === "uploaded" ? "clear_uploaded"
+    : kind === "chats" ? "clear_chats" : "clear_generated";
   step(35, "Deleting from the database…");
   const { data, error } = await sb.rpc(rpc);
   if (error) {
@@ -2495,6 +2504,15 @@ async function wipe(kind) {
   step(90, "Checking what is left…");
   const { data: left } = await sb.from("problems").select("chapter").limit(1000);
   const remaining = (left ?? []).length;
+
+  if (kind === "chats") {
+    step(100, "Done.");
+    const cm = data?.child_messages ?? 0, pm = data?.parent_messages ?? 0;
+    $("resetMsg").textContent = `Done — ${cm} messages cleared from his thread and ${pm} from yours. Both are empty now.`;
+    S.TR = null;
+    setTimeout(() => wrap.classList.add("hidden"), 4000);
+    return;
+  }
 
   step(100, "Done.");
   const n = data?.questions_removed ?? data?.questions ?? 0;
