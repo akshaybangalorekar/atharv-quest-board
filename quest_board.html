@@ -901,11 +901,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 <!-- logging work done away from the app -->
 <!-- timetable -->
 <main id="timetable" class="hidden">
-  <div class="card">
-    <div class="k">How long each paper is</div>
-    <div class="sub" style="margin-bottom:6px">These are the exam times, not practice times. Practice is set by the plan below.</div>
+  <div class="card"><details>
+    <summary class="foldHead">How long each paper is</summary>
+    <div class="sub" style="margin:8px 0 6px">These are the exam times, not practice times. Practice is set by the plan below.</div>
     <div id="ttSpecs"></div>
-  </div>
+  </details></div>
   <div class="card">
     <div class="k">The plan</div>
     <div class="sub">Each exam's topics, spread evenly between today and the day it is sat.
@@ -1109,7 +1109,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.20.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.20.2";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
