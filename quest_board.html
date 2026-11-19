@@ -1235,7 +1235,7 @@ if (!createClient) {
 async function checkExamDates() {
   try {
     const { data: due } = await sb.rpc("date_check_due", { p_hours: 12 });
-    if (due) sb.functions.invoke("refresh-dates", { body: {} }).catch(() => {});
+    if (due) sb.functions.invoke("exam-watch", { body: {} }).catch(() => {});
     await paintDateBanner();
   } catch (_) {}
 }
@@ -1243,24 +1243,23 @@ async function checkExamDates() {
 async function paintDateBanner() {
   const box = $("dateBanner");
   if (!box) return;
-  const { data } = await sb.rpc("pending_date_changes");
+  const { data } = await sb.rpc("pending_alerts");
   const rows = data ?? [];
   if (!rows.length) { box.classList.add("hidden"); return; }
 
-  const changes = rows.flatMap((r) => r.changes ?? []);
-  if (!changes.length) { box.classList.add("hidden"); return; }
-
-  const one = (c) => `${esc(c.exam)}: ${c.from ? esc(String(c.from).slice(0, 10)) + " → " : ""}<b>${esc(c.to)}</b>`;
+  const KIND = { date: "Date", format: "Format", timing: "Timing", topics: "Topics", news: "News" };
+  const one = (a) => `<b>${esc(KIND[a.kind] ?? a.kind)}</b> · ${esc(a.exam ?? "")}: ${esc(a.summary)}
+    ${a.source ? `<span class="sub" style="opacity:.75"> — ${esc(String(a.source).replace(/^https?:\/\//, "").slice(0, 48))}</span>` : ""}`;
 
   box.classList.remove("hidden");
-  box.innerHTML = `<span>Exam dates have been updated from the official sites. Confirm with the school before you plan around them.</span>
-    <ul>${changes.map((c) => `<li>${one(c)}</li>`).join("")}</ul>
+  box.innerHTML = `<span>An update about these exams, from the providers' own pages. Confirm anything that matters with the school.</span>
+    <ul>${rows.map((a) => `<li>${one(a)}</li>`).join("")}</ul>
     <button class="dBtn" onclick="dismissDateBanner()">Got it</button>`;
 }
 
 async function dismissDateBanner() {
   $("dateBanner")?.classList.add("hidden");
-  try { await sb.rpc("dismiss_date_changes"); } catch (_) {}
+  try { await sb.rpc("dismiss_alerts"); await sb.rpc("dismiss_date_changes"); } catch (_) {}
 }
 
 window.addEventListener("error", (e) => {
@@ -1305,7 +1304,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.53.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.54.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
