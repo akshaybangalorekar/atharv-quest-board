@@ -540,18 +540,14 @@ main#session, main#pchat{
 }
 
 /* the pill: full width on a phone, a centred bar on a desk */
+/* the box spans the screen: left edge to right edge, whatever the device */
 #sComposer, #pComposer{
   width: auto;
-  max-width: var(--col);
-  margin-left: auto; margin-right: auto;
+  max-width: none;
   margin-left: max(var(--edge), env(safe-area-inset-left));
   margin-right: max(var(--edge), env(safe-area-inset-right));
 }
-@media (min-width: 700px){
-  #sComposer, #pComposer{
-    margin-left: auto; margin-right: auto;
-  }
-}
+#sComposer textarea, #pComposer input{ width: 100%; }
 
 /* a phone in the hand: tighter edges, bigger touch targets */
 @media (max-width: 480px){
@@ -1318,7 +1314,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.56.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.57.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
