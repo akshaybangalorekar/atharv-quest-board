@@ -1082,7 +1082,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.24.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.25.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -4158,7 +4158,7 @@ function cleanCoachText(text) {
   const t = String(text ?? "");
   if (!/\{\s*"?(say|speak|log)"/.test(t)) return t;
   const m = /"say"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"(?:speak|log)"|\})/.exec(t);
-  if (m) return m[1].replace(/\\n/g, " ").replace(/\\"/g, '"').trim();
+  if (m) return m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').trim();
   return t.replace(/\{.*\}/s, "").trim() || "…";
 }
 
