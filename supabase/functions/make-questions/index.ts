@@ -52,12 +52,36 @@ ${seeds ? `Here are questions already in this strand. Match their style and voca
 Rules:
 - Every question must be solvable with Year 6 arithmetic — no algebra beyond a simple unknown, no trigonometry.
 - Numbers must be chosen so the answer is clean. Work each one out and check it.
-- Never write a question whose answer depends on a diagram you have not drawn.
+- About one question in three should need a figure — a shape, a grid, a bar chart, a table, a number
+  line, a pattern of tiles. For those, add "fig" saying exactly what the drawing must show: every
+  length, angle, label and value. The question must be answerable from that drawing alone.
+- For the rest, no "fig" key at all.
 - Vary the wording. Do not start three questions the same way.
 - Keep each question under 40 words.
 
 Reply with JSON only:
-{"rows":[{"q":"the question","a":"the final answer, short","m":"one sentence of method","d":${difficulty}}]}`;
+{"rows":[{"q":"the question","a":"the final answer, short","m":"one sentence of method","d":${difficulty},
+          "fig":{"what":"a rectangle 8 cm by 5 cm, the left half shaded"}}]}`;
+
+const DRAW = `You are drawing the figure that belongs to a maths question, as an SVG. A student will read
+this instead of a page, so it must be right.
+
+Rules:
+- viewBox "0 0 480 340". Use the canvas; do not crowd the figure into a corner.
+- Colour it: soft fills (#e8f0ff, #fff4d6, #e9f7ec, #fde8ef) with outlines in a darker shade of the same
+  colour. Axes and labels #33415c. Three colours at most.
+- Line width 2, label font-size 15, font-family="system-ui, sans-serif".
+- Label every point, length, angle and value the question names.
+- Be geometrically honest: right angles marked with a small square, equal sides equal, bars in
+  proportion to their numbers, axes and gridlines present on charts.
+- No title, no answer, no workings.
+
+If it cannot be drawn faithfully, reply with exactly: NONE
+Otherwise reply with the SVG only, starting with <svg and ending with </svg>.`;
+
+const CHECK = `You check a drawing against the question it belongs to. Answer one word: YES if the drawing shows
+every element the question names and nothing false; NO if a label is missing, a number is wrong, a shape
+is not what the question says, or a length or angle is clearly out of proportion. Be strict.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -183,8 +207,13 @@ Deno.serve(async (req) => {
     let idx = maxRow?.idx ?? 0;
 
     let added = 0;
+    const drawn: Array<{ chapter: number; idx: number; prompt: string; what: string }> = [];
     for (const row of rows) {
       idx += 1;
+      const rowAny = row as any;
+      const fig = rowAny?.fig && typeof rowAny.fig === "object" ? rowAny.fig : null;
+      if (fig && fig.what) drawn.push({ chapter: ch.n, idx, prompt: String(row.q), what: String(fig.what) });
+
       const { error } = await admin.from("problems").insert({
         chapter: ch.n, idx, prompt: String(row.q).trim(),
         difficulty: Number(row.d) || difficulty,
@@ -210,11 +239,36 @@ Deno.serve(async (req) => {
 
     await admin.from("chapters").update({ practice: (ch.practice ?? 0) + added }).eq("n", ch.n);
 
-    return json({ added, difficulty, focus });
+    // a figure for every question that asked for one, checked before it is kept
+    let figures = 0;
+    for (const item of drawn.slice(0, 8)) {
+      const svg = await drawFigure(item.prompt, item.what);
+      if (svg) {
+        await admin.from("problems").update({ diagram_svg: svg })
+          .eq("chapter", item.chapter).eq("idx", item.idx);
+        figures += 1;
+      }
+    }
+
+    return json({ added, figures, difficulty, focus, chapter: ch.n });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
 });
+
+async function ask(messages: unknown[], temperature: number, maxTokens: number) {
+  const r = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "api-subscription-key": Deno.env.get("SARVAM_API_KEY")!,
+    },
+    body: JSON.stringify({ model: MODEL, temperature, max_tokens: maxTokens, messages }),
+  });
+  if (!r.ok) return "";
+  const body = await r.json();
+  return String(body?.choices?.[0]?.message?.content ?? "");
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

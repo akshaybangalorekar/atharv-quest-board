@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.74.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.75.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1991,11 +1991,15 @@ async function generateFor(fam, count, btn) {
   if (btn) { btn.disabled = true; btn.textContent = "Writing…"; }
   const { data, error } = await sb.functions.invoke("make-questions", { body: { exam, count } });
   const added = data?.added ?? 0;
+  const figs = data?.figures ?? 0;
   await sb.rpc("log_topup", {
     p_exam: exam, p_asked: count, p_made: added,
-    p_reason: error ? error.message : "asked for from the parent screen",
+    p_reason: error ? error.message : `asked for from the parent screen, ${figs} with a figure`,
   });
-  if (btn) { btn.disabled = false; btn.textContent = added ? `Added ${added}` : "Nothing added"; }
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = added ? `Added ${added}${figs ? ` · ${figs} with a figure` : ""}` : "Nothing added";
+  }
   setTimeout(() => goParent(), 900);
 }
 
