@@ -1176,7 +1176,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.48.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.49.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1377,7 +1377,7 @@ async function openTimetable() {
         </div>`;
       }).join("");
 
-      return `<details class="ttMore"${yi === 0 ? " open" : ""}>
+      return `<details class="ttMore">
         <summary>${esc(sits)} — ${y.minutes} min in the exam</summary>
         <div class="ttFormat">
           <b>${esc(y.timing ?? "")}</b>${y.breaks ? ` · ${esc(y.breaks)}` : ""}
@@ -3067,15 +3067,15 @@ async function goParent() {
         </div>`;
       }).join("");
 
-      return `<div class="ttPaperHead">
-          ${esc(r.school)} — ${r.sits_minutes ?? 0} min in the exam
+      return `<details class="ttMore"><summary>${esc(r.school)} — ${r.sits_minutes ?? 0} min in the exam</summary>
+        <div class="ttPaperHead" style="display:none">${esc(r.school)}
           <span class="exDate" id="dl${fam}${i}" style="font-weight:400">${esc(d)}${dd !== null ? ` · ${dd}d` : ""}</span>
           <button class="pencil" title="Change the date" onclick="editDate('${fam}${i}', this.dataset.exam, this.dataset.on)"
                   data-exam="${esc(r.calendar_name ?? "")}" data-on="${r.sits_on ?? ""}">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
               <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-        </div>${sections}`;
+        </div>${sections}</details>`;
     }).join("");
 
     return `<div class="card ttExam">
