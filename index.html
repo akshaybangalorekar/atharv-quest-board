@@ -462,6 +462,16 @@ main#pchat > .card{flex:0 0 auto}
 #sComposer .sayRow{display:flex;gap:8px;align-items:flex-end;margin:0}
 #sComposer textarea{flex:1 1 auto;border:0;outline:0;resize:none;background:transparent;
   font:inherit;font-size:15px;padding:6px 2px;max-height:110px}
+
+.secList{margin:4px 0 2px}
+.secLine{display:grid;grid-template-columns:1.1fr auto auto 1.6fr 64px;gap:10px;align-items:center;
+  padding:5px 0;border-top:1px solid var(--line);font-size:12.5px}
+.secLine:first-child{border-top:0}
+.secName{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.secMin{color:var(--mut);white-space:nowrap}
+.secQ{color:var(--mut);white-space:nowrap}
+.secTopics{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.secBar{width:64px}
 </style>
 </head>
 <body>
@@ -1122,7 +1132,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.42.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.43.2";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1242,11 +1252,11 @@ async function openTimetable() {
   show("timetable");
   const box = $("ttBody");
   box.innerHTML = `<div class="card"><div class="sub">Working out where you are…</div></div>`;
-  const specs = (S.TR ?? {}).specs ?? [];
+  const { data: trTT } = await sb.rpc("truth");
+  const specs = trTT?.specs ?? [];
   const specFor = {};
   (specs ?? []).forEach((x) => { (specFor[x.family] = specFor[x.family] ?? []).push(x); });
 
-  const { data: trTT } = await sb.rpc("truth");
   const data = (trTT?.families ?? []).map((f) => ({
     label: f.label, exam_on: f.exam_on, days_left: f.days_left,
     topics_all: f.topics_all, topics_done: f.topics_done, topics_started: f.topics_started,
@@ -1294,16 +1304,29 @@ async function openTimetable() {
     const mine = specFor[x.label] ?? [];
     const topics = x.rows ?? [];
 
-    // the paper, section by section, with that section's topics underneath
-    const paper = mine.map((y) => {
+    // a school folds away; inside it, one line per section with everything about that section
+    const paper = mine.map((y, yi) => {
+      const sits = y.sits ?? x.label;
       const sections = (y.sections ?? []).map((sec) => {
         const own = topics.filter((t) => (SOURCE_SECTION[t.source] ?? "Whole paper") === sec.part);
-        return `<div class="ttSection">
-          <div class="ttSectionHead">${esc(sec.part)} <span class="sub">· ${sec.minutes} min in the exam</span></div>
-          ${own.length ? own.map(topicRow).join("") : `<div class="ttNone">no questions for this section yet</div>`}
+        const loaded = own.reduce((a, t) => a + (t.questions ?? 0), 0);
+        const ready = own.filter((t) => (t.preparedness ?? 0) >= 60).length;
+        const names = own.map((t) => String(t.title).split(" · ").pop());
+        const shown = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3} more` : "");
+        const pctSec = own.length ? Math.round(own.reduce((a, t) => a + (t.preparedness ?? 0), 0) / own.length) : 0;
+        return `<div class="secLine">
+          <span class="secName">${esc(sec.part)}</span>
+          <span class="secMin">${sec.minutes} min</span>
+          <span class="secQ">${loaded ? `${loaded} q` : "no questions"}</span>
+          <span class="secTopics" title="${esc(names.join(", "))}">${own.length ? `${ready}/${own.length} ready · ${esc(shown)}` : "no topics yet"}</span>
+          <span class="bar2 secBar"><i style="width:${pctSec}%"></i></span>
         </div>`;
       }).join("");
-      return `<div class="ttPaperHead">${esc(y.sits)} — ${y.minutes} min in the exam</div>${sections}`;
+
+      return `<details class="ttMore"${yi === 0 ? " open" : ""}>
+        <summary>${esc(sits)} — ${y.minutes} min in the exam</summary>
+        <div class="secList">${sections}</div>
+      </details>`;
     }).join("");
 
     const loose = topics.filter((t) => !mine.some((y) => (y.sections ?? []).some(
@@ -1317,12 +1340,10 @@ async function openTimetable() {
         <span class="ttMeta" style="margin-left:auto">${done} of ${all} topics</span>
       </div>
       <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
-      <details class="ttMore"><summary>the paper and the topics</summary>
-        <div style="margin-top:6px">
-          ${mine.length ? paper : topics.map(topicRow).join("")}
-          ${loose.length ? `<div class="ttSection"><div class="ttSectionHead">Other topics</div>${loose.map(topicRow).join("")}</div>` : ""}
-        </div>
-      </details>
+      ${mine.length ? paper : `<details class="ttMore"><summary>the topics</summary>
+        <div style="margin-top:6px">${topics.map(topicRow).join("")}</div></details>`}
+      ${loose.length ? `<details class="ttMore"><summary>other topics</summary>
+        <div style="margin-top:6px">${loose.map(topicRow).join("")}</div></details>` : ""}
     </div>`;
   }).join("");
 }
