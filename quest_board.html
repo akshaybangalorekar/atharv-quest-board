@@ -1111,7 +1111,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.40.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.41.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1239,7 +1239,7 @@ async function openTimetable() {
   const data = (trTT?.families ?? []).map((f) => ({
     label: f.label, exam_on: f.exam_on, days_left: f.days_left,
     topics_all: f.topics_all, topics_done: f.topics_done, topics_started: f.topics_started,
-    behind: 0, due_by_now: 0, rows: [],
+    behind: f.behind ?? 0, due_by_now: f.due_by_now ?? 0, rows: f.rows ?? [],
   }));
   const error = null;
   if (error) { box.innerHTML = `<div class="card"><div class="sub">${esc(error.message)}</div></div>`; return; }
