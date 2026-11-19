@@ -1364,7 +1364,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.74.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.75.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1639,25 +1639,20 @@ async function autoTrain() {
   try {
     const { data: due } = await sb.rpc("train_due", { p_hours: 24 });
     if (!due) return;
-    sb.functions.invoke("train-coach", { body: { mode: "fetch" } })
-      .then(() => sb.functions.invoke("train-coach", { body: { mode: "upload" } }))
-      .then(() => sb.functions.invoke("train-coach", { body: { mode: "verify" } }))
+    sb.functions.invoke("train-coach", { body: { mode: "all" } })
       .then(() => { if ($("trainList")) loadTraining(); })
       .catch(() => {});
   } catch (_) {}
 }
 
 async function trainNow() {
-  $("trainMsg").textContent = "Reading the sources… this takes a minute.";
-  const a = await sb.functions.invoke("train-coach", { body: { mode: "fetch" } }).catch((e) => ({ data: { error: e.message } }));
-  $("trainMsg").textContent = "Keeping your uploads…";
-  const b = await sb.functions.invoke("train-coach", { body: { mode: "upload" } }).catch(() => ({ data: {} }));
-  $("trainMsg").textContent = "Checking every question…";
-  const c = await sb.functions.invoke("train-coach", { body: { mode: "verify" } }).catch(() => ({ data: {} }));
+  $("trainMsg").textContent = "Reading your uploads, then the sources, then checking the bank… this takes a minute.";
+  const { data, error } = await sb.functions.invoke("train-coach", { body: { mode: "all" } });
+  if (error) { $("trainMsg").textContent = "Could not train: " + error.message; return; }
 
-  const f = a?.data?.fetched ?? 0, u = b?.data?.papers ?? 0, v = c?.data?.checked ?? 0;
-  const bad = (c?.data?.failed ?? []).length;
-  $("trainMsg").textContent = `Done — read ${f} source${f === 1 ? "" : "s"}, kept ${u} upload${u === 1 ? "" : "s"}` +
+  const f = data?.fetched ?? 0, u = data?.uploads ?? 0, v = data?.checked ?? 0;
+  const bad = (data?.failed ?? []).length;
+  $("trainMsg").textContent = `Done — kept ${u} upload${u === 1 ? "" : "s"}, read ${f} source${f === 1 ? "" : "s"}` +
     (v ? `, checked ${v} question${v === 1 ? "" : "s"}${bad ? `, held back ${bad}` : ""}.`
        : ", and there were no questions in the bank to check.");
   loadTraining();
