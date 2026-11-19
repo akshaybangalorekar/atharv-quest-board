@@ -413,8 +413,9 @@ Deno.serve(async (req) => {
        that can change (questions loaded, attempts, accuracy, sessions, test results), the live facts above win.
        If the two disagree, say the live figure: ${JSON.stringify(brief ?? {})}`,
       `His last check-in: ${JSON.stringify(c.self_reports?.[0] ?? {})}`,
-      `EARLIER CONVERSATION — context only, never a source of facts. If anything in it disagrees with the facts
-       above, the facts win and you say plainly that the earlier figure was wrong: ${JSON.stringify(c.recent_chat ?? []).slice(0, 900)}`,
+      `EARLIER CONVERSATION IN THIS THREAD — context only, never a source of facts. If anything in it disagrees
+       with the facts above, the facts win and you say plainly that the earlier figure was wrong. A parent's
+       separate conversation with you is not in here and you must never quote it to him: ${JSON.stringify(c.recent_chat ?? []).slice(0, 900)}`,
       `Today's plan: ${JSON.stringify(c.plan ?? [])}`,
       `Next session: ${JSON.stringify(c.next_session ?? {})}`,
       `Track he chose: ${track}.`,
