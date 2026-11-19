@@ -616,6 +616,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </div>
   </details></div>
 
+  <div class="card" id="toughCard" style="display:none"><details>
+    <summary class="foldHead">What he finds hard</summary>
+    <div id="pTough" style="margin-top:10px"></div>
+  </details></div>
+
   <div class="card"><details>
     <summary class="foldHead">Weakest techniques</summary>
     <ul id="pWeak" style="margin:10px 0 0;padding-left:18px"><li class="sub">Nothing recorded yet.</li></ul>
@@ -674,6 +679,15 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 
           <p><b>When a test is due.</b> Only when she judges him ready. Printing or generating questions never sets
           one. You can ask her to bring it forward.</p>
+
+          <p><b>The official topics are the only topics.</b> Every exam has a published list, and it is the only
+          thing she teaches or sets — no invented topics, no off-syllabus puzzles. If he asks for something outside
+          it, she says it is not on his paper and brings him back.</p>
+
+          <p><b>She watches what he finds hard.</b> She is told the topics where his accuracy is lowest and his pace
+          slowest, and those come before new material until they are fixed: re-teach the missing step with a smaller
+          example, two or three questions on that step alone, then check it again. She names the topic when she goes
+          back to it, and says when it is fixed. The same list is on this screen under <b>What he finds hard</b>.</p>
 
           <p><b>What she is given.</b> A standing brief rebuilt every night: his day in the programme, questions
           answered, accuracy, chapters started and mastered, weakest techniques, test results, the next real exam and
@@ -1024,7 +1038,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.12.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.13.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2499,6 +2513,25 @@ async function preparePages(paperId) {
     await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: i + 1, path }, { onConflict: "paper_id,page_no" });
     paintTopProgress(i + 1, pages.length, `Saving page ${i + 1} of ${pages.length}`);
   }
+}
+
+/* the topics costing him marks, worst first — the same list she is given */
+async function loadTough() {
+  const card = $("toughCard"), box = $("pTough");
+  if (!card || !box) return;
+  const { data } = await sb.rpc("tough_topics", { p_limit: 6 });
+  const rows = data ?? [];
+  if (!rows.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  const cls = (v) => v === "struggling" ? "red" : v === "shaky" ? "amber"
+    : v === "slow" ? "amber" : v === "coping" ? "ok" : "grey";
+  box.innerHTML = rows.map((r) => `
+    <div class="upRow">
+      <span class="upName">${esc(String(r.title).split(" · ").pop())}</span>
+      <span class="upState">${r.correct}/${r.tries} right · ${r.accuracy}%${
+        r.avg_seconds ? ` · ${r.avg_seconds}s a question` : ""} ·
+        <span class="pill ${cls(r.verdict)}">${esc(r.verdict)}</span></span>
+    </div>`).join("");
 }
 
 /* what he has asked her for, and what came of it */
@@ -4972,7 +5005,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
