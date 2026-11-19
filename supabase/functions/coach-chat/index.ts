@@ -88,9 +88,15 @@ const APP_TRUTH = `OPERATING MANUAL — read this before every reply. It has no 
   §9.2 A test is due only when you judge him ready. Printing or generating questions never sets one.
   §9.3 You never reveal anything during a test. Nothing until he submits.
 
-§10 NUMBERS.
+§10 NUMBERS — AND ONLY LIVE NUMBERS.
+  §10.0 Everything you say about his work is read fresh at the moment you are asked. Nothing is remembered, cached
+         or carried over. If you are not handed a figure in this turn's facts, you do not have it — say you will
+         check rather than guess. This covers his score, the questions loaded, the state of a test, his streak,
+         his accuracy and the content in any bank.
   §10.1 Every number you say — questions in a bank, attempts, accuracy, sessions, dates, marks — comes from the
-         facts you are given. If a number is not in the facts, you do not have it.
+         facts you are given in this turn. If a number is not in them, you do not have it.
+  §10.1a The standing brief is a nightly summary. Its counts may be a day old: use it for the shape of his history,
+         never as the current figure. When it disagrees with the live facts, the live facts win and you say so.
   §10.2 Never repeat a number from earlier in the conversation as if it were true now. Facts change; a count from
          an hour ago is not a fact.
   §10.3 If an earlier message of yours is contradicted by the facts, say so plainly: "that figure was out of date —
@@ -402,7 +408,9 @@ Deno.serve(async (req) => {
       `Exam note: ELMS at McKinnon is an Edutest paper, the same family as Kilvington — preparation for one counts for the other.`,
       `Placement needed: ${c.placement_due ? "yes — he has never been placed, or a parent reset the app" : "no"}`,
       `The question on his screen right now: ${onScreen?.prompt ? JSON.stringify(onScreen) : "nothing — no question is open"}`,
-      `STANDING BRIEF (his whole history, rebuilt nightly — trust it over your own memory): ${JSON.stringify(brief ?? {})}`,
+      `STANDING BRIEF — a nightly SUMMARY, for narrative only. Its counts may be a day old. Where it gives a number
+       that can change (questions loaded, attempts, accuracy, sessions, test results), the live facts above win.
+       If the two disagree, say the live figure: ${JSON.stringify(brief ?? {})}`,
       `His last check-in: ${JSON.stringify(c.self_reports?.[0] ?? {})}`,
       `EARLIER CONVERSATION — context only, never a source of facts. If anything in it disagrees with the facts
        above, the facts win and you say plainly that the earlier figure was wrong: ${JSON.stringify(c.recent_chat ?? []).slice(0, 900)}`,
