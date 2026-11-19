@@ -411,6 +411,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 .specMore summary{list-style:none;cursor:pointer;color:var(--acc);font-size:11.5px}
 .specMore summary::-webkit-details-marker{display:none}
 .specParts{margin-top:4px;font-size:12.5px;color:var(--mut);display:grid;gap:2px}
+
+.ttSpecLine{color:var(--mut);font-size:12.5px;margin-top:4px}
+.ttPaper{margin:8px 0 10px;padding:8px 10px;background:#faf9ff;border:1px solid var(--line);border-radius:10px}
+.ttPaperHead{font-weight:600;font-size:12.5px;margin-bottom:3px}
+.ttPaperPart{font-size:12.5px;color:var(--mut)}
 </style>
 </head>
 <body>
@@ -901,11 +906,6 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 <!-- logging work done away from the app -->
 <!-- timetable -->
 <main id="timetable" class="hidden">
-  <div class="card"><details>
-    <summary class="foldHead">How long each paper is</summary>
-    <div class="sub" style="margin:8px 0 6px">These are the exam times, not practice times. Practice is set by the plan below.</div>
-    <div id="ttSpecs"></div>
-  </details></div>
   <div class="card">
     <div class="k">The plan</div>
     <div class="sub">Each exam's topics, spread evenly between today and the day it is sat.
@@ -1109,7 +1109,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.20.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.21.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1230,17 +1230,8 @@ async function openTimetable() {
   const box = $("ttBody");
   box.innerHTML = `<div class="card"><div class="sub">Working out where you are…</div></div>`;
   const { data: specs } = await sb.rpc("exam_specs");
-  $("ttSpecs").innerHTML = (specs ?? []).map((x) => `
-    <div class="specRow">
-      <span class="specName">${esc(x.family)}</span>
-      <span class="specWhere">${esc(x.sits)}</span>
-      <span class="specTime"><b>${x.minutes} min</b> in the exam${x.questions ? ` · about ${x.questions} questions` : ""}</span>
-      <details class="specMore"><summary>sections</summary>
-        <div class="specParts">${(x.sections ?? []).map((y) =>
-          `<div>${esc(y.part)} — <b>${y.minutes} min</b></div>`).join("")}
-          <div class="sub" style="margin-top:6px">${esc(x.note ?? "")}</div></div>
-      </details>
-    </div>`).join("");
+  const specFor = {};
+  (specs ?? []).forEach((x) => { (specFor[x.family] = specFor[x.family] ?? []).push(x); });
 
   const { data, error } = await sb.rpc("timetable");
   if (error) { box.innerHTML = `<div class="card"><div class="sub">${esc(error.message)}</div></div>`; return; }
@@ -1256,6 +1247,10 @@ async function openTimetable() {
     const verdict = behind > 0 ? `${behind} behind` : done >= due && due > 0 ? "on track" : done > due ? "ahead" : "not started";
     const vcls = behind > 0 ? "red" : done > due ? "green" : due > 0 ? "amber" : "grey";
     const pct = all ? Math.round((done / all) * 100) : 0;
+    const mine = specFor[x.label] ?? [];
+    const specLine = mine.map((y) =>
+      `<b>${y.minutes} min</b> in the exam${y.questions ? ` · about ${y.questions} questions` : ""}` +
+      (y.sits && mine.length > 1 ? ` <span class="sub">(${esc(y.sits)})</span>` : "")).join(" · ");
     const examWhen = x.exam_on
       ? new Date(x.exam_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
       : "no date";
@@ -1266,8 +1261,13 @@ async function openTimetable() {
         <span class="ttMeta">${examWhen}${x.days_left !== null ? ` · ${x.days_left} days` : ""}</span>
         <span class="ttMeta" style="margin-left:auto">${done} of ${all} topics</span>
       </div>
+      ${specLine ? `<div class="ttSpecLine">${specLine}</div>` : ""}
       <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
-      <details class="ttMore"><summary>the topics</summary>
+      <details class="ttMore"><summary>the topics and the paper</summary>
+        ${mine.length ? `<div class="ttPaper">${mine.map((y) => `
+          <div class="ttPaperHead">${esc(y.sits)} — ${y.minutes} min in the exam</div>
+          ${(y.sections ?? []).map((z) => `<div class="ttPaperPart">${esc(z.part)} — <b>${z.minutes} min</b></div>`).join("")}
+          ${y.note ? `<div class="sub" style="margin:2px 0 6px">${esc(y.note)}</div>` : ""}`).join("")}</div>` : ""}
         <div class="ttRows">
           ${(x.rows ?? []).map((r) => {
             const target = r.target_on
