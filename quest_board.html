@@ -1116,6 +1116,7 @@ main#session, main#pchat{
     <div id="trainStore" style="margin-top:10px"></div>
     <div class="bar" style="margin-top:10px">
       <button class="go small" onclick="trainNow()">Train her now</button>
+      <button class="ghost small" onclick="findSources()">Find new sources</button>
       <button class="ghost small" onclick="verifyBank()">Check every question</button>
     </div>
     <div class="err" id="trainMsg"></div>
@@ -1363,7 +1364,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.71.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.72.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1609,7 +1610,7 @@ async function loadTraining() {
       <span class="dot ${x.passages ? "green" : x.active ? "amber" : "grey"}"></span>
       <span class="srcName">${esc(x.name)}
         <span class="sub" style="display:block">${esc(KIND[x.kind] ?? x.kind)}${x.url ? ` · ${esc(String(x.url).replace(/^https?:\/\//, ""))}` : ""}</span></span>
-      <span class="srcWhen">${x.passages ? `${x.passages} passages · ${when(x.last_read)}` : when(x.last_read)}</span>
+      <span class="srcWhen">${x.found_by === "coach" ? `<span class="chip" style="font-size:10.5px">found by her</span> ` : ""}${x.passages ? `${x.passages} passages · ${when(x.last_read)}` : when(x.last_read)}</span>
       ${S.isParent ? `<button class="mini" data-id="${x.id}" data-on="${x.active ? "1" : ""}"
           onclick="toggleTrainingSource(this.dataset.id, this.dataset.on !== '1')">${x.active ? "Pause" : "Resume"}</button>` : ""}
     </div>`).join("") : `<div class="sub">No sources yet.</div>`;
@@ -1657,6 +1658,27 @@ async function trainNow() {
   const f = a?.data?.fetched ?? 0, u = b?.data?.papers ?? 0, v = c?.data?.checked ?? 0;
   const bad = (c?.data?.failed ?? []).length;
   $("trainMsg").textContent = `Done — read ${f} source${f === 1 ? "" : "s"}, kept ${u} upload${u === 1 ? "" : "s"}, checked ${v} question${v === 1 ? "" : "s"}${bad ? `, held back ${bad}` : ""}.`;
+  loadTraining();
+}
+
+/* she looks for more places to read, and only what answers is kept */
+async function findSources() {
+  $("trainMsg").textContent = "Looking for new sources… this takes a minute.";
+  const { data, error } = await sb.functions.invoke("train-coach", { body: { mode: "discover" } });
+  if (error) { $("trainMsg").textContent = "Could not look: " + error.message; return; }
+
+  const added = data?.added ?? [];
+  const proposed = data?.proposed ?? 0;
+  $("trainMsg").textContent = added.length
+    ? `Added ${added.length} of ${proposed} she suggested: ${added.map((a) => a.name).join(", ")}. They will be read on the next train.`
+    : proposed
+      ? `She suggested ${proposed}, but none answered or none were maths pages, so nothing was added.`
+      : "She had nothing new to suggest.";
+  if (added.length) {
+    $("trainMsg").textContent += " Reading them now…";
+    await sb.functions.invoke("train-coach", { body: { mode: "fetch" } }).catch(() => {});
+    $("trainMsg").textContent += " done.";
+  }
   loadTraining();
 }
 
@@ -5770,7 +5792,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;

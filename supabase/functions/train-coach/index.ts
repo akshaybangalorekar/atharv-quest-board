@@ -65,6 +65,18 @@ async function ask(system: string, user: string, temperature = 0): Promise<strin
   return (b?.choices?.[0]?.message?.content ?? "").trim();
 }
 
+
+const FIND = `You suggest websites that hold real maths material for an 11-year-old preparing for Australian
+competitions and scholarship tests: official providers first, then well-known free maths sites.
+
+Rules:
+- Only sites that actually exist and are free to read.
+- No forums, no social media, no video sites, no paywalled papers, no search pages.
+- One line each, and a reason in six words.
+
+Reply with JSON only:
+{"sites":[{"name":"...","url":"https://...","why":"..."}]}`;
+
 const SOLVE = `You check whether a maths question can be answered at all, before it is given to a child.
 
 Read the question on its own, with no extra information. Then answer:
@@ -152,6 +164,49 @@ async function handle(req: Request) {
       if (!upErr) kept++;
     }
     return json({ mode, papers: kept });
+  }
+
+  // -------------------------------------------------------------- discover --
+  if (mode === "discover") {
+    const { data: have } = await supa.from("training_sources").select("name, url");
+    const known = (have ?? []).map((x: any) => String(x.url ?? "")).join("\n");
+    const raw = await ask(FIND, `Already on the list:\n${known || "(nothing yet)"}\n\nSuggest up to six more.`);
+    const m = raw.match(/\{[\s\S]*\}/);
+    let sites: Array<{ name: string; url: string; why: string }> = [];
+    try { sites = JSON.parse(m ? m[0] : "{}").sites ?? []; } catch (_) {}
+
+    const added: Array<Record<string, unknown>> = [];
+    const knownHosts = new Set((have ?? []).map((x: any) => {
+      try { return new URL(String(x.url)).host.replace(/^www\./, ""); } catch { return ""; }
+    }));
+    const BAD = /(google|bing|facebook|instagram|youtube|reddit|quora|pinterest|twitter|x\.com|tiktok|amazon|ebay)/i;
+
+    for (const site of sites.slice(0, 6)) {
+      const url = String(site.url ?? "");
+      if (!/^https:\/\//.test(url)) continue;
+      let host = "";
+      try { host = new URL(url).host.replace(/^www\./, ""); } catch { continue; }
+      if (!host || knownHosts.has(host) || BAD.test(host)) continue;
+
+      // it must actually answer, and actually hold words
+      try {
+        const r = await fetch(url, { headers: { "user-agent": "QuestCoach/1.0 (family study app)" } });
+        if (!r.ok) continue;
+        const text = textOf(await r.text());
+        if (text.length < 600) continue;
+        const maths = (text.match(/maths?|mathemat|number|fraction|algebra|geometry|problem/gi) ?? []).length;
+        if (maths < 8) continue;                       // not a maths page
+
+        const { error } = await supa.rpc("add_training_source", {
+          p_name: String(site.name ?? host).slice(0, 80), p_url: url, p_kind: "popular",
+          p_family: "general", p_note: String(site.why ?? "").slice(0, 120), p_found_by: "coach",
+        });
+        if (error) continue;
+        knownHosts.add(host);
+        added.push({ name: site.name, url, why: site.why });
+      } catch (_) { /* a site that does not answer is not added */ }
+    }
+    return json({ mode, proposed: sites.length, added });
   }
 
   // ----------------------------------------------------------------- fetch --
