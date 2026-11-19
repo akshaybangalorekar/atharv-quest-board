@@ -1364,7 +1364,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.72.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.72.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1657,7 +1657,9 @@ async function trainNow() {
 
   const f = a?.data?.fetched ?? 0, u = b?.data?.papers ?? 0, v = c?.data?.checked ?? 0;
   const bad = (c?.data?.failed ?? []).length;
-  $("trainMsg").textContent = `Done — read ${f} source${f === 1 ? "" : "s"}, kept ${u} upload${u === 1 ? "" : "s"}, checked ${v} question${v === 1 ? "" : "s"}${bad ? `, held back ${bad}` : ""}.`;
+  $("trainMsg").textContent = `Done — read ${f} source${f === 1 ? "" : "s"}, kept ${u} upload${u === 1 ? "" : "s"}` +
+    (v ? `, checked ${v} question${v === 1 ? "" : "s"}${bad ? `, held back ${bad}` : ""}.`
+       : ", and there were no questions in the bank to check.");
   loadTraining();
 }
 
@@ -1686,7 +1688,9 @@ async function verifyBank() {
   $("trainMsg").textContent = "Checking the questions…";
   const { data } = await sb.functions.invoke("train-coach", { body: { mode: "verify" } });
   const n = data?.checked ?? 0, bad = (data?.failed ?? []).length;
-  $("trainMsg").textContent = `Checked ${n} question${n === 1 ? "" : "s"}${bad ? `, held back ${bad} that cannot be answered as written` : ", all sound"}.`;
+  $("trainMsg").textContent = n === 0
+    ? "There are no questions in the bank to check. Add a file, or press Generate 20 in the parent view."
+    : `Checked ${n} question${n === 1 ? "" : "s"}${bad ? `, held back ${bad} that cannot be answered as written` : ", all sound"}.`;
   loadTraining();
 }
 
