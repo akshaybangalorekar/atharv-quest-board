@@ -1101,6 +1101,22 @@ main#session, main#pchat{
 
 <!-- help -->
 <main id="help" class="hidden">
+  <div class="card" id="trainCard">
+    <div class="k">Where the coach learns from</div>
+    <div class="sub" style="margin-top:4px">She is not trained on the open internet. She works from these sources and
+      from whatever has been uploaded — nothing else.</div>
+    <div id="trainList" style="margin-top:10px"></div>
+    <div id="trainUploads" style="margin-top:10px"></div>
+    <div id="trainAdd" style="margin-top:12px;display:none">
+      <div class="bar">
+        <input id="trName" placeholder="Name, e.g. AMC 2019 paper" style="max-width:220px">
+        <input id="trUrl" placeholder="https://…" style="max-width:220px">
+        <button class="ghost small" onclick="addTrainingSource()">Add a source</button>
+      </div>
+      <div class="err" id="trMsg"></div>
+    </div>
+  </div>
+
   <div class="card">
     <div class="k">Help</div>
     <div class="big" style="font-size:20px">Talking to Ananya</div>
@@ -1562,8 +1578,50 @@ async function openTimetable() {
   }).join("");
 }
 
+async function loadTraining() {
+  const { data } = await sb.rpc("training_view");
+  const v = data ?? {};
+  const list = $("trainList"), ups = $("trainUploads");
+  if (!list) return;
+
+  const KIND = { official: "Official", popular: "Popular", uploaded: "Uploaded" };
+  const rows = v.sources ?? [];
+  list.innerHTML = rows.length ? rows.map((x) => `
+    <div class="upRow">
+      <span class="upName">${esc(x.name)}${x.active ? "" : ` <span class="sub">· paused</span>`}
+        <span class="sub" style="display:block">${esc(KIND[x.kind] ?? x.kind)}${x.url ? ` · ${esc(String(x.url).replace(/^https?:\/\//, ""))}` : ""}</span>
+      </span>
+      ${S.isParent ? `<button class="mini" data-id="${x.id}" data-on="${x.active ? "1" : ""}"
+          onclick="toggleTrainingSource(this.dataset.id, this.dataset.on !== '1')">${x.active ? "Pause" : "Resume"}</button>` : ""}
+    </div>`).join("") : `<div class="sub">No sources yet.</div>`;
+
+  const uploads = v.uploaded ?? [];
+  ups.innerHTML = `<div class="k" style="margin-bottom:4px">Your uploads</div>` + (uploads.length
+    ? uploads.map((u) => `<div class="upRow"><span class="upName">${esc(u.title ?? "a paper")}
+        <span class="sub" style="display:block">${u.questions ?? 0} questions · ${u.pages ?? 0} pages</span></span></div>`).join("")
+    : `<div class="sub">Nothing uploaded yet. Add a file from Sample questions in the parent view.</div>`)
+    + `<div class="sub" style="margin-top:6px">In the bank: <b>${v.generated ?? 0}</b> written by her, <b>${v.from_files ?? 0}</b> from your files.</div>`;
+
+  $("trainAdd").style.display = S.isParent ? "" : "none";
+}
+
+async function addTrainingSource() {
+  const name = $("trName").value.trim(), url = $("trUrl").value.trim();
+  if (!name) { $("trMsg").textContent = "Give it a name."; return; }
+  const { error } = await sb.rpc("add_training_source", { p_name: name, p_url: url, p_kind: "popular", p_family: "general" });
+  if (error) { $("trMsg").textContent = error.message; return; }
+  $("trName").value = ""; $("trUrl").value = ""; $("trMsg").textContent = "Added.";
+  loadTraining();
+}
+
+async function toggleTrainingSource(id, on) {
+  await sb.rpc("set_training_source_active", { p_id: Number(id), p_active: on });
+  loadTraining();
+}
+
 async function openHelp() {
   show("help");
+  loadTraining();
   if ($("helpVer")) $("helpVer").textContent = "Version " + APP_VERSION;
 }
 
@@ -5647,7 +5705,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
