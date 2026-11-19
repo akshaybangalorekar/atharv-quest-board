@@ -329,6 +329,17 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 .exParts{margin-top:6px;padding-left:10px;border-left:2px solid var(--line);font-size:12.5px;color:var(--mut);white-space:normal}
 .exSrc{margin-top:6px;font-size:12.5px;line-height:1.6;color:var(--mut);white-space:normal}
 .exHead .srcInfo{display:inline-flex;flex:0 0 auto;margin:0}
+
+/* the pad sits beside the conversation on a wide screen, over it on a narrow one */
+@media (min-width: 900px) {
+  /* the pad becomes a panel on the right; the conversation keeps its own space */
+  body.padOpen .pad{left:auto;right:0;top:66px;bottom:0;width:360px;border-top:0;
+    border-left:1px solid var(--line);border-radius:18px 0 0 0;box-shadow:-6px 0 24px rgba(23,26,38,.08);
+    padding:10px 12px 16px;overflow:auto}
+  /* the whole conversation steps left of the panel, composer included */
+  body.padOpen main#session{padding-right:360px}
+  body.padOpen #chatWrap{padding-right:clamp(12px, 3vw, 40px)}
+}
 </style>
 </head>
 <body>
@@ -880,7 +891,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   </div>
 </main>
 
-<div id="pad" class="pad hidden" aria-hidden="true">
+<div id="pad" class="pad hidden" aria-hidden="true" data-side="right">
   <div class="padTop">
     <span id="padWho">Typing</span>
     <span>
@@ -946,7 +957,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.97.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.00.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1425,11 +1436,25 @@ const PAD_KEYS = {
   ],
 };
 
+/* a laptop has a real keyboard; the pad is for a finger on a tablet */
+function onLaptop() {
+  const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+  const touchPoints = navigator.maxTouchPoints ?? 0;
+  return !coarse && touchPoints === 0;      // no finger, so there is a real keyboard
+}
+
 function openPad(el, kind) {
+  if (onLaptop()) {
+    el.readOnly = false;
+    el.setAttribute("inputmode", kind === "num" ? "decimal" : "text");
+    el.focus();
+    return;
+  }
   padTarget = el;
   padKind = kind ?? "num";
   $("pad").classList.remove("hidden");
   $("pad").setAttribute("aria-hidden", "false");
+  document.body.classList.add("padOpen");
   $("padWho").textContent = kind === "num" ? "Your answer" : "Type to Ananya";
   paintPad();
   // the pad sits at the bottom, so nothing needs to move; just keep the box visible
@@ -1438,6 +1463,7 @@ function openPad(el, kind) {
 }
 
 function closePad() {
+  document.body.classList.remove("padOpen");
   $("pad")?.classList.add("hidden");
   $("pad")?.setAttribute("aria-hidden", "true");
   padTarget = null;
@@ -2157,7 +2183,7 @@ async function printQuestions(fam) {
       .opt{color:#333;font-size:13px;margin-left:14px}
       .src{font-size:11px;color:#888}
       .key{margin-top:26px;border-top:1px solid #ccc;padding-top:10px;font-size:12px;color:#333}
-    </style></head><body>
+</style></head><body>
     <h1>${esc(fam)} — the questions in the bank</h1>
     <div class="src">Printed ${new Date().toLocaleDateString("en-AU")} · ${rows.length} questions</div>
     ${chapters.map((n) => `
