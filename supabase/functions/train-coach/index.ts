@@ -1,0 +1,181 @@
+// train-coach — read the material, keep it, and check every question.
+//
+// Two jobs, one function:
+//   mode "fetch"  — pull the public pages of the active sources, keep their text as chunks
+//   mode "upload" — keep the text of pages already read from uploaded papers
+//   mode "verify" — check every unverified question: can it be answered from its own words?
+//
+// Nothing here publishes anything. The material is stored for this child only, and every
+// chunk keeps the URL and the date it was read, so a parent can see where a claim came from.
+//
+// Secrets: SARVAM_API_KEY
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const ENDPOINT = "https://api.sarvam.ai/v2/chat/completions";
+const MODEL = "sarvam-m";
+
+const cors = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+  "access-control-allow-methods": "POST, OPTIONS",
+};
+
+const json = (b: unknown, s = 200) =>
+  new Response(JSON.stringify(b), { status: s, headers: { ...cors, "content-type": "application/json" } });
+
+/* strip a page down to readable text */
+function textOf(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+    .replace(/<\/(p|div|li|h[1-6]|tr|section)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&#\d+;/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/* paragraphs, gathered into passages of a readable size */
+function chunk(text: string, size = 700): string[] {
+  const paras = text.split(/\n+/).map((p) => p.trim()).filter((p) => p.length > 40);
+  const out: string[] = [];
+  let cur = "";
+  for (const p of paras) {
+    if ((cur + " " + p).length > size && cur) { out.push(cur.trim()); cur = p; }
+    else cur += (cur ? " " : "") + p;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out.slice(0, 60);
+}
+
+async function ask(system: string, user: string, temperature = 0): Promise<string> {
+  const r = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "content-type": "application/json", "api-subscription-key": Deno.env.get("SARVAM_API_KEY")! },
+    body: JSON.stringify({ model: MODEL, temperature, messages: [
+      { role: "system", content: system }, { role: "user", content: user }] }),
+  });
+  if (!r.ok) return "";
+  const b = await r.json();
+  return (b?.choices?.[0]?.message?.content ?? "").trim();
+}
+
+const SOLVE = `You check whether a maths question can be answered at all, before it is given to a child.
+
+Read the question on its own, with no extra information. Then answer:
+- "solvable": YES only if it states everything needed and leads to exactly one answer. NO if a quantity is
+  mentioned without saying which object it belongs to, if a drawing or table is referred to but not shown,
+  if two answers are possible, or if the numbers contradict each other.
+- "why": one short sentence naming the gap. Empty when YES.
+
+Be strict. Reply with JSON only: {"solvable":"YES","why":""}`;
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  try { return await handle(req); }
+  catch (e) { return json({ error: "the trainer failed", detail: String((e as Error)?.message ?? e) }); }
+});
+
+async function handle(req: Request) {
+  const auth = req.headers.get("authorization") ?? "";
+  if (!auth.startsWith("Bearer ")) return json({ error: "not signed in" }, 401);
+
+  const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { data: who } = await supa.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
+  const user = who?.user;
+  if (!user) return json({ error: "not signed in" }, 401);
+
+  const { data: ownProfile } = await supa.from("profiles").select("student_id").eq("student_id", user.id).maybeSingle();
+  let student = user.id;
+  if (!ownProfile) {
+    const { g } = { g: null } as any;
+    const { data: guardian } = await supa.from("guardians").select("student_id").eq("parent_id", user.id).limit(1).maybeSingle();
+    if (guardian?.student_id) student = guardian.student_id;
+  }
+
+  let body: any = {};
+  try { body = await req.json(); } catch (_) {}
+  const mode = body?.mode ?? "fetch";
+
+  // ---------------------------------------------------------------- verify --
+  if (mode === "verify") {
+    const { data: rows } = await supa.from("problems")
+      .select("chapter, idx, prompt, options, diagram_svg")
+      .or("verified.eq.false,verified.is.null").limit(40);
+
+    const checked: Array<{ chapter: number; idx: number; ok: boolean; why: string }> = [];
+    for (const r of rows ?? []) {
+      const q = String(r.prompt ?? "");
+      const pointsAtFigure = /\b(picture|diagram|figure|table|chart|graph|drawing|shown|below)\b/i.test(q);
+      const hasFigure = !!r.diagram_svg;
+
+      let ok = false, why = "";
+      if (pointsAtFigure && !hasFigure) { ok = false; why = "it refers to a drawing that is not there"; }
+      else {
+        const raw = await ask(SOLVE, `Question: ${q}`);
+        const m = raw.match(/\{[\s\S]*\}/);
+        try {
+          const v = JSON.parse(m ? m[0] : "{}");
+          ok = String(v.solvable).toUpperCase() === "YES";
+          why = ok ? "" : String(v.why ?? "it cannot be answered as written");
+        } catch { ok = false; why = "it could not be checked"; }
+      }
+
+      await supa.from("problems").update({
+        verified: ok, verified_at: new Date().toISOString(), verify_note: ok ? null : why,
+      }).eq("chapter", r.chapter).eq("idx", r.idx);
+
+      checked.push({ chapter: r.chapter, idx: r.idx, ok, why });
+    }
+    return json({ mode, checked: checked.length, failed: checked.filter((c) => !c.ok) });
+  }
+
+  // --------------------------------------------------------------- uploads --
+  if (mode === "upload") {
+    const { data: papers } = await supa.from("papers").select("id, title, url, pages").eq("student_id", student);
+    let kept = 0;
+    for (const p of papers ?? []) {
+      const { data: pages } = await supa.from("paper_pages")
+        .select("page_no, text").eq("paper_id", p.id).order("page_no");
+      const all = (pages ?? []).map((x: any) => String(x.text ?? "")).join("\n").trim();
+      if (all.length < 80) continue;
+      const chunks = chunk(all).map((b) => ({ body: b, topic: p.title ?? "uploaded paper" }));
+      await supa.rpc("store_doc", {
+        p_kind: "upload", p_title: p.title ?? `paper ${p.id}`, p_url: p.url ?? null,
+        p_source_id: null, p_chunks: chunks,
+      });
+      kept++;
+    }
+    return json({ mode, papers: kept });
+  }
+
+  // ----------------------------------------------------------------- fetch --
+  const { data: sources } = await supa.from("training_sources").select("id, name, url, family").eq("active", true);
+  const done: Array<Record<string, unknown>> = [];
+
+  for (const s of sources ?? []) {
+    if (!s.url) continue;
+    try {
+      const r = await fetch(s.url, { headers: { "user-agent": "QuestCoach/1.0 (family study app)" } });
+      if (!r.ok) { done.push({ source: s.name, ok: false, status: r.status }); continue; }
+      const raw = await r.text();
+      const text = textOf(raw);
+      if (text.length < 200) { done.push({ source: s.name, ok: false, reason: "no readable text" }); continue; }
+
+      const chunks = chunk(text).map((b) => ({ body: b, topic: s.name, family: s.family }));
+      await supa.rpc("store_doc", {
+        p_kind: "web", p_title: s.name, p_url: s.url, p_source_id: s.id, p_chunks: chunks,
+      });
+      done.push({ source: s.name, ok: true, chunks: chunks.length });
+    } catch (e) {
+      done.push({ source: s.name, ok: false, reason: String((e as Error)?.message ?? e).slice(0, 120) });
+    }
+  }
+
+  return json({ mode, fetched: done.filter((d) => d.ok).length, sources: done });
+}

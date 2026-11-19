@@ -1107,6 +1107,12 @@ main#session, main#pchat{
       from whatever has been uploaded — nothing else.</div>
     <div id="trainList" style="margin-top:10px"></div>
     <div id="trainUploads" style="margin-top:10px"></div>
+    <div id="trainStore" style="margin-top:10px"></div>
+    <div class="bar" style="margin-top:10px">
+      <button class="go small" onclick="trainNow()">Train her now</button>
+      <button class="ghost small" onclick="verifyBank()">Check every question</button>
+    </div>
+    <div class="err" id="trainMsg"></div>
     <div id="trainAdd" style="margin-top:12px;display:none">
       <div class="bar">
         <input id="trName" placeholder="Name, e.g. AMC 2019 paper" style="max-width:220px">
@@ -1351,7 +1357,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.68.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.69.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1603,6 +1609,37 @@ async function loadTraining() {
     + `<div class="sub" style="margin-top:6px">In the bank: <b>${v.generated ?? 0}</b> written by her, <b>${v.from_files ?? 0}</b> from your files.</div>`;
 
   $("trainAdd").style.display = S.isParent ? "" : "none";
+
+  const { data: st } = await sb.rpc("training_status");
+  const k = st ?? {};
+  $("trainStore").innerHTML = `<div class="k" style="margin-bottom:4px">What she has read</div>
+    <div class="sub">${k.docs ?? 0} documents kept · ${k.chunks ?? 0} passages · ${k.web_docs ?? 0} from the web ·
+      ${k.upload_docs ?? 0} from your files</div>
+    <div class="sub" style="margin-top:4px">Questions: <b>${k.verified ?? 0}</b> checked and sound ·
+      <b>${k.unverified ?? 0}</b> not yet checked · <b>${k.failed_check ?? 0}</b> failed and held back</div>`;
+}
+
+/* read the sources, keep your uploads, and check the bank */
+async function trainNow() {
+  $("trainMsg").textContent = "Reading the sources… this takes a minute.";
+  const a = await sb.functions.invoke("train-coach", { body: { mode: "fetch" } }).catch((e) => ({ data: { error: e.message } }));
+  $("trainMsg").textContent = "Keeping your uploads…";
+  const b = await sb.functions.invoke("train-coach", { body: { mode: "upload" } }).catch(() => ({ data: {} }));
+  $("trainMsg").textContent = "Checking every question…";
+  const c = await sb.functions.invoke("train-coach", { body: { mode: "verify" } }).catch(() => ({ data: {} }));
+
+  const f = a?.data?.fetched ?? 0, u = b?.data?.papers ?? 0, v = c?.data?.checked ?? 0;
+  const bad = (c?.data?.failed ?? []).length;
+  $("trainMsg").textContent = `Done — read ${f} source${f === 1 ? "" : "s"}, kept ${u} upload${u === 1 ? "" : "s"}, checked ${v} question${v === 1 ? "" : "s"}${bad ? `, held back ${bad}` : ""}.`;
+  loadTraining();
+}
+
+async function verifyBank() {
+  $("trainMsg").textContent = "Checking the questions…";
+  const { data } = await sb.functions.invoke("train-coach", { body: { mode: "verify" } });
+  const n = data?.checked ?? 0, bad = (data?.failed ?? []).length;
+  $("trainMsg").textContent = `Checked ${n} question${n === 1 ? "" : "s"}${bad ? `, held back ${bad} that cannot be answered as written` : ", all sound"}.`;
+  loadTraining();
 }
 
 async function addTrainingSource() {
@@ -5705,7 +5742,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
