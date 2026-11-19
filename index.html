@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.69.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.70.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1062,7 +1062,7 @@ function buildTracks(banks) {
   const order = ["olympiad", "amc", "apsmo", "aas", "edutest", "icas", "elms"];
   const byFamily = {};
   (banks ?? []).forEach((b) => {
-    const fam = b.family ?? b.kind;
+    const fam = (b.family ?? b.kind ?? "").toLowerCase();
     if (!fam) return;
     byFamily[fam] = byFamily[fam] ?? [];
     byFamily[fam].push({ kind: b.kind, exam: b.exam, school: b.school ?? "" });
@@ -1921,7 +1921,9 @@ async function bootInner() {
 }
 
 async function loadBanks() {
-  const { data } = await sb.from("exam_banks").select("exam, kind, chapter_from, chapter_to").order("chapter_from");
+  // the family is what folds two banks into one card: it must be fetched
+  const { data } = await sb.from("exam_banks")
+    .select("exam, kind, family, school, chapter_from, chapter_to").order("chapter_from");
   buildTracks(data);
 }
 
