@@ -475,6 +475,18 @@ main#pchat > .card{flex:0 0 auto}
 
 .ttFormat{font-size:12.5px;color:var(--mut);padding:4px 0 2px}
 .ttFormat b{color:var(--ink);font-weight:600}
+
+/* one pill, the same on both screens: mic · text · up arrow · clip */
+#sComposer, #pComposer{display:flex;align-items:center;gap:6px}
+#sComposer textarea, #pComposer input{flex:1 1 auto;border:0;outline:0;background:transparent;
+  font:inherit;font-size:15px;padding:8px 4px;min-width:0}
+#pComposer input{height:38px}
+.roundBtn{flex:0 0 auto;width:36px;height:36px;border-radius:50%;border:0;background:transparent;
+  color:var(--mut);display:grid;place-items:center;cursor:pointer;transition:background .15s,color .15s}
+.roundBtn:hover{background:#f2f0fb;color:var(--acc)}
+.roundBtn.on{background:var(--acc);color:#fff}
+.roundBtn:disabled{opacity:.35}
+#micState{flex:1 1 100%}
 </style>
 </head>
 <body>
@@ -601,8 +613,6 @@ main#pchat > .card{flex:0 0 auto}
   <div class="sessionTop" id="budgetBar">
     <div class="topClock"><span id="budgetLabel">Session</span><b id="budgetClock">--:--</b></div>
     <div class="topBtns">
-      <button class="ghost small" id="micBtn" onclick="toggleMic()">Talk</button>
-      <button class="ghost small" onclick="takePhoto()">Photo</button>
       <button class="ghost small" onclick="endSession()">Pause session</button>
     </div>
   </div>
@@ -610,13 +620,25 @@ main#pchat > .card{flex:0 0 auto}
   <div id="chatWrap"></div>
   <div class="card" id="sComposer">
     <input type="file" id="doubt" accept="image/*" capture="environment" multiple class="hidden" onchange="handlePhoto(this)">
-    <div class="sayRow">
-      <textarea id="say" rows="1" placeholder="Say something to Ananya…" inputmode="none" autocomplete="off"
-                readonly onclick="openPad(this,'text')"
-                oninput="growSay(this)"
-                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMe()}"></textarea>
-      <button class="go small" onclick="sendMe()">Send</button>
-    </div>
+    <button class="roundBtn" id="micBtn" title="Talk" onclick="toggleMic()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z"/>
+        <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+    </button>
+    <textarea id="say" rows="1" placeholder="Say something to Ananya…" inputmode="none" autocomplete="off"
+              readonly onclick="openPad(this,'text')"
+              oninput="growSay(this)"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMe()}"></textarea>
+    <button class="roundBtn" title="Add a photo" onclick="takePhoto()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/>
+        <path d="M16 3h5v5"/><path d="M21 3 12 12"/></svg>
+    </button>
+    <button class="roundBtn" title="Send" onclick="sendMe()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+    </button>
+    <button class="roundBtn" title="Add a photo" onclick="takePhoto()" style="display:none">
     <span class="hint" id="micState" style="display:none"></span>
   </div>
 </main>
@@ -926,10 +948,21 @@ main#pchat > .card{flex:0 0 auto}
 <main id="pchat" class="hidden">
   <div id="pchatWrap"></div>
   <div class="card" id="pComposer">
-    <div style="display:flex;gap:8px">
-      <input id="pSay" placeholder="Ask the coach…" onkeydown="if(event.key==='Enter')sendParent()">
-      <button class="go small" onclick="sendParent()">Send</button>
-    </div>
+    <button class="roundBtn" id="pMic" title="Talk" onclick="parentDictate()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z"/>
+        <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+    </button>
+    <input id="pSay" placeholder="Ask the coach…" onkeydown="if(event.key==='Enter')sendParent()">
+    <button class="roundBtn" title="Add a paper or a photo" onclick="addFromChat()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/>
+        <path d="M16 3h5v5"/><path d="M21 3 12 12"/></svg>
+    </button>
+    <button class="roundBtn" title="Send" onclick="sendParent()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+    </button>
   </div>
 </main>
 
@@ -1135,7 +1168,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.45.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.46.2";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -3634,6 +3667,31 @@ async function submitUpload() {
   loadPapersToRead();
 }
 
+/* from the chat, a parent can drop in a paper or a photo of one */
+function addFromChat() {
+  const f = $("upFile");
+  if (f) { f.click(); return; }
+  openHelp();
+}
+
+function parentDictate() {
+  const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = $("pMic");
+  if (!Rec) { btn.disabled = true; btn.title = "This browser cannot listen"; return; }
+  if (S.pMicOn) { S.pMic?.stop(); return; }
+  const r = new Rec();
+  r.lang = "en-AU"; r.interimResults = true; r.continuous = true;
+  r.onresult = (e) => {
+    let said = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) said += e.results[i][0].transcript;
+    $("pSay").value = said.trim();
+  };
+  r.onend = () => { S.pMicOn = false; btn.classList.remove("on"); };
+  r.onerror = () => { S.pMicOn = false; btn.classList.remove("on"); };
+  S.pMic = r; S.pMicOn = true; btn.classList.add("on");
+  r.start();
+}
+
 async function openParentChat() {
   show("pchat");
   await loadChat("pchatWrap", true);
@@ -5230,7 +5288,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, loadChat, keepChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
