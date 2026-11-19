@@ -1364,7 +1364,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.73.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.74.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1688,9 +1688,15 @@ async function verifyBank() {
   $("trainMsg").textContent = "Checking the questions…";
   const { data } = await sb.functions.invoke("train-coach", { body: { mode: "verify" } });
   const n = data?.checked ?? 0, bad = (data?.failed ?? []).length;
-  $("trainMsg").textContent = n === 0
-    ? "There are no questions in the bank to check. Add a file, or press Generate 20 in the parent view."
-    : `Checked ${n} question${n === 1 ? "" : "s"}${bad ? `, held back ${bad} that cannot be answered as written` : ", all sound"}.`;
+  if (n === 0) {
+    const { data: st } = await sb.rpc("training_status");
+    $("trainMsg").textContent =
+      `There are no questions in the bank to check — 0 from your files, 0 written by her. ` +
+      `She has read ${st?.chunks ?? 0} passages from ${st?.web_docs ?? 0} sites, but reading material is not questions: ` +
+      `questions arrive when you add a file or press Generate 20.`;
+  } else {
+    $("trainMsg").textContent = `Checked ${n} question${n === 1 ? "" : "s"}${bad ? `, held back ${bad} that cannot be answered as written` : ", all sound"}.`;
+  }
   loadTraining();
 }
 

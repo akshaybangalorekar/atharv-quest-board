@@ -220,6 +220,17 @@ Deno.serve(async (req) => {
     const focus = TYPES[Math.floor(Math.random() * TYPES.length)];
     const n = Math.min(Math.max(Number(count) || 6, 1), 20);
 
+    // what she has read on this topic, to base the new questions on
+    let materialNote = "";
+    try {
+      const { data: passages } = await admin.rpc("search_docs", {
+        p_query: ch.title ?? "mathematics", p_chapter: null, p_limit: 3,
+      });
+      const body = (passages ?? []).map((x: any) =>
+        `From ${x.title}${x.url ? ` (${x.url})` : ""}: ${String(x.body ?? "").slice(0, 400)}`).join("\n\n");
+      if (body) materialNote = `\n\nMaterial she has read on this topic — base the questions on its content and style, never copy it word for word:\n${body}`;
+    } catch (_) {}
+
     const r = await fetch(ENDPOINT, {
       method: "POST",
       headers: {
@@ -231,7 +242,7 @@ Deno.serve(async (req) => {
         temperature: 0.85,
         max_tokens: 3600,
         messages: [
-          { role: "system", content: PROMPT(focus, difficulty, seeds, scope, ch.subject ?? "maths") },
+          { role: "system", content: PROMPT(focus, difficulty, seeds, scope, ch.subject ?? "maths") + materialNote },
           { role: "user", content:
             `Topic: ${String(ch.title).split(" · ").pop()} (${ch.title}). ` +
             `This is one of the official topics for this exam. Write ${n} questions inside it.` },
