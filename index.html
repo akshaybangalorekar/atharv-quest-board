@@ -472,6 +472,9 @@ main#pchat > .card{flex:0 0 auto}
 .secQ{color:var(--mut);white-space:nowrap}
 .secTopics{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .secBar{width:64px}
+
+.ttFormat{font-size:12.5px;color:var(--mut);padding:4px 0 2px}
+.ttFormat b{color:var(--ink);font-weight:600}
 </style>
 </head>
 <body>
@@ -1132,7 +1135,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.44.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.45.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1308,7 +1311,12 @@ async function openTimetable() {
     const paper = mine.map((y, yi) => {
       const sits = y.sits ?? x.label;
       const sections = (y.sections ?? []).map((sec) => {
-        const own = topics.filter((t) => (SOURCE_SECTION[t.source] ?? "Whole paper") === sec.part);
+        const isFirst = (y.sections ?? [])[0]?.part === sec.part;
+        let own = topics.filter((t) => (SOURCE_SECTION[t.source] ?? "Whole paper") === sec.part);
+        if (!own.length && isFirst) {
+          const claimed = new Set((y.sections ?? []).map((z) => z.part));
+          own = topics.filter((t) => !claimed.has(SOURCE_SECTION[t.source] ?? "Whole paper"));
+        }
         const loaded = own.reduce((a, t) => a + (t.questions ?? 0), 0);
         const ready = own.filter((t) => (t.preparedness ?? 0) >= 60).length;
         const names = own.map((t) => String(t.title).split(" · ").pop());
@@ -1325,12 +1333,14 @@ async function openTimetable() {
 
       return `<details class="ttMore"${yi === 0 ? " open" : ""}>
         <summary>${esc(sits)} — ${y.minutes} min in the exam</summary>
+        <div class="ttFormat">
+          <b>${esc(y.timing ?? "")}</b>${y.breaks ? ` · ${esc(y.breaks)}` : ""}
+          ${y.note ? `<div class="sub" style="margin-top:2px">${esc(y.note)}</div>` : ""}
+        </div>
         <div class="secList">${sections}</div>
       </details>`;
     }).join("");
 
-    const loose = topics.filter((t) => !mine.some((y) => (y.sections ?? []).some(
-      (sec) => (SOURCE_SECTION[t.source] ?? "Whole paper") === sec.part)));
 
     return `<div class="card ttExam">
       <div class="ttHead">
@@ -1342,8 +1352,6 @@ async function openTimetable() {
       <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
       ${mine.length ? paper : `<details class="ttMore"><summary>the topics</summary>
         <div style="margin-top:6px">${topics.map(topicRow).join("")}</div></details>`}
-      ${loose.length ? `<details class="ttMore"><summary>other topics</summary>
-        <div style="margin-top:6px">${loose.map(topicRow).join("")}</div></details>` : ""}
     </div>`;
   }).join("");
 }
