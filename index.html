@@ -891,7 +891,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.58.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.59.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1103,53 +1103,43 @@ async function showPaperPage(box, q) {
 async function autoFigure(kind, key, targetId, prompt, existing, q) {
   const box = $(targetId);
   if (!box) return;
+
+  // 1. a drawing we made ourselves and checked — the best case
   if (existing) { box.innerHTML = `<div class="diagram">${existing}</div>`; return; }
 
-  // its own cut-out figure first — the real thing, in colour, from the document
+  // 2. otherwise draw it now, in colour, and check it
+  const worthDrawing = q?.diagram_url || q?.diagram_box || q?.diagram_kind || needsFigure(prompt);
+  if (worthDrawing) {
+    box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13.5px">Drawing the figure…</div>`;
+    try {
+      const { data } = await sb.functions.invoke("draw-figure", {
+        body: {
+          chapter: S.chapter, kind,
+          n: kind === "example" ? key : null,
+          idx: kind === "question" ? key : null,
+          question: prompt,
+        },
+      });
+      if (data?.svg) {
+        box.innerHTML = `<div class="diagram">${data.svg}</div>`;
+        return;
+      }
+    } catch (_) { /* fall through to the page */ }
+  }
+
+  // 3. the real cut-out from the document, in colour
   if (q?.diagram_url) {
     const { data: signed } = await sb.storage.from("papers").createSignedUrl(q.diagram_url, 3600);
-    const url = signed?.signedUrl;
-    if (url) {
-      box.innerHTML = `<div class="diagram figureShot"><img src="${url}" alt="the figure from the paper"></div>`;
+    if (signed?.signedUrl) {
+      box.innerHTML = `<div class="diagram figureShot"><img src="${signed.signedUrl}" alt="the figure from the paper"></div>`;
       return;
     }
   }
 
-  // otherwise the page it came from, where the figure sits
+  // 4. the page it came from, where the figure sits
   if (q?.paper_id) { if (await showPaperPage(box, q)) return; }
 
-  if (!needsFigure(prompt)) return;
-
-  box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13.5px">Drawing the figure…</div>`;
-  try {
-    const { data, error } = await sb.functions.invoke("draw-figure", {
-      body: { chapter: S.chapter, kind, n: kind === "example" ? key : null, idx: kind === "question" ? key : null },
-    });
-    if (error || data?.error) {
-      const why = error?.message ?? data?.error ?? "no reason given";
-      box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13px">
-        I could not draw this one (${esc(String(why).slice(0, 80))}). Tap Photo and show me the figure.</div>`;
-      return;
-    }
-    if (!data?.svg) {
-      box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13px">
-        There is no figure for this one — the words carry it.</div>`;
-      return;
-    }
-    box.innerHTML = `<div class="diagram">${data.svg}</div>`;
-
-    // keep it: next time the figure is simply there
-    if (kind === "question") {
-      sb.from("problems").update({ diagram_svg: data.svg })
-        .eq("chapter", S.chapter).eq("idx", key).then(() => {}, () => {});
-    } else {
-      sb.from("examples").update({ diagram_svg: data.svg })
-        .eq("chapter", S.chapter).eq("n", key).then(() => {}, () => {});
-    }
-  } catch (e) {
-    box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13px">
-      I could not draw this one (${esc(e.message)}). Tap Photo and show me the figure.</div>`;
-  }
+  box.innerHTML = "";
 }
 
 
