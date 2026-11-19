@@ -3,7 +3,7 @@
 // Deploy:  supabase functions deploy make-questions
 // Secret:  SARVAM_API_KEY (already set)
 //
-// POST { chapter: number, count?: number }
+// POST { chapter?: number, exam?: string, count?: number }
 //   -> { added, difficulty, focus }
 //
 // It reads what is already in that strand — including anything a parent has
@@ -38,10 +38,12 @@ const TYPES = [
   "a fractions comparison",
 ];
 
-const PROMPT = (focus: string, difficulty: number, seeds: string) => `You are writing practice questions for an 11-year-old preparing for Australian
+const PROMPT = (focus: string, difficulty: number, seeds: string, scope: string) => `You are writing practice questions for an 11-year-old preparing for Australian
 maths competitions and scholarship tests.
 
 Write exactly the number asked for. This set must focus on: ${focus}.
+
+${scope ? `It must stay inside this exam's scope: ${scope}. Nothing outside that.` : ""}
 
 Difficulty ${difficulty} of 3 (1 = straightforward, 2 = two steps, 3 = needs a real insight).
 
@@ -75,30 +77,61 @@ Deno.serve(async (req) => {
     const { data: { user } } = await asUser.auth.getUser();
     if (!user) return json({ error: "not signed in" }, 401);
 
-    const { chapter, count = 6 } = await req.json();
-    if (!chapter) return json({ error: "chapter required" }, 400);
+    const { chapter, count = 6, exam = null } = await req.json();
 
-    const { data: ch } = await admin.from("chapters")
-      .select("n, title, source, practice").eq("n", chapter).single();
-    if (!ch) return json({ error: "no such chapter" }, 404);
+    // an exam can be named instead of a chapter: pick its first strand with room
+    let ch: any = null;
+    if (chapter) {
+      const { data } = await admin.from("chapters")
+        .select("n, title, source, practice").eq("n", chapter).single();
+      ch = data;
+    } else if (exam) {
+      const { data: bank } = await admin.from("exam_banks").select("kind").eq("exam", exam).single();
+      if (bank) {
+        const { data } = await admin.from("chapters")
+          .select("n, title, source, practice").eq("source", bank.kind)
+          .order("n").limit(1).maybeSingle();
+        ch = data;
+      }
+    }
+    if (!ch) return json({ error: "no chapter and no exam I can write for" }, 404);
 
-    // what is already there, as style seeds
+    const scope = exam
+      ? ({
+          "AAS numerical reasoning": "numerical reasoning for a Year 6 scholarship test: number, patterns, money, measurement, simple ratio and data",
+          "Edutest numerical reasoning": "numerical reasoning: series, matrices, arithmetic word problems, quick two-step reasoning",
+          "ELMS": "Year 6 mathematics as McKinnon's ELMS paper sets it: number, fractions, measurement, geometry, data",
+          "APSMO Division J": "olympiad problems of the Division J kind: five hard questions, insight over arithmetic, no calculus or algebra beyond a simple unknown",
+          "Olympiad book": "the book's olympiad chapters: counting, logic, number patterns, geometry insight",
+        } as Record<string, string>)[exam] ?? ""
+      : "";
+
+    // style seeds: the uploaded samples first, then whatever is in the strand
+    const { data: samples } = await admin.from("problems")
+      .select("prompt, paper_id").eq("chapter", ch.n).not("paper_id", "is", null)
+      .order("idx", { ascending: false }).limit(6);
     const { data: existing } = await admin.from("problems")
-      .select("prompt").eq("chapter", chapter).order("idx").limit(40);
-    const seeds = (existing ?? []).slice(-5).map((p) => `- ${p.prompt}`).join("\n");
+      .select("prompt").eq("chapter", ch.n).order("idx").limit(40);
+    const seedRows = (samples?.length ? samples : (existing ?? [])).slice(-6);
+    const seeds = seedRows.map((p: any) => `- ${p.prompt}`).join("\n");
 
-    // how he is doing in this strand decides the difficulty
+    // how he is doing decides the difficulty: accuracy and speed together
     const { data: att } = await admin.from("attempts")
-      .select("ok").eq("student_id", user.id).eq("chapter", chapter);
+      .select("ok, seconds").eq("student_id", user.id).eq("chapter", ch.n);
     const tries = (att ?? []).length;
-    const right = (att ?? []).filter((a) => a.ok).length;
+    const right = (att ?? []).filter((a: any) => a.ok).length;
     const acc = tries ? right / tries : 0;
+    const timed = (att ?? []).filter((a: any) => (a.seconds ?? 0) > 0);
+    const speed = timed.length ? timed.reduce((s: number, a: any) => s + a.seconds, 0) / timed.length : 0;
+
     let difficulty = 2;
-    if (tries >= 6 && acc >= 0.85) difficulty = 3;
-    else if (tries >= 4 && acc < 0.5) difficulty = 1;
+    if (tries >= 6 && acc >= 0.85 && (speed === 0 || speed <= 90)) difficulty = 3;   // right and quick
+    else if (tries >= 6 && acc >= 0.85) difficulty = 3;                             // right, even if slow
+    else if (tries >= 4 && acc < 0.5) difficulty = 1;                               // struggling: easier
+    else if (tries >= 4 && acc < 0.7) difficulty = 1;
 
     const focus = TYPES[Math.floor(Math.random() * TYPES.length)];
-    const n = Math.min(Math.max(Number(count) || 6, 1), 10);
+    const n = Math.min(Math.max(Number(count) || 6, 1), 20);
 
     const r = await fetch(ENDPOINT, {
       method: "POST",
@@ -109,9 +142,9 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: MODEL,
         temperature: 0.85,
-        max_tokens: 1800,
+        max_tokens: 3600,
         messages: [
-          { role: "system", content: PROMPT(focus, difficulty, seeds) },
+          { role: "system", content: PROMPT(focus, difficulty, seeds, scope) },
           { role: "user", content: `Strand: ${ch.title}. Write ${n} questions.` },
         ],
       }),
@@ -131,14 +164,14 @@ Deno.serve(async (req) => {
     if (!rows.length) return json({ added: 0, difficulty, focus });
 
     const { data: maxRow } = await admin.from("problems")
-      .select("idx").eq("chapter", chapter).order("idx", { ascending: false }).limit(1).maybeSingle();
+      .select("idx").eq("chapter", ch.n).order("idx", { ascending: false }).limit(1).maybeSingle();
     let idx = maxRow?.idx ?? 0;
 
     let added = 0;
     for (const row of rows) {
       idx += 1;
       const { error } = await admin.from("problems").insert({
-        chapter, idx, prompt: String(row.q).trim(),
+        chapter: ch.n, idx, prompt: String(row.q).trim(),
         difficulty: Number(row.d) || difficulty,
         technique_tags: [ch.title.split("·").pop()?.trim() ?? ch.title],
         source: ch.source ?? "book",
@@ -146,7 +179,7 @@ Deno.serve(async (req) => {
       if (error) { idx -= 1; continue; }
 
       await admin.from("problem_answers").insert({
-        chapter, idx,
+        chapter: ch.n, idx,
         answer: `${row.a} — ${row.m ?? ""}`.trim(),
         method: String(row.m ?? "").slice(0, 500),
         answer_key: String(row.a).trim(),
@@ -155,12 +188,12 @@ Deno.serve(async (req) => {
 
       const { data: bank } = await admin.from("exam_banks").select("exam").eq("kind", ch.source ?? "book").maybeSingle();
       if (bank?.exam) {
-        await admin.from("exam_map").insert({ exam: bank.exam, chapter, idx }).select().maybeSingle();
+        await admin.from("exam_map").insert({ exam: bank.exam, chapter: ch.n, idx }).select().maybeSingle();
       }
       added++;
     }
 
-    await admin.from("chapters").update({ practice: (ch.practice ?? 0) + added }).eq("n", chapter);
+    await admin.from("chapters").update({ practice: (ch.practice ?? 0) + added }).eq("n", ch.n);
 
     return json({ added, difficulty, focus });
   } catch (e) {
