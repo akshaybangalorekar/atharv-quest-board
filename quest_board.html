@@ -987,8 +987,9 @@ main#pchat > .card{flex:0 0 auto}
   <div class="card">
     <div class="k">Help</div>
     <div class="big" style="font-size:20px">Talking to Ananya</div>
-    <div class="sub" style="margin-top:6px">To answer out loud: tap <b>Talk</b>, say your answer, then say
-      “submit”. Or tap <b>Talk to Ananya</b> to think out loud while you work.</div>
+    <div class="sub" style="margin-top:6px">To answer out loud: tap the <b>microphone</b> beside the message box, say your answer, then say
+      “submit”. To think out loud while you work, tap the microphone in the
+      <b>Talk to Ananya</b> strip. Tap the <b>paperclip</b> to send a photo of your working.</div>
   </div>
 
   <div class="card">
@@ -1170,7 +1171,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.51.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.51.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -4762,7 +4763,9 @@ function tickQuestion() {
       const strip = document.createElement("div");
       strip.className = "talkStrip";
       strip.innerHTML = `<span>Talk to Ananya — say what you are trying, out loud.</span>
-        <button class="go small">Talk</button>`;
+        <button class="roundBtn on" title="Talk to Ananya"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z"/>
+        <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></button>`;
       strip.querySelector("button").onclick = () => { strip.remove(); startThinking(); };
       $("chatWrap").appendChild(strip);
       stickBottom();
