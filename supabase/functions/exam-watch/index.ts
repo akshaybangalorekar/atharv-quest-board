@@ -47,6 +47,40 @@ function hostAllowed(exam: string, url: string): boolean {
   } catch { return false; }
 }
 
+
+/* one message to one address, through whichever provider has a key.
+   Brevo accepts a verified single sender, so it can write to anyone without owning a domain. */
+async function sendOne(to: string, from: string, subject: string, html: string) {
+  const brevo = Deno.env.get("BREVO_API_KEY");
+  const resend = Deno.env.get("RESEND_API_KEY");
+
+  if (brevo) {
+    const senderEmail = (from.match(/<([^>]+)>/)?.[1] ?? from).trim();
+    const senderName = (from.match(/^([^<]+)</)?.[1] ?? "Quest Coach").trim();
+    const r = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { "content-type": "application/json", "api-key": brevo },
+      body: JSON.stringify({
+        sender: { email: senderEmail, name: senderName },
+        to: [{ email: to }],
+        subject, htmlContent: html,
+      }),
+    });
+    return { ok: r.ok, status: r.status, detail: r.ok ? null : (await r.text()).slice(0, 220) };
+  }
+
+  if (resend) {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${resend}` },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+    });
+    return { ok: r.ok, status: r.status, detail: r.ok ? null : (await r.text()).slice(0, 220) };
+  }
+
+  return { ok: false, status: 0, detail: "no mail key set" };
+}
+
 type Finding = { exam: string; kind: string; summary: string; detail?: string; source: string; sits_on?: string | null };
 const KINDS = new Set(["date", "format", "timing", "topics", "news"]);
 
@@ -92,7 +126,7 @@ async function handle(req: Request) {
   const exams = (cal ?? []) as Array<{ id: string; exam: string; sits_on: string | null }>;
 
   if (mode === "test") {
-    const key0 = Deno.env.get("RESEND_API_KEY");
+    const key0 = Deno.env.get("BREVO_API_KEY") ?? Deno.env.get("RESEND_API_KEY");
     const from0 = Deno.env.get("ALERT_FROM");
     const to0 = (recipients ?? []).map((r) => r.email).filter(Boolean);
     if (!key0 || !from0) return json({ sent: false, reason: "no mail key or sender set", to: to0 });
@@ -100,17 +134,9 @@ async function handle(req: Request) {
 
     const results = [];
     for (const addr of to0) {
-      const r = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${key0}` },
-        body: JSON.stringify({
-          from: from0, to: [addr],
-          subject: "Quest Coach — test email",
-          html: "<p>This is a test from Quest Coach. Exam updates for Atharv will arrive at this address.</p>",
-        }),
-      });
-      const detail = r.ok ? null : (await r.text()).slice(0, 220);
-      results.push({ to: addr, ok: r.ok, status: r.status, detail });
+      const r = await sendOne(addr, from0, "Quest Coach — test email",
+        "<p>This is a test from Quest Coach. Exam updates for Atharv will arrive at this address.</p>");
+      results.push({ to: addr, ok: r.ok, status: r.status, detail: r.detail });
     }
     const anyOk = results.some((x) => x.ok);
     return json({
@@ -198,7 +224,7 @@ If nothing has changed, reply {"findings":[]}.`;
   }
 
   // ---- the email, if we are allowed to send one ----
-  const key = Deno.env.get("RESEND_API_KEY");
+  const key = Deno.env.get("BREVO_API_KEY") ?? Deno.env.get("RESEND_API_KEY");
   const from = Deno.env.get("ALERT_FROM");
   const to = (recipients ?? []).map((r) => r.email).filter(Boolean);
   let emailed = 0;
@@ -213,11 +239,7 @@ If nothing has changed, reply {"findings":[]}.`;
 
     let anyOk = false;
     for (const addr of to) {
-      const r = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-        body: JSON.stringify({ from, to: [addr], subject: `Exam update — ${alerts.length} change${alerts.length === 1 ? "" : "s"}`, html }),
-      });
+      const r = await sendOne(addr, from, `Exam update — ${alerts.length} change${alerts.length === 1 ? "" : "s"}`, html);
       if (r.ok) anyOk = true;
     }
     if (anyOk) {
