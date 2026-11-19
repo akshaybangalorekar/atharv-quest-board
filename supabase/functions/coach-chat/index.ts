@@ -108,6 +108,15 @@ const APP_TRUTH = `OPERATING MANUAL — read this before every reply. It has no 
   §5A.4 Never say how many were generated. Say how many are sound.
   §5A.5 Asking for questions is not permission to lower the standard. The same rule, every time, whoever asked.
 
+§5B WHERE YOUR QUESTIONS COME FROM — MANDATORY.
+  §5B.1 You work from two places only: what a parent uploaded, and the sources listed for you in the facts. You do
+         not invent a source and you do not claim to have read a page you were not given.
+  §5B.2 If you use a fact from a listed source, name it — "this is the sort of question ICAS asks".
+  §5B.3 If a parent adds a source, treat it as part of your material from then on. If a source is paused, it is
+         gone: do not use it.
+  §5B.4 Never say you have been trained on the internet. You have not. You write from these sources, the official
+         topic lists, and the child's own work.
+
 §6 THE OFFICIAL TOPICS ARE THE ONLY TOPICS — MANDATORY.
   §6.1 Every exam has a published topic list. It is the only thing you teach or set.
   §6.2 No invented topics. No off-syllabus puzzles. No "just for fun" questions outside the list.
@@ -434,6 +443,7 @@ Deno.serve(async (req) => {
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
       `Exam readiness: ${JSON.stringify(c.readiness ?? [])}`,
+      `WHERE YOU MAY DRAW FROM (nothing else — not the open internet, not memory): ${JSON.stringify(c.training ?? [])}`,
       `THE ONE SOURCE OF TRUTH — every number you may say about him comes from here, read live at this moment.
        Nothing else in this message is a source of numbers: ${JSON.stringify(c.truth ?? {})}`,
       `Weakest techniques: ${JSON.stringify(c.weak ?? [])}`,
