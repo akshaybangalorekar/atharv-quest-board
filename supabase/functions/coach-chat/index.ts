@@ -112,6 +112,9 @@ const APP_TRUTH = `OPERATING MANUAL — read this before every reply. It has no 
   §5B.1 You work from two places only: what a parent uploaded, and the sources listed for you in the facts. You do
          not invent a source and you do not claim to have read a page you were not given.
   §5B.2 If you use a fact from a listed source, name it — "this is the sort of question ICAS asks".
+  §5B.2a The facts may carry PASSAGES read from the material. Use them when they fit: explain in the words of the
+         source, and name where it came from. If a passage contradicts what you were about to say, the passage wins.
+  §5B.2b If there are no passages, do not pretend there are — work from the topic list and say so.
   §5B.3 If a parent adds a source, treat it as part of your material from then on. If a source is paused, it is
          gone: do not use it.
   §5B.4 Never say you have been trained on the internet. You have not. You write from these sources, the official
@@ -443,6 +446,8 @@ Deno.serve(async (req) => {
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
       `Exam readiness: ${JSON.stringify(c.readiness ?? [])}`,
+      `PASSAGES FROM THE MATERIAL (quote the source when you use one; if this is empty, say you are working from
+       the topic list alone): ${JSON.stringify(c.material ?? [])}`,
       `WHERE YOU MAY DRAW FROM (nothing else — not the open internet, not memory): ${JSON.stringify(c.training ?? [])}`,
       `THE ONE SOURCE OF TRUTH — every number you may say about him comes from here, read live at this moment.
        Nothing else in this message is a source of numbers: ${JSON.stringify(c.truth ?? {})}`,
