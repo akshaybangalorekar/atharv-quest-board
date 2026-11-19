@@ -523,102 +523,6 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </div>
   </div>
 
-  <div class="card">
-    <details>
-      <summary style="cursor:pointer;font-weight:650;font-size:15.5px">What the coach is told — the guard rails</summary>
-      <div class="sub" style="margin-top:10px;line-height:1.65">
-        <p><b>Who she is.</b> Ananya, his maths coach. Warm, brief, concrete. Two to four sentences a message.
-        Australian spelling. She never says she is an AI.</p>
-        <p><b>Teaching rules.</b> Never gives the answer to a question he has not submitted — the next step only.
-        One question at a time. Praises something specific or nothing at all. If he asks for the answer, she offers
-        the next step instead. If he is stuck, she asks one question that moves him a step.</p>
-        <p><b>What she is given.</b> A standing brief, rebuilt every night: his day in the programme, questions
-        answered, accuracy, chapters started and mastered, weakest techniques, test results, the next real exam and
-        how far off it is, and what is missing from his formula board.</p>
-        <p><b>What she may mention.</b> Only what is on his screen: Start or Resume, Chapter N, Check where I am,
-        Paper is due, Skip this one, Chapter quiz, Talk, Photo, Pause for now, Talk to Ananya, Back to Ananya,
-        Progress, Journal, Formula board.</p>
-        <p><b>What no longer exists.</b> Her voice — she does not speak aloud. The Draw it button — figures appear by
-        themselves. The paperclip — the button is called Photo. The “I worked on my own” tab. “Call it a day” — it is
-        Pause for now. Page numbers and book images. Menus, settings, badges.</p>
-        <p><b>Never.</b> Invent a button, a screen or a feature. Invent a score, a date or a fact. Send him to another
-        screen in the middle of a chapter. Scold him for missing days.</p>
-        <p>If she writes something outside these lines, it is a fault in her instructions — send me the words she used.</p>
-      </div>
-    </details>
-  </div>
-
-  <div class="card" style="padding:12px 16px">
-    <div class="bar" style="justify-content:space-between;align-items:center">
-      <span class="sub" id="pVer">—</span>
-      <button class="ghost small" onclick="freshCopy()">Refresh the app</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <details>
-      <summary style="cursor:pointer;font-weight:650;font-size:15.5px">Children</summary>
-      <div style="margin-top:10px">
-        <div class="sub" id="kidList">—</div>
-
-        <label class="k" style="margin-top:14px">Add a child</label>
-        <div class="bar">
-          <input id="newKidName" placeholder="Name" style="flex:1 1 120px">
-          <input id="newKidEmail" placeholder="Email for signing in" style="flex:1 1 180px">
-        </div>
-        <div class="bar" style="margin-top:8px">
-          <input id="newKidPw" type="password" placeholder="Password, at least 8 characters" style="flex:1 1 200px">
-          <button class="ghost small" onclick="createChild()">Create the account</button>
-        </div>
-        <div class="hint" id="newKidMsg" style="margin-top:8px"></div>
-
-        <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
-          <label class="k">Parents with access</label>
-          <div id="parentList" class="sub">—</div>
-        </div>
-
-        <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
-          <label class="k">Remove a child</label>
-          <div class="bar">
-            <input id="delKidConfirm" placeholder="Type DELETE" style="flex:1 1 140px">
-            <button class="ghost small" style="border-color:#f2c9c9;color:#b8383d" onclick="deleteChild()">Delete the account</button>
-          </div>
-          <div class="hint" id="delKidMsg" style="margin-top:8px">This removes the child's sign-in and everything recorded under it. It cannot be undone.</div>
-        </div>
-      </div>
-    </details>
-  </div>
-
-  <div class="card">
-    <details>
-      <summary style="cursor:pointer;font-weight:650;font-size:15.5px">Your account</summary>
-      <div style="margin-top:10px">
-        <label class="k">The name you sign in with</label>
-        <div class="bar"><input id="accName" placeholder="akshay" style="flex:1 1 160px">
-          <button class="ghost small" onclick="saveName()">Save name</button></div>
-        <label class="k" style="margin-top:12px">A new password</label>
-        <div class="bar"><input id="accPw" type="password" placeholder="at least 8 characters" style="flex:1 1 160px">
-          <button class="ghost small" onclick="savePassword()">Save password</button></div>
-        <div class="hint" id="accMsg" style="margin-top:8px"></div>
-
-        <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
-          <label class="k">Set your child’s password</label>
-          <div class="bar"><input id="kidPw" type="password" placeholder="at least 8 characters" style="flex:1 1 160px">
-            <button class="ghost small" onclick="saveChildPassword()">Set it</button></div>
-          <div class="hint" id="kidMsg" style="margin-top:8px">For when he has forgotten it. He signs in with his name and this password.</div>
-        </div>
-      </div>
-    </details>
-  </div>
-
-  <div class="card"><details id="papersDetails" open>
-    <summary class="foldHead">Sample questions</summary>
-    <div style="margin-top:10px">
-      <div id="pPapers"><div class="sub">Nothing uploaded yet.</div></div>
-      <div class="bar" style="margin-top:10px"><button class="go small" onclick="openUpload()">＋ Add a file</button></div>
-    </div>
-  </details></div>
-
   <div class="card"><details>
     <summary class="foldHead">Exams and what is loaded</summary>
     <div style="margin-top:10px">
@@ -640,27 +544,108 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     <table style="margin-top:10px"><tbody id="pTests"><tr><td class="sub">No tests yet.</td></tr></tbody></table>
   </details></div>
 
-  <div class="card"><details>
-    <summary class="foldHead">The coach checking its own content</summary>
+  <div class="card"><details id="papersDetails" open>
+    <summary class="foldHead">Sample questions</summary>
     <div style="margin-top:10px">
-    <div class="sub">It reworks the questions most likely to be wrong — blanks, answers it wrote itself, and questions that mention a diagram — and proposes corrections. Nothing changes until you tick and apply.</div>
-    <div class="bar"><button class="ghost small" id="scanBtn" onclick="scanContent()">Check the content</button></div>
-    <div id="contentList" style="margin-top:12px"></div>
-    <div class="bar" id="applyBar" style="display:none">
-      <button class="go small" onclick="applyContent()">Apply the ticked ones</button>
-    </div>
-    <div class="err" id="contentMsg"></div>
+      <div id="pPapers"><div class="sub">Nothing uploaded yet.</div></div>
+      <div class="bar" style="margin-top:10px"><button class="go small" onclick="openUpload()">＋ Add a file</button></div>
     </div>
   </details></div>
 
-  <div class="card" style="border-color:#f2c9c9"><details>
-    <summary class="foldHead" style="color:var(--red)">Start again</summary>
-    <div style="margin-top:10px">
-    <div class="sub">Wipes every attempt, score, badge, streak, chat and weekly note for him, and puts his XP back to zero. The timetable, the question bank and the logins are kept. It cannot be undone.</div>
-    <div class="bar">
-      <button class="ghost small" style="border-color:#f2c9c9;color:var(--red)" onclick="resetProgress()">Reset all progress…</button>
-    </div>
-    <div class="err" id="resetMsg"></div>
+  <div class="card"><details>
+    <summary class="foldHead">Admin</summary>
+    <div style="margin-top:10px;display:grid;gap:10px">
+
+      <details><summary style="cursor:pointer;font-weight:600">What the coach is told — the guard rails</summary>
+        <div class="sub" style="margin-top:10px;line-height:1.65">
+          <p><b>Who she is.</b> Ananya, his maths coach. Warm, brief, concrete. Two to four sentences a message.
+          Australian spelling. She never says she is an AI.</p>
+          <p><b>Teaching rules.</b> Never gives the answer to a question he has not submitted — the next step only.
+          One question at a time. Praises something specific or nothing at all. If he asks for the answer, she offers
+          the next step instead. If he is stuck, she asks one question that moves him a step.</p>
+          <p><b>What she is given.</b> A standing brief, rebuilt every night: his day in the programme, questions
+          answered, accuracy, chapters started and mastered, weakest techniques, test results, the next real exam and
+          how far off it is, and what is missing from his formula board.</p>
+          <p><b>What she may mention.</b> Only what is on his screen: Start or Resume, Chapter N, Check where I am,
+          Paper is due, Skip this one, Chapter quiz, Talk, Photo, Pause for now, Talk to Ananya, Back to Ananya,
+          Progress, Journal, Formula board.</p>
+          <p><b>What no longer exists.</b> Her voice — she does not speak aloud. The Draw it button — figures appear by
+          themselves. The paperclip — the button is called Photo. The “I worked on my own” tab. “Call it a day” — it is
+          Pause for now. Page numbers and book images. Menus, settings, badges.</p>
+          <p><b>Never.</b> Invent a button, a screen or a feature. Invent a score, a date or a fact. Send him to another
+          screen in the middle of a chapter. Scold him for missing days.</p>
+          <p>If she writes something outside these lines, it is a fault in her instructions — send me the words she used.</p>
+        </div>
+      </details>
+
+      <details><summary style="cursor:pointer;font-weight:600">Your account</summary>
+        <div style="margin-top:10px">
+          <label class="k">The name you sign in with</label>
+          <div class="bar"><input id="accName" placeholder="name" style="flex:1 1 160px">
+            <button class="ghost small" onclick="saveName()">Save name</button></div>
+          <label class="k" style="margin-top:12px">A new password</label>
+          <div class="bar"><input id="accPw" type="password" placeholder="at least 8 characters" style="flex:1 1 160px">
+            <button class="ghost small" onclick="savePassword()">Save password</button></div>
+          <div class="hint" id="accMsg" style="margin-top:8px"></div>
+          <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+            <label class="k">Set your child’s password</label>
+            <div class="bar"><input id="kidPw" type="password" placeholder="at least 8 characters" style="flex:1 1 160px">
+              <button class="ghost small" onclick="saveChildPassword()">Set it</button></div>
+            <div class="hint" id="kidMsg" style="margin-top:8px">For when he has forgotten it. He signs in with his name and this password.</div>
+          </div>
+        </div>
+      </details>
+
+      <details><summary style="cursor:pointer;font-weight:600">Children</summary>
+        <div style="margin-top:10px">
+          <div class="sub" id="kidList">—</div>
+          <label class="k" style="margin-top:14px">Add a child</label>
+          <div class="bar">
+            <input id="newKidName" placeholder="Name" style="flex:1 1 120px">
+            <input id="newKidEmail" placeholder="Email for signing in" style="flex:1 1 180px">
+          </div>
+          <div class="bar" style="margin-top:8px">
+            <input id="newKidPw" type="password" placeholder="Password, at least 8 characters" style="flex:1 1 200px">
+            <button class="ghost small" onclick="createChild()">Create the account</button>
+          </div>
+          <div class="hint" id="newKidMsg" style="margin-top:8px"></div>
+          <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+            <label class="k">Parents with access</label>
+            <div id="parentList" class="sub">—</div>
+          </div>
+          <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+            <label class="k">Remove a child</label>
+            <div class="bar">
+              <input id="delKidConfirm" placeholder="Type DELETE" style="flex:1 1 140px">
+              <button class="ghost small" style="border-color:#f2c9c9;color:#b8383d" onclick="deleteChild()">Delete the account</button>
+            </div>
+            <div class="hint" id="delKidMsg" style="margin-top:8px">This removes the child's sign-in and everything recorded under it. It cannot be undone.</div>
+          </div>
+        </div>
+      </details>
+
+      <details><summary style="cursor:pointer;font-weight:600">The coach checking its own content</summary>
+        <div style="margin-top:10px">
+          <div class="sub">It reworks the questions most likely to be wrong — blanks, answers it wrote itself, and questions that mention a diagram — and proposes corrections. Nothing changes until you tick and apply.</div>
+          <div class="bar"><button class="ghost small" id="scanBtn" onclick="scanContent()">Check the content</button></div>
+          <div id="contentList" style="margin-top:12px"></div>
+          <div class="bar" id="applyBar" style="display:none">
+            <button class="go small" onclick="applyContent()">Apply the ticked ones</button>
+          </div>
+          <div class="err" id="contentMsg"></div>
+        </div>
+      </details>
+
+      <details><summary style="cursor:pointer;font-weight:600;color:var(--red)">Start again</summary>
+        <div style="margin-top:10px">
+          <div class="sub">Wipes every attempt, score, badge, streak, chat and weekly note for him, and puts his XP back to zero. The timetable, the question bank and the logins are kept. It cannot be undone.</div>
+          <div class="bar">
+            <button class="ghost small" style="border-color:#f2c9c9;color:var(--red)" onclick="resetProgress()">Reset all progress…</button>
+          </div>
+          <div class="err" id="resetMsg"></div>
+        </div>
+      </details>
+
     </div>
   </details></div>
 </main>
@@ -906,7 +891,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.56.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.59.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1118,53 +1103,43 @@ async function showPaperPage(box, q) {
 async function autoFigure(kind, key, targetId, prompt, existing, q) {
   const box = $(targetId);
   if (!box) return;
+
+  // 1. a drawing we made ourselves and checked — the best case
   if (existing) { box.innerHTML = `<div class="diagram">${existing}</div>`; return; }
 
-  // its own cut-out figure first — the real thing, in colour, from the document
+  // 2. otherwise draw it now, in colour, and check it
+  const worthDrawing = q?.diagram_url || q?.diagram_box || q?.diagram_kind || needsFigure(prompt);
+  if (worthDrawing) {
+    box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13.5px">Drawing the figure…</div>`;
+    try {
+      const { data } = await sb.functions.invoke("draw-figure", {
+        body: {
+          chapter: S.chapter, kind,
+          n: kind === "example" ? key : null,
+          idx: kind === "question" ? key : null,
+          question: prompt,
+        },
+      });
+      if (data?.svg) {
+        box.innerHTML = `<div class="diagram">${data.svg}</div>`;
+        return;
+      }
+    } catch (_) { /* fall through to the page */ }
+  }
+
+  // 3. the real cut-out from the document, in colour
   if (q?.diagram_url) {
     const { data: signed } = await sb.storage.from("papers").createSignedUrl(q.diagram_url, 3600);
-    const url = signed?.signedUrl;
-    if (url) {
-      box.innerHTML = `<div class="diagram figureShot"><img src="${url}" alt="the figure from the paper"></div>`;
+    if (signed?.signedUrl) {
+      box.innerHTML = `<div class="diagram figureShot"><img src="${signed.signedUrl}" alt="the figure from the paper"></div>`;
       return;
     }
   }
 
-  // otherwise the page it came from, where the figure sits
+  // 4. the page it came from, where the figure sits
   if (q?.paper_id) { if (await showPaperPage(box, q)) return; }
 
-  if (!needsFigure(prompt)) return;
-
-  box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13.5px">Drawing the figure…</div>`;
-  try {
-    const { data, error } = await sb.functions.invoke("draw-figure", {
-      body: { chapter: S.chapter, kind, n: kind === "example" ? key : null, idx: kind === "question" ? key : null },
-    });
-    if (error || data?.error) {
-      const why = error?.message ?? data?.error ?? "no reason given";
-      box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13px">
-        I could not draw this one (${esc(String(why).slice(0, 80))}). Tap Photo and show me the figure.</div>`;
-      return;
-    }
-    if (!data?.svg) {
-      box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13px">
-        There is no figure for this one — the words carry it.</div>`;
-      return;
-    }
-    box.innerHTML = `<div class="diagram">${data.svg}</div>`;
-
-    // keep it: next time the figure is simply there
-    if (kind === "question") {
-      sb.from("problems").update({ diagram_svg: data.svg })
-        .eq("chapter", S.chapter).eq("idx", key).then(() => {}, () => {});
-    } else {
-      sb.from("examples").update({ diagram_svg: data.svg })
-        .eq("chapter", S.chapter).eq("n", key).then(() => {}, () => {});
-    }
-  } catch (e) {
-    box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13px">
-      I could not draw this one (${esc(e.message)}). Tap Photo and show me the figure.</div>`;
-  }
+  box.innerHTML = "";
 }
 
 
@@ -1996,8 +1971,10 @@ async function loadPapersToRead() {
           (r.questions ?? 0) > (r.answers ?? 0) ? ` · ${(r.questions ?? 0) - (r.answers ?? 0)} still to answer` : ""}</div>
       </div>
       <div class="bar" style="gap:6px">
-        ${left > 0 ? `<button class="go small" onclick="retryReading(${r.id}, false)">Read the rest</button>` : ""}
-        <button class="ghost small" onclick="retryReading(${r.id}, true)">Reload</button>
+        ${left > 0 ? `<button class="go small" title="Carry on from the page it stopped at — pages already read are skipped"
+              onclick="retryReading(${r.id}, false)">Continue reading</button>` : ""}
+        <button class="ghost small" title="Read every page again from the start — for when the first reading was wrong"
+              onclick="retryReading(${r.id}, true)">Read the whole file again</button>
         <button class="ghost small" style="border-color:#f2c9c9;color:#b8383d" onclick="deletePaper(${r.id})">Delete</button>
       </div>
     </div>`;
@@ -2214,7 +2191,6 @@ async function goParent() {
 
   // the same families the student sees, with each school's date inside
   const rows = S.schoolReadiness ?? [];
-  if ($("pVer")) $("pVer").textContent = `Version ${APP_VERSION} · ${rows.length} exams`;
   const cls = (v) => v === "solid" ? "ok" : v === "needs work" ? "red"
     : v === "partly measured" ? "amber" : "grey";
 
