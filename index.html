@@ -1086,7 +1086,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.26.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.27.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1275,8 +1275,12 @@ async function openTimetable() {
         <span class="ttMeta" style="margin-left:auto">${done} of ${all} topics</span>
       </div>
       <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
-      ${mine.length ? paper : topics.map(topicRow).join("")}
-      ${loose.length ? `<div class="ttSection"><div class="ttSectionHead">Other topics</div>${loose.map(topicRow).join("")}</div>` : ""}
+      <details class="ttMore"><summary>the paper and the topics</summary>
+        <div style="margin-top:6px">
+          ${mine.length ? paper : topics.map(topicRow).join("")}
+          ${loose.length ? `<div class="ttSection"><div class="ttSectionHead">Other topics</div>${loose.map(topicRow).join("")}</div>` : ""}
+        </div>
+      </details>
     </div>`;
   }).join("");
 }
@@ -3998,7 +4002,9 @@ async function paintTrackCard(id) {
       <span class="ttMeta" style="margin-left:auto">${done} of ${total} topics</span>
     </div>
     <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
-    ${paper}
+    <details class="ttMore"><summary>the paper and the topics</summary>
+      <div style="margin-top:6px">${paper}</div>
+    </details>
     ${noQuestions ? `<div class="hint" style="margin-top:10px">No questions in here yet. <b>Ask Ananya</b> for some —
       say “can I have more questions” and she will write them for this exam.</div>` : ""}
     <div class="bar" style="margin-top:10px">
