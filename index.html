@@ -374,6 +374,8 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 .newRow:first-child{border-top:0}
 .newWhat{font-weight:500}
 .newWhen{color:var(--mut);font-size:12.5px}
+
+.ctxExam{font-weight:400;font-size:15px;color:var(--mut);letter-spacing:0}
 </style>
 </head>
 <body>
@@ -386,7 +388,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 <div id="noteBar" class="bannerNote hidden" style="max-width:1080px;margin:0 auto;padding:0 22px"></div>
 
 <div class="top">
-  <h1 id="appTitle">Quest Coach</h1>
+  <h1 id="appTitle">Quest Coach<span class="ctxExam hidden" id="ctxExam"></span></h1>
   <div style="display:flex;gap:8px;align-items:center">
     <div id="topProg" class="topProg hidden" title="Reading" style="display:none">
       <div class="topProgText" id="topProgText">Reading…</div>
@@ -1018,7 +1020,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.10.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.11.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1187,6 +1189,17 @@ async function openHelp() {
   if ($("helpVer")) $("helpVer").textContent = "Version " + APP_VERSION;
 }
 
+/* which exam he is inside, shown beside the title — and nothing on the home screen */
+function paintExamTag(view) {
+  const tag = $("ctxExam");
+  if (!tag) return;
+  const inside = ["session", "chapter", "track", "exam", "results"].includes(view ?? S.view);
+  const fam = S.track ? (TRACKS.find((t) => t.id === S.track) ?? {}).name : "";
+  if (!inside || !fam) { tag.classList.add("hidden"); tag.textContent = ""; return; }
+  tag.textContent = " · " + fam;
+  tag.classList.remove("hidden");
+}
+
 function show(id) {
   S.view = id;
   if (!S.restoring) saveRoute();
@@ -1199,6 +1212,7 @@ function show(id) {
   const want = $(id);
   if (!want) { console.warn("no screen called", id); return; }
   want.classList.remove("hidden");
+  paintExamTag(id);
   $("homeBtn")?.classList.toggle("hidden", id === "landing" || id === "signin");
   window.scrollTo(0, 0);
 }
@@ -3792,6 +3806,7 @@ async function openPaper(id) {
 
 async function openTrack(id) {
   S.track = id;
+  paintExamTag("track");
   S.shelf = "book";
   show("track");
   const t = TRACKS.find((x) => x.id === id);
@@ -4037,6 +4052,7 @@ function startBudget(mins) {
 }
 
 async function startSolo(chapterArg) {
+  paintExamTag("session");
   const chapter = chapterArg ?? S.chapter;
   if (!chapter) { alert("Open a chapter first, then press Practise."); return; }
   if (S.chapter && chapter !== S.chapter) clearSession();   // a new topic, a fresh page
@@ -4952,7 +4968,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
