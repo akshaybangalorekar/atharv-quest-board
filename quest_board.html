@@ -306,6 +306,29 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 body{touch-action:manipulation}
 button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 *{-webkit-tap-highlight-color:transparent}
+
+/* the exam list: one tight line per exam, one per school */
+.exList{display:block}
+.exRow{padding:9px 0;border-top:1px solid var(--line)}
+.exRow:first-child{border-top:0;padding-top:0}
+.exHead{display:flex;align-items:center;gap:8px;white-space:nowrap;overflow:hidden}
+.exName{font-weight:700;font-size:15px;flex:0 0 auto}
+.exCounts{color:var(--mut);font-size:12.5px;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis}
+.exActs{margin-left:auto;display:flex;gap:6px;flex:0 0 auto}
+.mini{border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 9px;
+  font:inherit;font-size:12.5px;color:var(--ink);cursor:pointer}
+.mini:hover{border-color:var(--acc);color:var(--acc)}
+.exSchool{display:flex;align-items:center;gap:7px;margin-top:3px;padding-left:2px;
+  font-size:13px;color:#4a4e63;white-space:nowrap;overflow:hidden}
+.exSchool .pill{font-size:11px;padding:2px 8px;flex:0 0 auto}
+.exWhere{font-weight:600;color:var(--ink);flex:0 0 auto}
+.exDate{color:var(--mut);flex:0 0 auto}
+.exMore{flex:0 0 auto}
+.exMore summary{list-style:none;cursor:pointer;color:var(--acc);font-size:12px;border-bottom:1px dotted currentColor}
+.exMore summary::-webkit-details-marker{display:none}
+.exParts{margin-top:6px;padding-left:10px;border-left:2px solid var(--line);font-size:12.5px;color:var(--mut);white-space:normal}
+.exSrc{margin-top:6px;font-size:12.5px;line-height:1.6;color:var(--mut);white-space:normal}
+.exHead .srcInfo{display:inline-flex;flex:0 0 auto;margin:0}
 </style>
 </head>
 <body>
@@ -532,10 +555,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   <div class="card"><details>
     <summary class="foldHead">Exams and what is loaded</summary>
     <div style="margin-top:10px">
-    <table>
-      <tr><th>Where</th><th>Date</th><th>How it is going</th></tr>
-      <tbody id="pExams"></tbody>
-    </table>
+    <div id="pExams" class="exList"></div>
     <div class="hint">“Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy.</div>
     </div>
   </details></div>
@@ -926,7 +946,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.95.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.97.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2521,7 +2541,7 @@ async function goParent() {
   const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
                   thin: "Need more data", no_content: "Nothing yet" };
 
-  // the same families the student sees, with each school's date inside
+  // one compact line per exam: schools and dates beneath, the counts at a glance
   const rows = S.schoolReadiness ?? [];
   const cls = (v) => v === "solid" ? "ok" : v === "needs work" ? "red"
     : v === "partly measured" ? "amber" : "grey";
@@ -2529,11 +2549,10 @@ async function goParent() {
   const fams = {};
   rows.forEach((r) => { (fams[r.exam] = fams[r.exam] ?? []).push(r); });
 
-  // where the questions in each exam came from
   const { data: srcRows } = await sb.rpc("exam_question_sources");
   const src = {};
   (srcRows ?? []).forEach((r) => {
-    const fam = (BANK_FAMILY[r.exam] ?? r.exam);
+    const fam = BANK_FAMILY[r.exam] ?? r.exam;
     const cur = src[fam] ?? { uploaded: 0, by_coach: 0, files: new Set() };
     cur.uploaded += r.uploaded ?? 0;
     cur.by_coach += r.by_coach ?? 0;
@@ -2544,48 +2563,48 @@ async function goParent() {
   $("pExams").innerHTML = Object.entries(fams).map(([fam, list]) => {
     const q = src[fam] ?? { uploaded: 0, by_coach: 0, files: new Set() };
     const files = [...q.files].filter(Boolean);
-    const head = `<tr><td colspan="3" style="padding-top:14px">
-      <div class="bar" style="justify-content:space-between;align-items:center">
-        <div><b style="font-size:15px">${esc(fam)}</b>
-          <details class="srcInfo"><summary title="Where these questions came from">i</summary>
-            <div class="sub" style="margin-top:6px;line-height:1.7">
-              From your files: <b>${q.uploaded}</b>${files.length ? `<br><span class="sub">${esc(files.join(", "))}</span>` : ""}<br>
-              Written by the coach: <b>${q.by_coach}</b><br>
-              <span class="sub">She copies the style of your files and works to his accuracy and speed.</span>
-            </div>
-          </details>
-          <div class="sub">${q.uploaded} from your files · ${q.by_coach} by the coach</div></div>
-        <div class="bar" style="gap:6px">
-          <button class="ghost small" data-gen="${esc(fam)}">Generate 20</button>
-          <button class="ghost small" data-print="${esc(fam)}">Print</button>
-        </div>
-      </div></td></tr>`;
-    const body = list.map((r, i) => {
+
+    const schools = list.map((r, i) => {
       const when = r.sits_on
         ? new Date(r.sits_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
-        : "";
+        : "no date";
       const days = r.sits_on ? Math.round((new Date(r.sits_on) - new Date()) / 86400000) : null;
       const detail = (r.sections ?? []).map((x) => {
         const mark = x.covered ? `${x.tried} tried${x.accuracy === null ? "" : ` · ${x.accuracy}%`}` : "not measured";
-        return `<div class="sub">${esc(x.part)} · ${x.minutes} min · ${mark} — <b>${esc(x.verdict)}</b></div>`;
+        return `<div>${esc(x.part)} · ${x.minutes} min · ${mark} — <b>${esc(x.verdict)}</b></div>`;
       }).join("");
-      return `<tr>
-        <td style="padding-left:12px">${esc(r.school)}</td>
-        <td><span class="dateLine" id="dl${fam}${i}">${when ? esc(when) : "no date yet"}${
-            days !== null ? `<span class="sub"> · ${days} days</span>` : ""}</span>
-          <button class="pencil" title="Change the date" onclick="editDate('${fam}${i}', this.dataset.exam, this.dataset.on)"
-                  data-exam="${esc(r.calendar_name ?? "")}" data-on="${r.sits_on ?? ""}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
-              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </button></td>
-        <td><span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>
-          <details style="margin-top:4px"><summary class="sub" style="cursor:pointer">${r.measured_minutes ?? 0} of ${r.sits_minutes ?? 0} min measured</summary>
-            <div style="margin-top:6px">${detail}</div></details></td>
-      </tr>`;
+      return `<div class="exSchool">
+        <span class="exWhere">${esc(r.school)}</span>
+        <span class="exDate" id="dl${fam}${i}">${esc(when)}${days !== null ? ` · ${days}d` : ""}</span>
+        <button class="pencil" title="Change the date" onclick="editDate('${fam}${i}', this.dataset.exam, this.dataset.on)"
+                data-exam="${esc(r.calendar_name ?? "")}" data-on="${r.sits_on ?? ""}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        <span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>
+        <details class="exMore"><summary>${r.measured_minutes ?? 0}/${r.sits_minutes ?? 0} min</summary>
+          <div class="exParts">${detail}</div></details>
+      </div>`;
     }).join("");
-    return head + body;
-  }).join("") || `<tr><td class="sub">Nothing loaded yet.</td><td></td><td></td></tr>`;
+
+    return `<div class="exRow">
+      <div class="exHead">
+        <span class="exName">${esc(fam)}</span>
+        <details class="srcInfo"><summary title="Where these questions came from">i</summary>
+          <div class="exSrc">
+            From your files: <b>${q.uploaded}</b>${files.length ? `<br><span class="sub">${esc(files.join(", "))}</span>` : ""}<br>
+            Written by the coach: <b>${q.by_coach}</b>
+          </div>
+        </details>
+        <span class="exCounts">${q.uploaded} uploaded · ${q.by_coach} by the coach</span>
+        <span class="exActs">
+          <button class="mini" data-gen="${esc(fam)}">Generate</button>
+          <button class="mini" data-print="${esc(fam)}">Print</button>
+        </span>
+      </div>
+      ${schools}
+    </div>`;
+  }).join("") || `<div class="sub">Nothing loaded yet.</div>`;
 
   $("pExams").querySelectorAll("[data-gen]").forEach((b) => {
     b.onclick = () => generateFor(b.dataset.gen, 20, b);
