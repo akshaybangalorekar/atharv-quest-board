@@ -392,9 +392,9 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <div class="topProgText" id="topProgText">Reading…</div>
       <div class="topProgTrack"><span id="topProgBar"></span></div>
     </div>
+    <button class="out hidden" id="homeBtn" onclick="goHome()">Home</button>
     <button class="out" onclick="openTimetable()">Timetable</button>
     <button class="out" id="helpBtn" onclick="openHelp()">Help</button>
-    <button class="out hidden" id="homeBtn" onclick="goHome()">Home</button>
     <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
   </div>
 </div>
@@ -1018,7 +1018,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.10.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.10.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
