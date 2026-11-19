@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.64.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.65.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2041,10 +2041,36 @@ async function retryReading(paperId, all) {
 
 /* remove a sample: the file, its pages and the questions that came from it */
 async function deletePaper(paperId) {
-  if (!confirm("Delete this sample and the questions that came from it? This cannot be undone.")) return;
+  if (!confirm("Delete this file and everything that came from it — its questions, answers and any record of him answering them? This cannot be undone.")) return;
+
+  // the files go first, then the records: nothing is left behind either way
+  const { data: paths } = await sb.rpc("paper_objects", { p_id: paperId });
   const { data, error } = await sb.rpc("delete_paper", { p_id: paperId });
   if (error) { alert(error.message); return; }
-  loadPapersToRead();
+
+  const files = [...(paths ?? [])];
+  for (let i = 0; i < files.length; i += 100) {
+    await sb.storage.from("papers").remove(files.slice(i, i + 100)).then(() => {}, () => {});
+  }
+
+  const bits = [];
+  if (data?.questions_removed) bits.push(`${data.questions_removed} questions`);
+  if (data?.answers_removed) bits.push(`${data.answers_removed} answers`);
+  if (data?.attempts_removed) bits.push(`${data.attempts_removed} answers he gave`);
+  if (!bits.length) bits.push("nothing left behind");
+
+  await loadPapersToRead();
+
+  const box = $("pPapers");
+  if (box) {
+    const note = document.createElement("div");
+    note.className = "upRow";
+    note.style.borderColor = "#cfe6d5";
+    note.style.background = "#f6fbf7";
+    note.innerHTML = `<span class="upName">Deleted</span><span class="upState">removed ${esc(bits.join(" · "))}</span>`;
+    box.prepend(note);
+    setTimeout(() => note.remove(), 9000);
+  }
 }
 
 /* turn the stored original back into page images, so the server can read them */
