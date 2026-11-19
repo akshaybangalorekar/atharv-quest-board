@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.73.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.74.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -4433,7 +4433,15 @@ sb.auth.onAuthStateChange((event, session) => {
   if (data?.session) start();
   else { show("signin"); }
 })();
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
+/* No service worker: it kept serving yesterday's page after a fix went out.
+   Anything an older copy left behind is cleaned up on the way in. */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+    .then(() => (window.caches ? caches.keys() : []))
+    .then((keys) => Promise.all((keys ?? []).map((k) => caches.delete(k))))
+    .catch(() => {});
+}
 
 let api = {};
 try {
