@@ -1084,7 +1084,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.31.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.31.2";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1636,7 +1636,7 @@ function journeyChart(j) {
       <div>
         <div class="k" style="margin:0 0 6px">Portion done</div>
         <div class="gauge"><span style="width:${portionPct}%"></span></div>
-        <div class="sub" style="margin-top:6px">${j.chapters_mastered} of ${j.chapters_total} chapters mastered · ${j.questions} questions · ${j.accuracy}% right</div>
+        <div class="sub" style="margin-top:6px">${j.chapters_mastered ?? 0} of ${j.chapters_total ?? 0} chapters mastered · ${j.questions} questions · ${j.accuracy}% right</div>
       </div>
       <div style="text-align:right">
         <div class="k" style="margin:0 0 6px">Next paper</div>
