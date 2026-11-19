@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.71.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.72.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1965,6 +1965,90 @@ async function loadContext() {
 }
 
 /* -------------------------------------------------------------- parent -- */
+const BANK_FAMILY = {
+  "AAS numerical reasoning": "AAS",
+  "AMC Upper Primary": "AMC",
+  "APSMO Division J": "Olympiad",
+  "Olympiad book": "Olympiad",
+  "Edutest numerical reasoning": "Edutest",
+  "ELMS": "Edutest",
+  "ICAS Maths": "ICAS",
+};
+
+const FAMILY_EXAM = {
+  "Olympiad": "Olympiad book",
+  "Edutest": "ELMS",
+  "AAS": "AAS numerical reasoning",
+  "ICAS": "ICAS Maths",
+  "AMC": "AMC Upper Primary",
+};
+
+/* write more questions for one exam, on demand */
+async function generateFor(fam, count, btn) {
+  const exam = FAMILY_EXAM[fam] ?? fam;
+  if (btn) { btn.disabled = true; btn.textContent = "Writing…"; }
+  const { data, error } = await sb.functions.invoke("make-questions", { body: { exam, count } });
+  const added = data?.added ?? 0;
+  await sb.rpc("log_topup", {
+    p_exam: exam, p_asked: count, p_made: added,
+    p_reason: error ? error.message : "asked for from the parent screen",
+  });
+  if (btn) { btn.disabled = false; btn.textContent = added ? `Added ${added}` : "Nothing added"; }
+  setTimeout(() => goParent(), 900);
+}
+
+/* a printable sheet of what is in an exam, so a parent can see what he is doing */
+async function printQuestions(fam) {
+  const kinds = Object.entries(BANK_FAMILY).filter(([, f]) => f === fam).map(([e]) => e);
+  const { data: banks } = await sb.from("exam_banks").select("exam, kind").in("exam", kinds);
+  const sourceKinds = (banks ?? []).map((b) => b.kind);
+
+  const { data: rows } = await sb.from("problems")
+    .select("chapter, idx, prompt, options, paper_id, diagram_url")
+    .in("source", sourceKinds).order("chapter").order("idx").limit(300);
+  if (!rows?.length) { alert("There is nothing to print for this exam yet."); return; }
+
+  const chapters = [...new Set(rows.map((r) => r.chapter))];
+  const { data: chs } = await sb.from("chapters").select("n, title").in("n", chapters);
+  const titleOf = {};
+  (chs ?? []).forEach((c) => { titleOf[c.n] = c.title; });
+
+  const { data: ans } = await sb.from("problem_answers").select("chapter, idx, answer").in("chapter", chapters);
+  const keyOf = {};
+  (ans ?? []).forEach((a) => { keyOf[a.chapter + ":" + a.idx] = a.answer; });
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(fam)} — questions</title>
+    <style>
+      body{font-family:system-ui,sans-serif;margin:32px;color:#111;line-height:1.5}
+      h1{font-size:20px;margin:0 0 4px}h2{font-size:14px;margin:22px 0 8px;color:#444;
+        border-bottom:1px solid #ddd;padding-bottom:4px}
+      .q{margin:0 0 10px;page-break-inside:avoid}
+      .n{color:#777;font-size:12px}
+      .opt{color:#333;font-size:13px;margin-left:14px}
+      .src{font-size:11px;color:#888}
+      .key{margin-top:26px;border-top:1px solid #ccc;padding-top:10px;font-size:12px;color:#333}
+    </style></head><body>
+    <h1>${esc(fam)} — the questions in the bank</h1>
+    <div class="src">Printed ${new Date().toLocaleDateString("en-AU")} · ${rows.length} questions</div>
+    ${chapters.map((n) => `
+      <h2>${esc(titleOf[n] ?? ("Chapter " + n))}</h2>
+      ${rows.filter((r) => r.chapter === n).map((r, i) => `
+        <div class="q"><span class="n">${i + 1}.</span> ${esc(r.prompt)}
+          ${Array.isArray(r.options) ? r.options.map((o) => `<div class="opt">${esc(o)}</div>`).join("") : ""}
+          ${r.paper_id ? `<div class="src">from an uploaded paper</div>` : `<div class="src">written by the coach</div>`}
+        </div>`).join("")}`).join("")}
+    <div class="key"><b>Answers</b><br>${rows.map((r, i) =>
+      `${i + 1}. ${esc(keyOf[r.chapter + ":" + r.idx] ?? "—")}`).join(" · ")}</div>
+    </body></html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) { alert("Your browser blocked the print window. Allow pop-ups for this site."); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 400);
+}
+
 /* a parent sets the date the moment the school publishes it */
 /* the name you sign in with, and the password, changed from here */
 async function loadAccount() {
@@ -2308,8 +2392,37 @@ async function goParent() {
   const fams = {};
   rows.forEach((r) => { (fams[r.exam] = fams[r.exam] ?? []).push(r); });
 
+  // where the questions in each exam came from
+  const { data: srcRows } = await sb.rpc("exam_question_sources");
+  const src = {};
+  (srcRows ?? []).forEach((r) => {
+    const fam = (BANK_FAMILY[r.exam] ?? r.exam);
+    const cur = src[fam] ?? { uploaded: 0, by_coach: 0, files: new Set() };
+    cur.uploaded += r.uploaded ?? 0;
+    cur.by_coach += r.by_coach ?? 0;
+    if (r.from_files) String(r.from_files).split(", ").forEach((f) => cur.files.add(f));
+    src[fam] = cur;
+  });
+
   $("pExams").innerHTML = Object.entries(fams).map(([fam, list]) => {
-    const head = `<tr><td colspan="3" style="padding-top:14px"><b style="font-size:15px">${esc(fam)}</b></td></tr>`;
+    const q = src[fam] ?? { uploaded: 0, by_coach: 0, files: new Set() };
+    const files = [...q.files].filter(Boolean);
+    const head = `<tr><td colspan="3" style="padding-top:14px">
+      <div class="bar" style="justify-content:space-between;align-items:center">
+        <div><b style="font-size:15px">${esc(fam)}</b>
+          <details class="srcInfo"><summary title="Where these questions came from">i</summary>
+            <div class="sub" style="margin-top:6px;line-height:1.7">
+              From your files: <b>${q.uploaded}</b>${files.length ? `<br><span class="sub">${esc(files.join(", "))}</span>` : ""}<br>
+              Written by the coach: <b>${q.by_coach}</b><br>
+              <span class="sub">She copies the style of your files and works to his accuracy and speed.</span>
+            </div>
+          </details>
+          <div class="sub">${q.uploaded} from your files · ${q.by_coach} by the coach</div></div>
+        <div class="bar" style="gap:6px">
+          <button class="ghost small" data-gen="${esc(fam)}">Generate 20</button>
+          <button class="ghost small" data-print="${esc(fam)}">Print</button>
+        </div>
+      </div></td></tr>`;
     const body = list.map((r, i) => {
       const when = r.sits_on
         ? new Date(r.sits_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
@@ -2336,6 +2449,13 @@ async function goParent() {
     }).join("");
     return head + body;
   }).join("") || `<tr><td class="sub">Nothing loaded yet.</td><td></td><td></td></tr>`;
+
+  $("pExams").querySelectorAll("[data-gen]").forEach((b) => {
+    b.onclick = () => generateFor(b.dataset.gen, 20, b);
+  });
+  $("pExams").querySelectorAll("[data-print]").forEach((b) => {
+    b.onclick = () => printQuestions(b.dataset.print);
+  });
 
   const weak = c.weak ?? [];
   $("pWeak").innerHTML = weak.length
@@ -4302,7 +4422,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, startDeleteAccount, loadParents, openHelp, keepBankAhead, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
