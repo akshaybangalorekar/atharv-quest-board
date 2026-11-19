@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.70.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.71.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2000,11 +2000,16 @@ async function loadPapersToRead() {
     const total = r.pages_total ?? 0;
     const done = r.pages_done ?? 0;
     const pct = total ? Math.round((done / total) * 100) : 0;
-    const word = (r.status === "failed" || (r.status === "running" && left > 0))
-      ? (r.status === "failed" ? "Stopped partway" : "Reading")
+    const finished = total > 0 && left === 0 && r.status !== "failed";
+    const word = r.status === "failed" ? "Stopped partway"
+      : finished ? "Reading done"
       : total === 0 ? "Not read yet"
-      : left === 0 ? (r.status === "failed" ? "Stopped partway" : "Read")
+      : left > 0 && r.status === "running" ? "Reading"
       : "Paused";
+    const pill = finished ? `<span class="pill ok" style="margin-left:8px">done</span>`
+      : r.status === "failed" ? `<span class="pill red" style="margin-left:8px">stopped</span>`
+      : total === 0 ? `<span class="pill grey" style="margin-left:8px">not read</span>`
+      : `<span class="pill amber" style="margin-left:8px">reading</span>`;
     const state = total === 0
       ? (r.questions > 0 ? `${r.questions} questions in the bank` : "not read yet")
       : `${done} of ${total} pages · ${left === 0 ? "all read" : left + " to go"}`;
@@ -2022,7 +2027,7 @@ async function loadPapersToRead() {
     </details>`;
     return `<div class="bar" style="justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)">
       <div style="flex:1 1 260px">
-        <b>${esc(r.title)}</b> ${statusIcon}
+        <b>${esc(r.title)}</b> ${pill} ${statusIcon}
         <div class="sub">${esc(r.exam)} · ${esc(state)}</div>
         ${total ? `<div class="rowProg"><span style="width:${pct}%"></span></div>` : ""}
         <div class="sub" style="margin-top:2px"><b>${esc(word)}</b>${word !== "Read" && S.lastReadError ? ` — ${esc(String(S.lastReadError).slice(0, 90))}` : ""}${
