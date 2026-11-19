@@ -351,6 +351,8 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 .bar2{display:block;height:6px;border-radius:99px;background:#eceaf6;overflow:hidden}
 .bar2 i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#6d5ef0,#a99bff)}
 .bar2.his i{background:linear-gradient(90deg,#2fa06a,#7bd3a4)}
+
+.buildTag{font-size:11.5px;color:var(--mut);letter-spacing:.03em;margin-right:4px;align-self:center}
 </style>
 </head>
 <body>
@@ -369,6 +371,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <div class="topProgText" id="topProgText">Reading…</div>
       <div class="topProgTrack"><span id="topProgBar"></span></div>
     </div>
+    <span class="buildTag" id="buildTag" title="Which copy of the app this is">v—</span>
     <button class="out" id="helpBtn" onclick="openHelp()">Help</button>
     <button class="out hidden" id="homeBtn" onclick="goHome()">Home</button>
     <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
@@ -969,7 +972,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.03.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.04.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -4818,6 +4821,9 @@ api = {
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
+
+const _tag = document.getElementById("buildTag");
+if (_tag) _tag.textContent = "v" + APP_VERSION;
 
 </script>
 </body>
