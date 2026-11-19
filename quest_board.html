@@ -340,6 +340,17 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   body.padOpen main#session{padding-right:360px}
   body.padOpen #chatWrap{padding-right:clamp(12px, 3vw, 40px)}
 }
+
+/* per-topic bars: content confidence, and his progress through it */
+.topicHead{display:grid;grid-template-columns:1fr 90px 90px;gap:10px;font-size:11.5px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:6px 0}
+.topicRow{display:grid;grid-template-columns:1fr 90px 90px;gap:10px;align-items:center;padding:5px 0;
+  border-top:1px solid var(--line);font-size:13.5px}
+.topicName{font-weight:600}
+.topicName .sub{font-weight:400}
+.bar2{display:block;height:6px;border-radius:99px;background:#eceaf6;overflow:hidden}
+.bar2 i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#6d5ef0,#a99bff)}
+.bar2.his i{background:linear-gradient(90deg,#2fa06a,#7bd3a4)}
 </style>
 </head>
 <body>
@@ -453,6 +464,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     <summary class="foldHead">What this paper contains</summary>
     <div id="partsList" style="margin-top:10px"></div>
     <div class="hint" id="partsNote" style="margin-top:8px"></div>
+    <div id="topicList" style="margin-top:12px"></div>
   </details></div>
 
   <div class="card" id="paperCard" style="display:none">
@@ -957,7 +969,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.00.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.02.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2575,6 +2587,13 @@ async function goParent() {
   const fams = {};
   rows.forEach((r) => { (fams[r.exam] = fams[r.exam] ?? []).push(r); });
 
+  // the same per-topic numbers the child sees
+  const topicMap = {};
+  for (const fam of Object.keys(fams)) {
+    const { data } = await sb.rpc("topic_readiness", { p_family: fam.toLowerCase() });
+    topicMap[fam] = data ?? [];
+  }
+
   const { data: srcRows } = await sb.rpc("exam_question_sources");
   const src = {};
   (srcRows ?? []).forEach((r) => {
@@ -2599,6 +2618,15 @@ async function goParent() {
         const mark = x.covered ? `${x.tried} tried${x.accuracy === null ? "" : ` · ${x.accuracy}%`}` : "not measured";
         return `<div>${esc(x.part)} · ${x.minutes} min · ${mark} — <b>${esc(x.verdict)}</b></div>`;
       }).join("");
+      const topics = (topicMap[fam] ?? []).filter((t) => (t.questions ?? 0) > 0);
+      const topicHtml = topics.length ? `<div class="topicHead" style="margin-top:8px">
+          <span>Topic</span><span>Content</span><span>His progress</span></div>
+        ${topics.map((t) => `<div class="topicRow">
+          <span class="topicName">${esc(String(t.title).split(" · ").pop())}
+            <span class="sub">${t.questions} questions</span></span>
+          <span class="bar2"><i style="width:${t.confidence}%"></i></span>
+          <span class="bar2 his"><i style="width:${t.preparedness}%"></i></span>
+        </div>`).join("")}` : "";
       return `<div class="exSchool">
         <span class="exWhere">${esc(r.school)}</span>
         <span class="exDate" id="dl${fam}${i}">${esc(when)}${days !== null ? ` · ${days}d` : ""}</span>
@@ -2609,7 +2637,7 @@ async function goParent() {
             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
         <span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>
         <details class="exMore"><summary>${r.measured_minutes ?? 0}/${r.sits_minutes ?? 0} min</summary>
-          <div class="exParts">${detail}</div></details>
+          <div class="exParts">${detail}${topicHtml}</div></details>
       </div>`;
     }).join("");
 
@@ -3574,6 +3602,23 @@ async function loadParts(family) {
       <span class="pill ${pill(p.verdict)}">${esc(p.verdict)}</span>
     </div>`).join("");
   $("partsNote").textContent = data.note ?? "";
+
+  // and below it, every topic with two bars: how sound the content is, and how far he is
+  const topics = await sb.rpc("topic_readiness", { p_family: family });
+  const rows = topics.data ?? [];
+  const withQuestions = rows.filter((t) => (t.questions ?? 0) > 0);
+  const box = $("topicList");
+  if (box) {
+    box.innerHTML = withQuestions.length ? `
+      <div class="topicHead"><span>Topic</span><span>Content</span><span>His progress</span></div>
+      ${withQuestions.map((t) => `
+        <div class="topicRow">
+          <span class="topicName">${esc(t.title.split(" · ").pop())}
+            <span class="sub">${t.questions} questions${t.by_coach ? ` · ${t.by_coach} by the coach` : ""}${t.from_files ? ` · ${t.from_files} from files` : ""}</span></span>
+          <span class="bar2"><i style="width:${t.confidence}%"></i></span>
+          <span class="bar2 his"><i style="width:${t.preparedness}%"></i></span>
+        </div>`).join("")}` : "";
+  }
 }
 
 async function loadPapers(exam) {
@@ -3660,6 +3705,8 @@ async function openTrack(id) {
   };
   const anyQuestions = (fam?.members ?? []).some((m) => m.count > 0);
   $("shelfEmpty").style.display = anyQuestions ? "none" : "";
+  $("shelfNote").style.display = anyQuestions ? "" : "none";
+  $("shelf").style.display = anyQuestions ? "" : "none";
   const usable = (fam?.members ?? []).filter((m) => m.count > 0);
   if (usable.length) {
     fam.members.filter((m) => m.count > 0).forEach((m, i) => {
