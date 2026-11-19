@@ -436,7 +436,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   <div class="card">
     <div class="bar" style="margin-bottom:10px"><button class="ghost small" onclick="goLanding()">← Home</button></div>
     <div class="shelfTabs" id="subTabs">
-      <button class="on" id="subBook" onclick="pickShelf('book',this)">The book</button>
+      <button class="on" id="subBook" onclick="pickShelf('book',this)">Olympiad topics</button>
       <button id="subDj" onclick="pickShelf('dj',this)">Contest sets</button>
       <button id="mockTab" onclick="startMock()" style="display:none">Mock test</button>
     </div>
@@ -545,6 +545,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     <ul id="pWeak" style="margin:10px 0 0;padding-left:18px"><li class="sub">Nothing recorded yet.</li></ul>
   </details></div>
 
+  <div class="card" id="reqCard" style="display:none"><details>
+    <summary class="foldHead">Questions he asked for</summary>
+    <div id="pRequests" style="margin-top:10px"></div>
+  </details></div>
+
   <div class="card"><details>
     <summary class="foldHead">Recent tests</summary>
     <table style="margin-top:10px"><tbody id="pTests"><tr><td class="sub">No tests yet.</td></tr></tbody></table>
@@ -588,7 +593,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
           <p><b>Keeping the bank ahead of him.</b> She writes new questions herself, modelled on the samples you
           upload and aimed at his level — accuracy and speed together decide whether the next set is harder, the
           same, or easier. They go into the right place: <b>AAS</b> into Camberwell's strand, <b>Edutest</b> into
-          Kilvington and McKinnon's, <b>Olympiad</b> into the book and the contest sets, and ICAS and AMC into their
+          Kilvington and McKinnon's, <b>Olympiad</b> into the Olympiad topics and the contest sets, and ICAS and AMC into their
           own. Within a family she adds to whichever strand has the fewest questions, so the bank spreads instead of
           piling into one. She writes nothing by herself: questions appear when you press <b>Generate 20</b> for an
           exam, or when you upload a paper.</p>
@@ -804,7 +809,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   </div>
 
   <div class="card">
-    <div class="k">The book · 24 chapters</div>
+    <div class="k">Olympiad · 24 topics</div>
     <div id="chapBar"></div>
   </div>
 
@@ -836,7 +841,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     <div class="sub" id="chIntro" style="margin-top:6px"></div>
     <div id="chTricks" style="margin-top:10px"></div>
     <details id="chMore" style="margin-top:14px">
-      <summary class="sub" style="cursor:pointer">The book's own wording</summary>
+      <summary class="sub" style="cursor:pointer">The wording from the source</summary>
       <div class="sub" id="chSummary" style="margin-top:8px"></div>
     </details>
     <div class="bar">
@@ -916,7 +921,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.87.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.92.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1061,7 +1066,7 @@ const S = {
 /* how each exam is introduced. Anything registered in exam_banks appears,
    whether or not it is listed here — this only supplies the friendly words. */
 const TRACK_LOOK = {
-  olympiad: { name: "Olympiad", school: "The book and the contest sets", note: "The book's chapters and the contest sets · contests May to September" },
+  olympiad: { name: "Olympiad", school: "Olympiad problems · contests May to September", note: "Twenty-four topics and the contest sets · contests May to September" },
   amc:      { name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Thirty questions, sixty minutes" },
   aas:      { name: "AAS", school: "Camberwell Grammar", note: "Scholarship test · February 2027" },
   edutest:  { name: "Edutest", school: "Kilvington Grammar · McKinnon Secondary (ELMS)", note: "One paper family · same year level · February and September 2027" },
@@ -2317,6 +2322,23 @@ async function preparePages(paperId) {
   }
 }
 
+/* what he has asked her for, and what came of it */
+async function loadRequests() {
+  const card = $("reqCard"), box = $("pRequests");
+  if (!card || !box) return;
+  const { data } = await sb.from("question_topups")
+    .select("exam, asked_for, made, reason, at").order("at", { ascending: false }).limit(8);
+  const rows = data ?? [];
+  if (!rows.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  box.innerHTML = rows.map((r) => {
+    const when = new Date(r.at).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+    const who = /asked for more questions/i.test(r.reason ?? "") ? "He asked the coach" : "You asked";
+    return `<div class="upRow"><span class="upName">${esc(who)} · ${esc(r.exam)}</span>
+      <span class="upState">${esc(when)} · asked ${r.asked_for} · added ${r.made}</span></div>`;
+  }).join("");
+}
+
 /* the adults who can see this child */
 async function loadParents() {
   const box = $("parentList");
@@ -2460,7 +2482,7 @@ async function loadParent() {
 }
 
 const BANK_LABEL = {
-  "Olympiad book": "Olympiad · the book",
+  "Olympiad book": "Olympiad topics",
   "APSMO Division J": "Olympiad · contest sets",
   "AAS numerical reasoning": "AAS · Camberwell Grammar",
   "Edutest numerical reasoning": "Edutest · Kilvington",
@@ -2611,9 +2633,9 @@ function openUpload() {
   if (!panel || !host) return;
   host.appendChild(panel);
   panel.classList.remove("hidden");
-  // one option per exam family, not per bank: the book and the contest sets are one Olympiad
+  // one option per exam family, not per bank: the topics and the contest sets are one Olympiad
   const FAMILIES = [
-    { exam: "Olympiad book", label: "Olympiad — the book and the contest sets" },
+    { exam: "Olympiad book", label: "Olympiad — topics and contest sets" },
     { exam: "ELMS", label: "Edutest — Kilvington and McKinnon" },
     { exam: "AAS numerical reasoning", label: "AAS — Camberwell Grammar" },
     { exam: "ICAS Maths", label: "ICAS Mathematics" },
@@ -3114,7 +3136,7 @@ async function solveBlanks() {
   $("upDone").innerHTML = n
     ? `<b>${n} answer${n === 1 ? "" : "s"} worked out</b>
        <div class="m">${data.solved.map((x) => `Ch${x.chapter} Q${x.idx}: ${esc(x.answer)}${x.confident ? "" : " (unsure)"}`).join("<br>")}</div>
-       <div class="m" style="margin-top:8px">These came from the model, not the book, so they are marked unverified.</div>`
+       <div class="m" style="margin-top:8px">These were written by the coach, so they are marked unverified.</div>`
     : `<b>Nothing left to solve</b><div class="m">Every question in this exam already has an answer.</div>`;
 }
 
@@ -3581,7 +3603,7 @@ async function openTrack(id) {
   [...tabs.querySelectorAll(".famTab")].forEach((b) => b.remove());
   $("subTabs").style.display = (fam?.members ?? []).some((m) => m.count > 0) ? "" : "none";
   const SHELF_NAME = {
-    book: "The book", olympiad: "The book", apsmo: "Contest sets",
+    book: "Olympiad topics", olympiad: "Olympiad topics", apsmo: "Contest sets",
     edutest: "Kilvington", elms: "McKinnon", aas: "Camberwell", icas: "ICAS", amc: "AMC",
   };
   const anyQuestions = (fam?.members ?? []).some((m) => m.count > 0);
@@ -3608,7 +3630,7 @@ async function openTrack(id) {
   }
   loadParts(id);
   loadPapers(id);
-  $("subBook").textContent = id === "amc" ? "From the book" : "The book";
+  $("subBook").textContent = id === "amc" ? "Olympiad topics" : "Olympiad topics";
   $("subDj").textContent = id === "amc" ? "AMC papers" : "Contest sets";
   S.shelf = "book";
   await renderShelf();
@@ -3648,7 +3670,7 @@ async function renderShelf() {
   }
 
   if (S.track === "olympiad" || S.track === "amc") {
-    $("shelfNote").textContent = "Maths Olympiad — Unleash the Maths Olympian in You! (Advanced) · Terry Chew";
+    $("shelfNote").textContent = "Olympiad topics · twenty-four of them";
     const { data } = await sb.from("chapters").select("n,title,pages,examples,practice").lte("n", 24).order("n");
     box.innerHTML = (data ?? []).map((c) => `
       <button class="ch" onclick="openChapter(${c.n})">
@@ -3690,9 +3712,9 @@ async function startMock() {
     const { data } = await sb.from("chapters").select("n").eq("source", "amc");
     const chs = (data ?? []).map((c) => c.n);
     if (!chs.length) {
-      // no AMC papers yet: build the paper from the book, and say so plainly
+      // no AMC papers yet: build the paper from the coach's own questions, and say so plainly
       body = { p_kind: "mock", p_chapters: Array.from({ length: 24 }, (_, i) => i + 1), p_count: 30, p_minutes: 60, p_pass: 60 };
-      await runExam(body, "AMC-style paper · 30 questions, 60 minutes · drawn from the book");
+      await runExam(body, "AMC-style paper · 30 questions, 60 minutes · written by the coach");
       return;
     }
     body = { p_kind: "mock", p_chapters: chs, p_count: 30, p_minutes: 60, p_pass: 60 };
@@ -3751,7 +3773,7 @@ async function openChapter(n) {
       <b>Example ${e.n}</b> · <span class="sub">tap to see the method</span>
       <div style="margin-top:6px">${esc(e.prompt)}</div>
       <div class="sol">${esc(e.solution)}</div>
-    </div>`).join("") || `<div class="sub">No worked examples in this chapter — the book goes straight to questions.</div>`;
+    </div>`).join("") || `<div class="sub">No worked examples in this chapter — it goes straight to questions.</div>`;
 }
 
 
@@ -4234,12 +4256,48 @@ async function sendMe() {
   if (box.style) box.style.height = "";
   bubble("me", text);
   S.chat.push({ role: "atharv", text });
+
+  if (wantsMoreQuestions(text)) {
+    bubble("think", "…");
+    const made = await writeMoreQuestions();
+    document.querySelector(".msg.think")?.remove();
+    bubble("coach", made, replySpoken);
+    S.chat.push({ role: "coach", text: made });
+    return;
+  }
+
   bubble("think", "…");
   const reply = await callCoach({ mode: "reply" });
   document.querySelector(".msg.think")?.remove();
   if (reply) { bubble("coach", reply, replySpoken); S.chat.push({ role: "coach", text: reply }); }
   else bubble("coach", "I could not reach the coach just then. Try again in a moment.");
   if (S.pendingStart) await beginWork();
+}
+
+/* "can I have more questions?" — she writes them, and the parent can see he asked */
+function wantsMoreQuestions(text) {
+  const t = String(text ?? "").toLowerCase();
+  return /(more|new|another|extra)\s+(questions?|problems?|practice)/.test(t)
+      || /(generate|give me|need)\s+(more\s+)?(questions?|problems?)/.test(t)
+      || /out of questions|nothing left|run out/.test(t);
+}
+
+async function writeMoreQuestions() {
+  const fam = (TRACKS.find((t) => t.id === S.track) ?? {}).name ?? "Olympiad";
+  const exam = FAMILY_EXAM[fam] ?? "Olympiad book";
+  const { data, error } = await sb.functions.invoke("make-questions", { body: { exam, count: 20 } });
+  const added = data?.added ?? 0;
+  const figs = data?.figures ?? 0;
+  await sb.rpc("log_topup", {
+    p_exam: exam, p_asked: 20, p_made: added,
+    p_reason: error ? error.message : "Atharv asked for more questions",
+  });
+  if (error || !added) {
+    return "I could not write any just now. Ask your mum or dad to add some from the parent view, and I will try again.";
+  }
+  return `Done — ${added} new ${exam === "Olympiad book" ? "Olympiad" : fam} questions are in your bank`
+    + (figs ? `, ${figs} of them with a figure` : "")
+    + ". Tap Resume or start a chapter and they will come up.";
 }
 
 /* before he goes: the techniques from today, ready to be written up */
@@ -4470,7 +4528,7 @@ async function startPlacement() {
   T.id = data.exam_id; T.left = (data.minutes || 20) * 60;
   show("exam");
   $("examKind").textContent = "Placement check · 12 questions, 20 minutes";
-  $("examWhere").textContent = "Twelve questions from across the book, easiest first";
+  $("examWhere").textContent = "Twelve questions from across the topics, easiest first";
   $("examList").innerHTML = data.items.map((q, n) => `
     <div class="qcard" style="border-width:1px;border-color:var(--line)">
       <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
@@ -4645,7 +4703,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
