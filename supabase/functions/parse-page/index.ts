@@ -28,11 +28,16 @@ Rules:
 - One row per question. Keep the question's own words, shortened to the essentials if it is long.
 - If it is multiple choice, put the options in "options" as a list of strings exactly as printed,
   and keep them out of the question text.
-- If the question has a diagram, keep the words and ALSO give its position on the page in
+- If the question has a figure, keep the words and ALSO give the figure's position in
   "diagram": {"x":0.0,"y":0.0,"w":0.0,"h":0.0} as fractions of the page, top-left corner first.
   Draw the box generously: every label and arrow that belongs to the figure, nothing of the next
   question. Add "kind":"complex" for charts, tables, maps, Venn diagrams, nets; "simple" for one
-  plain shape with a couple of labels. Omit "diagram" when there is no figure.
+  plain shape with a couple of labels. Omit "diagram" when there is no figure on this page.
+- If a question says "the diagram below" or "as shown" but the figure is NOT on this page, set
+  "figure_on": "next" and still give "diagram" for where you expect it on the following page —
+  or omit "diagram" and leave "figure_on":"next" if you cannot tell where it sits.
+- One figure can serve several questions: give the same box for each of them.
+- Never invent a figure that is not printed on the page.
 - Put the answer in "a" only if the page states it, or it is a plain arithmetic fact you are sure of.
   Otherwise leave it empty.
 - Never invent a question. Never merge two. Skip headers, instructions and marks like "[2]".
@@ -71,32 +76,13 @@ Deno.serve(async (req) => {
       .select("id, exam, student_id").eq("id", paper_id).single();
     if (!paper) return json({ error: "no such paper" }, 404);
 
-    // the page, straight from storage: a picture, or text for anything that is not one
+    // the page image, straight from storage
     const { data: blob, error: dlErr } = await admin.storage.from("papers").download(row.path);
-    if (dlErr || !blob) return json({ error: "could not read the page", detail: dlErr?.message }, 200);
-
-    const isText = /\.(txt|md|html?|csv)$/i.test(row.path) || (blob.type || "").startsWith("text/");
-    let userContent: any;
-    if (isText) {
-      const text = (await blob.text()).slice(0, 24000);
-      if (!text.trim()) return json({ error: "that file had no readable text", page }, 200);
-      userContent = [{ type: "text", text: `Extract the questions from this:
-
-${text}` }];
-    } else {
-      const buf = new Uint8Array(await blob.arrayBuffer());
-      if (buf.length > 6_000_000) return json({ error: "that page image is too large to send", page }, 200);
-      let bin = "";
-      const CH = 0x8000;
-      for (let i = 0; i < buf.length; i += CH) {
-        bin += String.fromCharCode.apply(null, buf.subarray(i, i + CH) as unknown as number[]);
-      }
-      const b64 = btoa(bin);
-      userContent = [
-        { type: "text", text: "Extract the questions from this page." },
-        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${b64}` } },
-      ];
-    }
+    if (dlErr || !blob) return json({ error: "could not read the page" }, 400);
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+    const b64 = btoa(bin);
 
     const r = await fetch(ENDPOINT, {
       method: "POST",
@@ -110,23 +96,26 @@ ${text}` }];
         max_tokens: 3000,
         messages: [
           { role: "system", content: PROMPT },
-          { role: "user", content: userContent },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Extract the questions from this page." },
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${b64}` } },
+            ],
+          },
         ],
       }),
     });
-    if (!r.ok) {
-      const why = (await r.text()).slice(0, 300);
-      return json({ error: `the reader refused that page (${r.status})`, detail: why, page }, 200);
-    }
+    if (!r.ok) return json({ error: "model call failed", detail: await r.text() }, 502);
 
     const body = await r.json();
     const raw = body?.choices?.[0]?.message?.content ?? "";
     const a = raw.indexOf("{"), b = raw.lastIndexOf("}");
-    if (a < 0 || b <= a) return json({ error: "the reader did not answer in a form I could use", page }, 200);
+    if (a < 0 || b <= a) return json({ error: "could not read that page" }, 422);
 
     let parsed: any = {};
     try { parsed = JSON.parse(raw.slice(a, b + 1)); }
-    catch { return json({ error: "the reader's answer was cut off", page }, 200); }
+    catch { return json({ error: "could not read that page" }, 422); }
 
     const rows = (parsed.rows ?? [])
       .map((x: any) => {
@@ -135,65 +124,32 @@ ${text}` }];
           : [];
         return {
           q: String(x.q ?? "").trim(),
+          ...(String(x.figure_on ?? "") === "next" && x.diagram ? { figure_page: page + 1 } : {}),
           a: String(x.a ?? "").trim(),
           ...(opts.length >= 2 ? { options: opts } : {}),
-          ...(x.diagram && typeof x.diagram === "object" ? { diagram: x.diagram, diagram_kind: String(x.diagram.kind ?? "complex") } : {}),
+          ...(x.diagram && typeof x.diagram === "object"
+            ? { diagram: x.diagram, diagram_kind: String(x.diagram.kind ?? "complex") }
+            : (String(x.figure_on ?? "") === "next" ? { figure_page: page + 1 } : {})),
         };
       })
       .filter((x: any) => x.q.length > 3);
 
     const strand = String(parsed.strand ?? "").trim() || "General";
 
-    // only someone who may see this child can add to their bank
-    const { data: allowed } = await admin.from("guardians")
-      .select("student_id").eq("parent_id", user.id).eq("student_id", paper.student_id).limit(1);
-    const isSelf = paper.student_id === user.id;
-    if (!isSelf && !allowed?.length) return json({ error: "not your child" }, 403);
-
-    const { data: added, error: addErr } = await admin.rpc("add_questions_for", {
-      p_student: paper.student_id,
+    // write them as this child, so the same rules apply as everywhere else
+    const { data: added, error: addErr } = await asUser.rpc("add_questions", {
       p_exam: paper.exam,
       p_strand: strand,
       p_rows: rows,
       p_paper: paper_id,
       p_pages: rows.map(() => page),
     });
-    if (addErr) return json({ error: addErr.message, page }, 200);
+    if (addErr) return json({ error: addErr.message }, 400);
 
     await admin.from("paper_pages").update({ done: true })
       .eq("paper_id", paper_id).eq("page_no", page);
 
     const unanswered = rows.filter((x: any) => !x.a).length;
-
-    // keep this paper's own job up to date, so several papers can be read at once
-    const { data: counts } = await admin.from("paper_pages")
-      .select("done", { count: "exact" }).eq("paper_id", paper_id);
-    const { count: totalPages } = await admin.from("paper_pages")
-      .select("*", { count: "exact", head: true }).eq("paper_id", paper_id);
-    const { count: donePages } = await admin.from("paper_pages")
-      .select("*", { count: "exact", head: true }).eq("paper_id", paper_id).eq("done", true);
-
-    const { data: job } = await admin.from("parse_jobs")
-      .select("id, added, unanswered").eq("paper_id", paper_id).eq("status", "running")
-      .order("created_at", { ascending: false }).limit(1).maybeSingle();
-
-    if (job) {
-      const finished = (donePages ?? 0) >= (totalPages ?? 0);
-      await admin.from("parse_jobs").update({
-        added: (job.added ?? 0) + (added?.added ?? 0),
-        unanswered: (job.unanswered ?? 0) + unanswered,
-        strand,
-        pages_done: donePages ?? 0,
-        pages_total: totalPages ?? 0,
-        status: finished ? "done" : "running",
-        note: finished
-          ? `Questions added to ${strand}. ${(job.added ?? 0) + (added?.added ?? 0)} in all`
-            + ((job.unanswered ?? 0) + unanswered > 0 ? `, ${(job.unanswered ?? 0) + unanswered} without an answer yet.` : ".")
-          : null,
-        updated_at: new Date().toISOString(),
-      }).eq("id", job.id);
-    }
-
     return json({ ok: true, added: added?.added ?? 0, improved: added?.improved ?? 0, unanswered, strand, page });
   } catch (e) {
     return json({ error: String(e) }, 500);

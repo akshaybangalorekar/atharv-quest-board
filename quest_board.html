@@ -520,6 +520,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <button class="go small" onclick="openParentChat()">Ask the coach →</button>
       <button class="ghost small" onclick="openDash()">Progress</button>
       <button class="ghost small" onclick="parentWeekly()">This week's summary</button>
+      <button class="ghost small" onclick="goLanding()">Go to his screen →</button>
     </div>
   </div>
 
@@ -584,8 +585,8 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
           same, or easier. They go into the right place: <b>AAS</b> into Camberwell's strand, <b>Edutest</b> into
           Kilvington and McKinnon's, <b>Olympiad</b> into the book and the contest sets, and ICAS and AMC into their
           own. Within a family she adds to whichever strand has the fewest questions, so the bank spreads instead of
-          piling into one. Every time the app opens she counts what he has not tried; when fewer than <b>20</b> are
-          left in an exam, she writes 20 more inside that paper's scope.</p>
+          piling into one. She writes nothing by herself: questions appear when you press <b>Generate 20</b> for an
+          exam, or when you upload a paper.</p>
           <p><b>Never.</b> Invent a button, a screen or a feature. Invent a score, a date or a fact. Send him to another
           screen in the middle of a chapter. Scold him for missing days.</p>
           <p>If she writes something outside these lines, it is a fault in her instructions — send me the words she used.</p>
@@ -898,7 +899,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.77.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.79.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1043,7 +1044,7 @@ const S = {
 /* how each exam is introduced. Anything registered in exam_banks appears,
    whether or not it is listed here — this only supplies the friendly words. */
 const TRACK_LOOK = {
-  olympiad: { name: "Olympiad", school: "The book and the contest sets", note: "24 chapters · 200 contest questions · contests May to September" },
+  olympiad: { name: "Olympiad", school: "The book and the contest sets", note: "The book's chapters and the contest sets · contests May to September" },
   amc:      { name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Thirty questions, sixty minutes" },
   aas:      { name: "AAS", school: "Camberwell Grammar", note: "Scholarship test · February 2027" },
   edutest:  { name: "Edutest", school: "Kilvington Grammar · McKinnon Secondary (ELMS)", note: "One paper family · same year level · February and September 2027" },
@@ -1111,17 +1112,26 @@ async function showPaperPage(box, q) {
   } catch (_) { box.innerHTML = ""; return false; }
 }
 
+/* the figure for a question, in order of what is most trustworthy:
+   1. a drawing we made and that passed its own check
+   2. our drawing, compared against the real figure — used only if it matches
+   3. the real figure, cut out of the uploaded page
+   4. the page itself, where the figure sits                                      */
 async function autoFigure(kind, key, targetId, prompt, existing, q) {
   const box = $(targetId);
   if (!box) return;
 
-  // 1. a drawing we made ourselves and checked — the best case
   if (existing) { box.innerHTML = `<div class="diagram">${existing}</div>`; return; }
 
-  // 2. otherwise draw it now, in colour, and check it
-  const worthDrawing = q?.diagram_url || q?.diagram_box || q?.diagram_kind || needsFigure(prompt);
-  if (worthDrawing) {
+  const wantsFigure = q?.diagram_url || q?.diagram_box || q?.diagram_kind || needsFigure(prompt);
+  const hasRealFigure = !!(q?.diagram_box && q?.paper_id);
+
+  // the real figure, cut from the page it lives on (which may not be the question's page)
+  const cut = hasRealFigure ? await cutFromPage(q) : null;
+
+  if (wantsFigure) {
     box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13.5px">Drawing the figure…</div>`;
+    let svg = "";
     try {
       const { data } = await sb.functions.invoke("draw-figure", {
         body: {
@@ -1131,14 +1141,32 @@ async function autoFigure(kind, key, targetId, prompt, existing, q) {
           question: prompt,
         },
       });
-      if (data?.svg) {
-        box.innerHTML = `<div class="diagram">${data.svg}</div>`;
-        return;
-      }
-    } catch (_) { /* fall through to the page */ }
+      svg = data?.svg ?? "";
+    } catch (_) { /* fall through */ }
+
+    if (svg && !cut) { box.innerHTML = `<div class="diagram">${svg}</div>`; return; }
+
+    if (svg && cut) {
+      // does our drawing say the same thing as the paper's figure?
+      box.innerHTML = `<div class="diagram" style="color:var(--mut);font-size:13.5px">Checking the figure…</div>`;
+      let ok = true;
+      try {
+        const { data } = await sb.functions.invoke("check-figure", {
+          body: { question: prompt, svg, crop: cut.b64 },
+        });
+        ok = data?.match !== false;
+      } catch (_) { ok = false; }
+      if (ok) { box.innerHTML = `<div class="diagram">${svg}</div>`; return; }
+      // our drawing was not faithful: show the paper's own figure
+      box.innerHTML = cut.html + `<div class="hint" style="margin-top:4px">The figure as it appears in the paper.</div>`;
+      return;
+    }
+
+    if (svg) { box.innerHTML = `<div class="diagram">${svg}</div>`; return; }
   }
 
-  // 3. the real cut-out from the document, in colour
+  if (cut) { box.innerHTML = cut.html; return; }
+
   if (q?.diagram_url) {
     const { data: signed } = await sb.storage.from("papers").createSignedUrl(q.diagram_url, 3600);
     if (signed?.signedUrl) {
@@ -1147,12 +1175,54 @@ async function autoFigure(kind, key, targetId, prompt, existing, q) {
     }
   }
 
-  // 4. the page it came from, where the figure sits
   if (q?.paper_id) { if (await showPaperPage(box, q)) return; }
 
   box.innerHTML = "";
 }
 
+/* cut the figure out of the page it sits on — the question's page, or the next one */
+async function cutFromPage(q) {
+  try {
+    const { data: row } = await sb.from("papers").select("path,title").eq("id", q.paper_id).maybeSingle();
+    if (!row?.path) return null;
+    const { data: blob } = await sb.storage.from("papers").download(row.path);
+    if (!blob) return null;
+
+    const pages = await pdfToImages(blob, 40);
+    const want = Math.max(1, Math.min(pages.length, q.figure_page || q.paper_page || 1));
+    const url = URL.createObjectURL(pages[want - 1]);
+
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = url;
+    });
+
+    const b = q.diagram_box ?? {};
+    const sx = Math.max(0, Math.round((b.x ?? 0.05) * img.naturalWidth));
+    const sy = Math.max(0, Math.round((b.y ?? 0.05) * img.naturalHeight));
+    const sw = Math.max(40, Math.round((b.w ?? 0.9) * img.naturalWidth));
+    const sh = Math.max(30, Math.round((b.h ?? 0.4) * img.naturalHeight));
+    const pad = 10;
+    const cw = Math.min(img.naturalWidth - sx, sw + pad * 2);
+    const ch = Math.min(img.naturalHeight - sy, sh + pad * 2);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(img, sx - pad, sy - pad, cw, ch, 0, 0, cw, ch);
+    URL.revokeObjectURL(url);
+
+    const b64 = canvas.toDataURL("image/png").split(",")[1];
+    const dataUrl = canvas.toDataURL("image/png");
+    return {
+      b64,
+      html: `<div class="diagram figureShot"><img src="${dataUrl}" alt="the figure from the paper"></div>`,
+    };
+  } catch (_) { return null; }
+}
 
 /* ---------------------------------------------------------- the flight --- */
 /* Where he is in the season, drawn: stars, a flight path, planets for the real
@@ -4461,7 +4531,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
