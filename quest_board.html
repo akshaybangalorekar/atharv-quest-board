@@ -1111,7 +1111,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.39.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.40.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -3630,10 +3630,11 @@ async function loadChat(boxId, parentSide) {
 /* every message is kept, not just the last few */
 async function keepChat(role, body, thread) {
   try {
-    await sb.from("chat_messages").insert({
-      student_id: S.studentId ?? null, role, body, thread: thread ?? "child",
+    const { error } = await sb.rpc("save_chat", {
+      p_role: role, p_body: body, p_thread: thread ?? "child",
     });
-  } catch (_) { /* the conversation still works if the save fails */ }
+    if (error) console.warn("the message was not saved:", error.message);
+  } catch (e) { console.warn("the message was not saved:", e?.message); }
 }
 
 function pBubble(role, text) {
