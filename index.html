@@ -388,7 +388,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 <div id="noteBar" class="bannerNote hidden" style="max-width:1080px;margin:0 auto;padding:0 22px"></div>
 
 <div class="top">
-  <h1 id="appTitle">Quest Coach<span class="ctxExam hidden" id="ctxExam"></span></h1>
+  <h1 id="appTitle"><span id="appTitleText">Quest Coach</span><span class="ctxExam hidden" id="ctxExam"></span></h1>
   <div style="display:flex;gap:8px;align-items:center">
     <div id="topProg" class="topProg hidden" title="Reading" style="display:none">
       <div class="topProgText" id="topProgText">Reading…</div>
@@ -1024,7 +1024,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.12.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.12.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2115,7 +2115,7 @@ async function saveNewPassword() {
   start();
 }
 async function signOut() { await sb.auth.signOut(); location.reload(); }
-$("appTitle").textContent = "Quest Coach";
+$("appTitleText").textContent = "Quest Coach";
 
 async function start() {
   // a watchdog: if the app is still on the boot card after ten seconds,
@@ -2150,7 +2150,7 @@ async function bootInner() {
   try { await loadContext(); } catch (e) { console.warn("context load failed:", e?.message); }
   const { data: isP } = await sb.rpc("is_parent");
   S.isParent = !!isP;
-  $("appTitle").textContent = S.isParent ? "Quest Coach · parent" : "Quest Coach";
+  $("appTitleText").textContent = S.isParent ? "Quest Coach · parent" : "Quest Coach";
   if (S.isParent) { await loadParent(); goParent(); return; }
 
   let route = null;
