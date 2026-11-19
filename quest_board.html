@@ -552,6 +552,8 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     </div>
   </details></div>
 
+  <div id="upHost"></div>
+
   <div class="card"><details>
     <summary class="foldHead">Admin</summary>
     <div style="margin-top:10px;display:grid;gap:10px">
@@ -656,41 +658,41 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 </main>
 
 <!-- upload questions -->
-<main id="upload" class="hidden">
-  <div class="card">
-    <div class="k">Add questions</div>
-    <div class="big" style="font-size:20px" id="upExam">—</div>
-    <div class="sub" style="margin-bottom:12px">Choose the exam, say which strand, then add the paper. It is saved straight away and read in the background — nothing to wait for.</div>
-
-    <label class="k">Exam</label>
-    <select id="upBank" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px"
-            onchange="document.getElementById('upExam').textContent=this.options[this.selectedIndex].text;updateDest()"></select>
-
-    <label class="k">Strand</label>
-    <input id="upStrand" placeholder="Leave blank and the reader will name it" style="margin-bottom:12px" oninput="updateDest()">
-
-    <textarea id="upRows" rows="1" class="hidden"></textarea>
-
-    <div class="bar">
-      <button class="go small" onclick="document.getElementById('upFile').click()">＋ Add a paper</button>
-      <input type="file" id="upFile" multiple accept=".pdf,.jpg,.jpeg,.png,.html,.htm,.txt,.md,.docx"
-             class="hidden" onchange="uploadAndRead(this)">
-    </div>
-    <div id="upProgWrap" class="hidden" style="margin:10px 0">
-      <div class="prog"><span id="upProgBar"></span></div>
-      <div class="hint" id="upProgText" style="margin-top:6px"></div>
-    </div>
-    <div class="hint" id="upDest" style="color:var(--acc);font-weight:600">Going into: —</div>
-    <div class="hint" id="upNote">The questions are added as each page is read. A note appears at the top when it is done.</div>
-
-    <div class="bar" style="margin-top:14px">
-      <button class="ghost small" onclick="solveBlanks()">Work out any missing answers</button>
-      <button class="ghost small" onclick="goParent()">← Back</button>
-    </div>
-    <div class="err" id="upErr"></div>
-    <div class="fb hidden" id="upDone"></div>
+<div id="upPanel" class="card hidden" style="border-color:#d8d2ff;background:#faf9ff">
+  <div class="bar" style="justify-content:space-between;align-items:center">
+    <div class="k" style="margin:0">Add a file</div>
+    <button class="link" onclick="closeUpload()">Close</button>
   </div>
-</main>
+
+  <div class="sub" style="margin:6px 0 12px">Pick the exam, add the file. It is saved to the database first,
+    then read page by page — you can close this and carry on.</div>
+
+  <label class="k">Exam</label>
+  <select id="upBank" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px"
+          onchange="updateDest()"></select>
+
+  <label class="k">Strand</label>
+  <input id="upStrand" placeholder="Leave blank and the reader will name it" style="margin-bottom:12px" oninput="updateDest()">
+
+  <textarea id="upRows" rows="1" class="hidden"></textarea>
+
+  <div class="bar">
+    <button class="go" onclick="document.getElementById('upFile').click()">Choose files</button>
+    <input type="file" id="upFile" multiple accept=".pdf,.jpg,.jpeg,.png,.html,.htm,.txt,.md,.docx"
+           class="hidden" onchange="uploadAndRead(this)">
+  </div>
+
+  <div id="upProgWrap" class="hidden" style="margin:12px 0">
+    <div class="prog"><span id="upProgBar"></span></div>
+    <div class="hint" id="upProgText" style="margin-top:6px"></div>
+  </div>
+
+  <div id="upFiles" style="display:grid;gap:6px;margin-top:12px"></div>
+
+  <div class="hint" id="upDest" style="color:var(--acc);font-weight:600;margin-top:10px">Going into: —</div>
+  <div class="err" id="upErr"></div>
+  <div class="fb hidden" id="upDone"></div>
+</div>
 
 <!-- parent chat -->
 <main id="pchat" class="hidden">
@@ -896,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.62.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.63.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2270,15 +2272,25 @@ async function goParent() {
 }
 
 function openUpload() {
-  show("upload");
+  const panel = $("upPanel"), host = $("upHost");
+  if (!panel || !host) return;
+  host.appendChild(panel);
+  panel.classList.remove("hidden");
+  const sel = $("upBank");
   const banks = (S.pctx?.banks ?? []).map((b) => b.exam);
-  $("upBank").innerHTML = banks.map((b) =>
-    `<option value="${esc(b)}">${esc(BANK_LABEL[b] ?? b)}</option>`).join("");
-  $("upExam").textContent = BANK_LABEL[banks[0]] ?? banks[0] ?? "—";
-  $("upRows").value = ""; $("upStrand").value = "";
-  $("upErr").textContent = ""; $("upDone").className = "fb hidden";
-  $("upNote").textContent = "Files are read and the questions land in the box above, for you to check before anything is saved.";
+  const list = banks.length ? banks : ["ELMS", "Edutest numerical reasoning", "AAS numerical reasoning",
+                                        "ICAS Maths", "AMC Upper Primary", "Olympiad book"];
+  if (sel && !sel.options.length) {
+    sel.innerHTML = list.map((b) => `<option value="${esc(b)}">${esc(BANK_LABEL[b] ?? b)}</option>`).join("");
+  }
   updateDest();
+  $("upFiles").innerHTML = "";
+  panel.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+function closeUpload() {
+  $("upPanel")?.classList.add("hidden");
+  loadPapersToRead();
 }
 
 /* any file: images and pdf pages go up as pictures, documents are read as words */
@@ -2343,8 +2355,18 @@ async function uploadAndRead(input) {
   $("upErr").textContent = "";
 
   const saved = [];
+  const list = $("upFiles");
+  const lineFor = (name) => {
+    const row = document.createElement("div");
+    row.className = "upRow";
+    row.innerHTML = `<span class="upName">${esc(name)}</span><span class="upState">Saving…</span>`;
+    list.appendChild(row);
+    return row.querySelector(".upState");
+  };
+
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
+    const state = lineFor(file.name);
     txt.textContent = `Saving ${i + 1} of ${files.length}: ${file.name}…`;
     bar.style.width = String(Math.round(((i + 0.1) / files.length) * 100)) + "%";
 
@@ -2353,12 +2375,14 @@ async function uploadAndRead(input) {
     if (!b64) { txt.textContent = `Could not read ${file.name}.`; continue; }
 
     let paperId = null, saveNote = "";
+    state.textContent = "Saving to the database…";
     const { data: savedId, error } = await sb.rpc("save_upload", {
       p_exam: exam, p_name: file.name, p_mime: file.type || "application/octet-stream",
       p_b64: b64, p_path: "",
     });
     paperId = savedId ?? null;
     bar.style.width = "75%";
+    if (!error && paperId) state.textContent = `Saved to the database · file ${paperId}`;
     if (error || !paperId) {
       // too big for the database in one statement: keep the file in storage and go on
       saveNote = " (kept in storage only — too large for the database copy)";
@@ -2368,7 +2392,12 @@ async function uploadAndRead(input) {
         mime: file.type || null, size_bytes: file.size || null, path: "",
       }).select("id").single();
       paperId = made?.id ?? null;
-      if (!paperId) { txt.textContent = `Could not save ${file.name}: ${error?.message ?? "unknown"}`; continue; }
+      if (!paperId) {
+        state.textContent = `Not saved: ${error?.message ?? "unknown"}`;
+        state.classList.add("bad");
+        continue;
+      }
+      state.textContent = `Saved in storage only · file ${paperId}`;
     }
 
     // a copy in storage too, so pages can be shown without decoding the database
@@ -2377,7 +2406,7 @@ async function uploadAndRead(input) {
     await sb.from("papers").update({ path, size_bytes: file.size || null, mime: file.type || null }).eq("id", paperId);
 
     bar.style.width = String(Math.round(((i + 0.9) / files.length) * 100)) + "%";
-    if (saveNote) txt.textContent = `${file.name}${saveNote}`;
+    state.textContent = `Saved · file ${paperId} · queued for reading`;
     saved.push({ file, paperId });
   }
 
@@ -2393,6 +2422,11 @@ async function uploadAndRead(input) {
   }
   runServerQueue();
   loadPapersToRead();
+  if (saved.length) {
+    $("upProgText").textContent = saved.length === 1
+      ? "Saved. Reading it now — the list below shows how far it has got."
+      : `Saved ${saved.length} files. Reading them one after another — the list below shows how far they have got.`;
+  }
 }
 
 /* the reading is the server's job now; this just keeps asking it for the next page */
@@ -2565,7 +2599,7 @@ async function readPaper(input) {
   if (!files.length) return;
   const { data: { user } } = await sb.auth.getUser();
   const exam = $("upBank")?.value || "ELMS";
-  const note = $("upNote");
+  const note = $("upProgText");
   $("upErr").textContent = "";
   let added = 0, suggested = "";
 
@@ -2753,8 +2787,7 @@ async function submitUpload() {
      <div class="bar"><button class="ghost small" onclick="solveBlanks()">Work out the missing answers</button></div>`;
   $("upRows").value = "";
   delete $("upRows").dataset.savedFor;
-  await goParent();
-  show("upload");
+  loadPapersToRead();
 }
 
 function openParentChat() {
@@ -4178,7 +4211,7 @@ try {
 api = {
   signIn, signOut, goLanding, openTrack, openChapter, startSession, check, advance, nextStep, drawFigure, revealExample, sendMe, endSession, uploadWorking,
   startQuiz, submitTest,
-  goParent, goHome, openUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
+  goParent, goHome, openUpload, closeUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
