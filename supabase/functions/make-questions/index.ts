@@ -49,6 +49,14 @@ Difficulty ${difficulty} of 3 (1 = straightforward, 2 = two steps, 3 = needs a r
 
 ${seeds ? `Here are questions already in this strand. Match their style and vocabulary, but do NOT repeat them:\n${seeds}\n` : ""}
 
+THE QUESTION MUST BE ANSWERABLE FROM ITS OWN WORDS. This is the first rule and it overrides every other.
+- Every quantity it mentions must be anchored: if a jar holds 20, the question must say WHICH jar.
+  If a row has four jars, it must say where the one it names sits.
+- Never write "the picture", "the table", "the diagram" or "the figure" unless you also give "fig".
+  A question that points at a drawing you did not supply is a broken question.
+- Read it back as a stranger would. If two different answers are possible, it is wrong. Rewrite it or drop it.
+- Solve it yourself and check the answer is one number (or one short phrase). If you cannot, do not send it.
+
 Rules:
 - Stay inside the topic named above. Nothing from another topic, even if it is easier to write.
 - Every question must be solvable with Year 6 arithmetic — no algebra beyond a simple unknown, no trigonometry.
@@ -87,6 +95,19 @@ Rules:
 
 If it cannot be drawn faithfully, reply with exactly: NONE
 Otherwise reply with the SVG only, starting with <svg and ending with </svg>.`;
+
+const SOLVE = `You are checking whether a maths question can be answered at all, before it is given to a child.
+
+Read the question on its own, with no extra information. Then answer:
+- "solvable": YES only if the question states everything needed and leads to exactly one answer.
+  NO if a quantity is mentioned without saying which object it belongs to, if a drawing or table is
+  referred to but not shown, if two answers are possible, or if the numbers contradict each other.
+- "why": one short sentence, naming the exact gap. Empty when YES.
+- "answer": the answer you get, when YES.
+
+Be strict. A question that cannot be answered is worse than no question.
+
+Reply with JSON only: {"solvable":"YES","why":"","answer":"..."}`;
 
 const CHECK = `You check a drawing against the question it belongs to. Answer one word: YES if the drawing shows
 every element the question names and nothing false; NO if a label is missing, a number is wrong, a shape
@@ -223,6 +244,31 @@ Deno.serve(async (req) => {
         return { ...x, options: opts };
       });
     if (!rows.length) return json({ added: 0, difficulty, focus });
+
+    // ---- the gate: a question that cannot be answered on its own is never stored ----
+    const FIG_WORD = /\b(picture|diagram|figure|table|chart|graph|drawing|image|shown|below)\b/i;
+    const survivors: any[] = [];
+    for (const row of rows) {
+      const q = String((row as any).q ?? "");
+      const hasFig = !!(row as any)?.fig?.what;
+      if (FIG_WORD.test(q) && !hasFig) continue;          // points at a drawing that does not exist
+
+      try {
+        const verdict = await ask([
+          { role: "system", content: SOLVE },
+          { role: "user", content: `Question: ${q}` },
+        ], 0.0, 200);
+        const m = verdict.match(/\{[\s\S]*\}/);
+        const v = m ? JSON.parse(m[0]) : null;
+        if (!v || String(v.solvable).toUpperCase() !== "YES") continue;
+      } catch (_) {
+        continue;                                          // unverified is not good enough
+      }
+      survivors.push(row);
+    }
+    rows.length = 0;
+    rows.push(...survivors);
+    if (!rows.length) return json({ added: 0, difficulty, focus, rejected: "none were answerable" });
 
     const { data: maxRow } = await admin.from("problems")
       .select("idx").eq("chapter", ch.n).order("idx", { ascending: false }).limit(1).maybeSingle();
