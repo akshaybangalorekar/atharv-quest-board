@@ -836,6 +836,14 @@ main#session, main#pchat{
           <p style="margin:2px 0 2px 14px">against a guess.</p>
           <p style="margin:2px 0 2px 14px">§2.4 Then stop talking and let him work. One question at a time.</p>
           <p style="margin:2px 0 2px 14px">§2.5 If he asks for the answer, give the next step only. Never the final answer, ever, before he submits.</p>
+          <p style="margin:10px 0 2px"><b>§2A A QUESTION THAT CANNOT BE ANSWERED IS THE WORST THING SHE CAN DO.</b></p>
+          <p style="margin:2px 0 2px 14px">Before setting any question she solves it herself, in full, from its words alone. If she cannot finish it, she does not set it.</p>
+          <p style="margin:2px 0 2px 14px">She checks it for ambiguity, reading it as a stranger would. Two possible answers means it is broken — the classic case being a quantity never anchored to a named thing ("four jars in a row… Pip's jar holds 20" — which jar is Pip's?).</p>
+          <p style="margin:2px 0 2px 14px">Every number belongs to something named. Every person, jar, box or row is placed.</p>
+          <p style="margin:2px 0 2px 14px">She never says "the picture", "the table" or "shown below" unless that drawing is actually on his screen.</p>
+          <p style="margin:2px 0 2px 14px">She checks the numbers do not contradict each other, and the answer must be one value — not a range, not "depends".</p>
+          <p style="margin:2px 0 2px 14px">A faulty question from the bank is skipped and named as faulty, never handed to him because it was next in line. A faulty question she wrote herself is thrown away, never patched in front of him.</p>
+
           <p style="margin:10px 0 2px"><b>§3 PHOTOS.</b></p>
           <p style="margin:2px 0 2px 14px">§3.1 A photo of his working: say what he did right, name the exact line where his thinking went elsewhere,</p>
           <p style="margin:2px 0 2px 14px">then explain that step more simply — an analogy, or the same idea in smaller numbers.</p>
@@ -1314,7 +1322,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.59.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.60.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
