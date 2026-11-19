@@ -1322,7 +1322,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.60.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.61.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2059,7 +2059,7 @@ function paintActions() {
   const c = S.ctx ?? {};
 
   // a placement only ever appears until he has been placed once
-  if (c.placement_due) btns.push(`<button class="go small" onclick="startPlacement()">Check where I am</button>`);
+  if (c.placement_due && !S.script?.length) btns.push(`<button class="go small" onclick="startPlacement()">Check where I am</button>`);
 
   // the chapter the coach has just sent him to
   const plan = S.planAction;
@@ -4670,6 +4670,27 @@ async function startSession(chapterOverride, forceMode, mode) {
   S.chat = []; S.qs = []; S.i = 0; S.nudged = 0;
   $("chatWrap").innerHTML = "";
   show("session");
+
+  // a check-in is not a lesson: on that day we do one thing, and it is the check-in
+  if (S.ctx?.placement_due && !chapterOverride) {
+    bubble("me", "hi");
+    S.chat.push({ role: "atharv", text: "hi" });
+    const th = bubble("think", "…");
+    const hello = await callCoach({ mode: "greet", note: "He has just said hi. Today is his first day: greet him and say we will find out where he is. Do not set a question." });
+    th.remove();
+    bubble("coach", hello ?? `Hi Atharv, it's ${COACH}. Today we find out where you are.`);
+    if (hello) S.chat.push({ role: "coach", text: hello });
+    const card = document.createElement("div");
+    card.className = "qcard";
+    card.innerHTML = `<div class="q" style="font-size:16px">Ready for the check-in?</div>
+      <div class="sub" style="margin:2px 0 8px">It shows me where to start you. Nothing to worry about.</div>
+      <div class="bar"><button class="go small" onclick="startPlacement()">Check where I am</button>
+      <button class="ghost small" onclick="goLanding()">Not now</button></div>`;
+    $("chatWrap").appendChild(card);
+    S.chapter = null; S.script = null;
+    paintActions();
+    return;
+  }
 
   const planned = S.planAction?.minutes ?? (S.plan.find((p) => p.lane !== "R")?.minutes) ?? 60;
   const mins = Math.max(60, planned);        // a sitting is an hour unless the plan asks for more
