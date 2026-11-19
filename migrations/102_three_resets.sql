@@ -25,7 +25,7 @@ begin
   delete from problem_answers a using _gone g where a.chapter = g.chapter and a.idx = g.idx;
   execute format('delete from problems where %s', p_where);
 
-  update chapters set practice = (select count(*) from problems p where p.chapter = chapters.n);
+  update chapters set practice = (select count(*) from problems p where p.chapter = chapters.n) where true;
   return v_n;
 end $$;
 
