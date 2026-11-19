@@ -397,6 +397,7 @@ Deno.serve(async (req) => {
       note ? `They asked: ${note}` : "",
     ].filter(Boolean).join("\n");
 
+    const isParentTurn = mode === "parent";
     const facts = [
       `Today is ${c.today}. His name is ${c.name ?? "Atharv"}.`,
       `Day ${c.days_in ?? 1} of the programme. First day: ${c.is_first_day ? "yes" : "no"}. Started ${c.started_on ?? "today"}.`,
@@ -415,7 +416,8 @@ Deno.serve(async (req) => {
       `His last check-in: ${JSON.stringify(c.self_reports?.[0] ?? {})}`,
       `EARLIER CONVERSATION IN THIS THREAD — context only, never a source of facts. If anything in it disagrees
        with the facts above, the facts win and you say plainly that the earlier figure was wrong. A parent's
-       separate conversation with you is not in here and you must never quote it to him: ${JSON.stringify(c.recent_chat ?? []).slice(0, 900)}`,
+       separate conversation with you is not in here and you must never quote it to him: ${JSON.stringify(
+         (isParentTurn ? c.recent_parent_chat : c.recent_chat) ?? []).slice(0, 900)}`,
       `Today's plan: ${JSON.stringify(c.plan ?? [])}`,
       `Next session: ${JSON.stringify(c.next_session ?? {})}`,
       `Track he chose: ${track}.`,

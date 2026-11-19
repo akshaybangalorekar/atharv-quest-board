@@ -107,7 +107,7 @@ begin
     'whats_new', coalesce((select json_object_agg(f.family, whats_new(f.family)) from (
         select distinct b.family from exam_banks b where b.family is not null) f), '{}'::json),
     'child', child_work_status(),
-    'accounts', (select list_accounts()),
+    'accounts', case when is_parent() then list_accounts() else null end,
     'papers', coalesce((select json_agg(row_to_json(p) order by p.id desc) from (
         select id, title, exam, pages, questions, created_at, strand_hint from papers
         where student_id = v order by id desc limit 30) p), '[]'::json)
