@@ -145,11 +145,11 @@ async function handle(req: Request) {
       const all = (pages ?? []).map((x: any) => String(x.text ?? "")).join("\n").trim();
       if (all.length < 80) continue;
       const chunks = chunk(all).map((b) => ({ body: b, topic: p.title ?? "uploaded paper" }));
-      await supa.rpc("store_doc", {
+      const { error: upErr } = await supa.rpc("store_doc", {
         p_kind: "upload", p_title: p.title ?? `paper ${p.id}`, p_url: p.url ?? null,
         p_source_id: null, p_chunks: chunks,
       });
-      kept++;
+      if (!upErr) kept++;
     }
     return json({ mode, papers: kept });
   }
@@ -168,9 +168,10 @@ async function handle(req: Request) {
       if (text.length < 200) { done.push({ source: s.name, ok: false, reason: "no readable text" }); continue; }
 
       const chunks = chunk(text).map((b) => ({ body: b, topic: s.name, family: s.family }));
-      await supa.rpc("store_doc", {
+      const { error: storeErr } = await supa.rpc("store_doc", {
         p_kind: "web", p_title: s.name, p_url: s.url, p_source_id: s.id, p_chunks: chunks,
       });
+      if (storeErr) { done.push({ source: s.name, ok: false, reason: storeErr.message.slice(0, 120) }); continue; }
       done.push({ source: s.name, ok: true, chunks: chunks.length });
     } catch (e) {
       done.push({ source: s.name, ok: false, reason: String((e as Error)?.message ?? e).slice(0, 120) });
