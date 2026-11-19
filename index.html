@@ -1176,7 +1176,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.50.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.50.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -3081,7 +3081,10 @@ async function goParent() {
     return `<div class="card ttExam">
       <div class="ttHead">
         <span class="ttName">${esc(fam)}</span>
-        <span class="pill ${cls(f.verdict)}">${esc(f.verdict)}</span>
+        <span class="pill ${cls(f.verdict)}">${esc(
+          f.verdict === "no_content" ? "nothing loaded"
+          : f.verdict === "thin" ? `thin · ${totalQ} questions`
+          : f.verdict)}</span>
         <span class="ttMeta">${esc(when)}${f.days_left !== null ? ` · ${f.days_left} days` : ""}</span>
         <span class="ttMeta" style="margin-left:auto">${coveredMin} of ${sitsMin} min testable · ${totalQ} questions</span>
       </div>
