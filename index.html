@@ -575,6 +575,15 @@ main#session, main#pchat{
 #dateBanner .dBtn{margin-left:auto;background:#2a1400;color:#fff;border:0;border-radius:999px;
   padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
 #dateBanner ul{margin:4px 0 0;padding-left:16px;font-weight:500}
+
+/* the two boxes are the same object: same height, same padding, same order of parts */
+#sComposer, #pComposer{min-height:56px;display:flex;align-items:center;gap:6px}
+#sComposer textarea, #pComposer input{
+  flex:1 1 auto;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:15px;
+  line-height:1.4;padding:9px 4px;height:40px;
+}
+#sComposer textarea{resize:none;max-height:96px;overflow-y:auto}
+#pComposer input{height:40px}
 </style>
 </head>
 <body>
@@ -1326,7 +1335,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.63.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.64.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -3951,7 +3960,7 @@ async function keepChat(role, body, thread) {
 function pBubble(role, text) {
   const d = document.createElement("div");
   d.className = "msg " + role;
-  d.innerHTML = esc(text);
+  d.innerHTML = role === "coach" ? (formatCoachHtml(text) || esc(text)) : esc(text);
   $("pchatWrap").appendChild(d);
   stickBottom();
   return d;
@@ -3976,9 +3985,6 @@ async function sendParent() {
   if (!text) return;
   box.value = "";
   S.forceScroll = true;
-  keepChat("atharv", text, "child");
-  heard = "";                    // the microphone must not put it back
-  if (box.style) box.style.height = "";
   pBubble("me", text);
   await askParent(text);
 }
