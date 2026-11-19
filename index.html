@@ -376,6 +376,24 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 .newWhen{color:var(--mut);font-size:12.5px}
 
 .ctxExam{font-weight:400;font-size:15px;color:var(--mut);letter-spacing:0}
+
+/* one line per exam; the detail waits behind a fold */
+.exList{display:block}
+.exRow{padding:8px 0;border-top:1px solid var(--line)}
+.exRow:first-child{border-top:0;padding-top:0}
+.exHead{display:flex;align-items:center;gap:10px;min-width:0}
+.exName{font-weight:700;font-size:14.5px;flex:0 0 96px}
+.exSchools{color:var(--mut);font-size:13px;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exCount{color:var(--mut);font-size:12.5px;flex:0 0 auto}
+.exInfo{flex:0 0 auto;position:relative}
+.exInfo summary{list-style:none;cursor:pointer;color:var(--mut);font-size:16px;line-height:1;padding:0 4px}
+.exInfo summary::-webkit-details-marker{display:none}
+.exMenu{position:absolute;right:0;top:22px;z-index:20;background:#fff;border:1px solid var(--line);
+  border-radius:12px;padding:8px;display:grid;gap:6px;min-width:210px;box-shadow:0 10px 30px rgba(23,26,38,.12)}
+.exAll{margin-top:2px}
+.exAll summary{list-style:none;cursor:pointer;color:var(--mut);font-size:11.5px;padding-left:106px}
+.exAll summary::-webkit-details-marker{display:none}
+.exAll summary:hover{color:var(--acc)}
 </style>
 </head>
 <body>
@@ -612,7 +630,6 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     <summary class="foldHead">Exams and what is loaded</summary>
     <div style="margin-top:10px">
     <div id="pExams" class="exList"></div>
-    <div class="hint">“Need more data” is honest: below about 30 questions nobody can judge readiness, and below 60 the number is noisy.</div>
     </div>
   </details></div>
 
@@ -1079,7 +1096,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.15.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.16.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2797,20 +2814,13 @@ async function goParent() {
   const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
                   thin: "Need more data", no_content: "Nothing yet" };
 
-  // one compact line per exam: schools and dates beneath, the counts at a glance
+  // one line per exam. Everything else waits behind the arrow.
   const rows = S.schoolReadiness ?? [];
   const cls = (v) => v === "solid" ? "ok" : v === "needs work" ? "red"
     : v === "partly measured" ? "amber" : "grey";
 
   const fams = {};
   rows.forEach((r) => { (fams[r.exam] = fams[r.exam] ?? []).push(r); });
-
-  // the same per-topic numbers the child sees
-  const topicMap = {};
-  for (const fam of Object.keys(fams)) {
-    const { data } = await sb.rpc("topic_readiness", { p_family: fam.toLowerCase() });
-    topicMap[fam] = data ?? [];
-  }
 
   const { data: srcRows } = await sb.rpc("exam_question_sources");
   const src = {};
@@ -2823,28 +2833,32 @@ async function goParent() {
     src[fam] = cur;
   });
 
+  const topicMap = {};
+  for (const fam of Object.keys(fams)) {
+    const { data } = await sb.rpc("topic_readiness", { p_family: fam.toLowerCase() });
+    topicMap[fam] = data ?? [];
+  }
+
+  const shortDate = (d) => d
+    ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "2-digit" })
+    : "no date";
+
   $("pExams").innerHTML = Object.entries(fams).map(([fam, list]) => {
     const q = src[fam] ?? { uploaded: 0, by_coach: 0, files: new Set() };
     const files = [...q.files].filter(Boolean);
+    const total = (q.uploaded ?? 0) + (q.by_coach ?? 0);
+    const key = fam.replace(/[^a-z]/gi, "");
 
-    const schools = list.map((r, i) => {
-      const when = r.sits_on
-        ? new Date(r.sits_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
-        : "no date";
+    // the one line: where, when, how many
+    const where = list.map((r) => `${esc(r.school)} · ${shortDate(r.sits_on)}`).join("  ·  ");
+
+    const detail = list.map((r, i) => {
+      const when = shortDate(r.sits_on);
       const days = r.sits_on ? Math.round((new Date(r.sits_on) - new Date()) / 86400000) : null;
-      const detail = (r.sections ?? []).map((x) => {
+      const sections = (r.sections ?? []).map((x) => {
         const mark = x.covered ? `${x.tried} tried${x.accuracy === null ? "" : ` · ${x.accuracy}%`}` : "not measured";
         return `<div>${esc(x.part)} · ${x.minutes} min · ${mark} — <b>${esc(x.verdict)}</b></div>`;
       }).join("");
-      const topics = (topicMap[fam] ?? []).filter((t) => (t.questions ?? 0) > 0);
-      const topicHtml = topics.length ? `<div class="topicHead" style="margin-top:8px">
-          <span>Topic</span><span>Content</span><span>His progress</span></div>
-        ${topics.map((t) => `<div class="topicRow">
-          <span class="topicName">${esc(String(t.title).split(" · ").pop())}
-            <span class="sub">${t.questions} questions</span></span>
-          <span class="bar2"><i style="width:${t.confidence}%"></i></span>
-          <span class="bar2 his"><i style="width:${t.preparedness}%"></i></span>
-        </div>`).join("")}` : "";
       return `<div class="exSchool">
         <span class="exWhere">${esc(r.school)}</span>
         <span class="exDate" id="dl${fam}${i}">${esc(when)}${days !== null ? ` · ${days}d` : ""}</span>
@@ -2855,26 +2869,43 @@ async function goParent() {
             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
         <span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>
         <details class="exMore"><summary>${r.measured_minutes ?? 0}/${r.sits_minutes ?? 0} min</summary>
-          <div class="exParts">${detail}${topicHtml}</div></details>
+          <div class="exParts">${sections}${(() => {
+            const topics = (topicMap[fam] ?? []).filter((t) => (t.questions ?? 0) > 0);
+            if (!topics.length) return "";
+            return `<div class="topicHead" style="margin-top:8px"><span>Topic</span><span>Content</span><span>His progress</span></div>`
+              + topics.map((t) => `<div class="topicRow">
+                  <span class="topicName">${esc(String(t.title).split(" · ").pop())}
+                    <span class="sub">${t.questions} questions</span></span>
+                  <span class="bar2"><i style="width:${t.confidence}%"></i></span>
+                  <span class="bar2 his"><i style="width:${t.preparedness}%"></i></span>
+                </div>`).join("");
+          })()}</div></details>
       </div>`;
     }).join("");
 
     return `<div class="exRow">
       <div class="exHead">
         <span class="exName">${esc(fam)}</span>
-        <details class="srcInfo"><summary title="Where these questions came from">i</summary>
-          <div class="exSrc">
-            From your files: <b>${q.uploaded}</b>${files.length ? `<br><span class="sub">${esc(files.join(", "))}</span>` : ""}<br>
-            Written by the coach: <b>${q.by_coach}</b>
+        <span class="exSchools">${where}</span>
+        <span class="exCount">${total ? `${total} questions` : "empty"}</span>
+        <details class="exInfo"><summary title="More">⋯</summary>
+          <div class="exMenu">
+            <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
+            <button class="mini" data-print="${esc(fam)}">Print the questions</button>
+            <div class="exSrc">
+              From your files: <b>${q.uploaded}</b>${files.length ? `<br><span class="sub">${esc(files.join(", "))}</span>` : ""}<br>
+              Written by the coach: <b>${q.by_coach}</b>
+            </div>
           </div>
         </details>
-        <span class="exCounts">${q.uploaded} uploaded · ${q.by_coach} by the coach</span>
-        <span class="exActs">
-          <button class="mini" data-gen="${esc(fam)}">Generate</button>
-          <button class="mini" data-print="${esc(fam)}">Print</button>
-        </span>
       </div>
-      ${schools}
+      ${(() => {
+        const hasSections = list.some((r) => (r.sections ?? []).length > 0);
+        const hasTopics = (topicMap[fam] ?? []).some((t) => (t.questions ?? 0) > 0);
+        return hasSections || hasTopics
+          ? `<details class="exAll"><summary>dates and detail</summary>
+               <div style="margin-top:6px">${detail}</div></details>` : "";
+      })()}
     </div>`;
   }).join("") || `<div class="sub">Nothing loaded yet.</div>`;
 
