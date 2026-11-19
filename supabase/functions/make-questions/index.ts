@@ -86,11 +86,24 @@ Deno.serve(async (req) => {
         .select("n, title, source, practice").eq("n", chapter).single();
       ch = data;
     } else if (exam) {
-      const { data: bank } = await admin.from("exam_banks").select("kind").eq("exam", exam).single();
-      if (bank) {
+      // every bank that answers for this exam: Edutest is Kilvington and McKinnon,
+      // Olympiad is the book and the contest sets, the rest are themselves
+      const KINDS: Record<string, string[]> = {
+        "AAS numerical reasoning": ["aas"],
+        "Edutest numerical reasoning": ["edutest", "elms"],
+        "ELMS": ["elms", "edutest"],
+        "Olympiad book": ["book", "apsmo"],
+        "APSMO Division J": ["apsmo", "book"],
+        "ICAS Maths": ["icas"],
+        "AMC Upper Primary": ["amc"],
+      };
+      const kinds = KINDS[exam] ?? [];
+      if (kinds.length) {
+        // the strand with the fewest questions, so new ones spread rather than pile up
         const { data } = await admin.from("chapters")
-          .select("n, title, source, practice").eq("source", bank.kind)
-          .order("n").limit(1).maybeSingle();
+          .select("n, title, source, practice").in("source", kinds)
+          .order("practice", { ascending: true }).order("n", { ascending: true })
+          .limit(1).maybeSingle();
         ch = data;
       }
     }
@@ -98,11 +111,13 @@ Deno.serve(async (req) => {
 
     const scope = exam
       ? ({
-          "AAS numerical reasoning": "numerical reasoning for a Year 6 scholarship test: number, patterns, money, measurement, simple ratio and data",
-          "Edutest numerical reasoning": "numerical reasoning: series, matrices, arithmetic word problems, quick two-step reasoning",
-          "ELMS": "Year 6 mathematics as McKinnon's ELMS paper sets it: number, fractions, measurement, geometry, data",
-          "APSMO Division J": "olympiad problems of the Division J kind: five hard questions, insight over arithmetic, no calculus or algebra beyond a simple unknown",
+          "AAS numerical reasoning": "Camberwell Grammar's AAS numerical reasoning: number, patterns, money, measurement, simple ratio and data, Year 6 standard",
+          "Edutest numerical reasoning": "Edutest as Kilvington sits it: numerical reasoning — series, matrices, arithmetic word problems, quick two-step reasoning",
+          "ELMS": "Edutest as McKinnon's ELMS sits it: Year 6 mathematics — number, fractions, measurement, geometry, data",
+          "APSMO Division J": "APSMO Division J: five hard olympiad questions, insight over arithmetic, no calculus, no algebra beyond a simple unknown",
           "Olympiad book": "the book's olympiad chapters: counting, logic, number patterns, geometry insight",
+          "ICAS Maths": "ICAS Mathematics Paper D: number, measurement, geometry, statistics, straightforward competition style",
+          "AMC Upper Primary": "AMC Upper Primary: thirty questions in sixty minutes, 3 to 5 marks, Australian competition style",
         } as Record<string, string>)[exam] ?? ""
       : "";
 
