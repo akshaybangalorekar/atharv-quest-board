@@ -537,39 +537,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     <div id="newList" style="margin-top:10px"></div>
   </details></div>
 
-  <div class="card" id="partsCard" style="display:none"><details>
-    <summary class="foldHead">What this paper contains</summary>
-    <div id="partsList" style="margin-top:10px"></div>
-    <div class="hint" id="partsNote" style="margin-top:8px"></div>
-    <div id="topicList" style="margin-top:12px"></div>
-  </details></div>
-
-  <div class="card" id="paperCard" style="display:none">
-    <div class="k">Papers you have uploaded</div>
-    <div id="paperList"></div>
-  </div>
-
-  <div class="card">
-    <div class="k" id="trackName">Olympiad</div>
-    <div class="big" style="font-size:20px" id="todayPlan">—</div>
-    <div class="sub" id="todayNote"></div>
-    <div class="hint" id="trackHint"></div>
-  </div>
-
-  <div class="card">
-    <div class="bar" style="margin-bottom:10px"><button class="ghost small" onclick="goLanding()">← Home</button></div>
-    <div class="shelfTabs" id="subTabs">
-      <button class="on" id="subBook" onclick="pickShelf('book',this)">Olympiad topics</button>
-      <button id="subDj" onclick="pickShelf('dj',this)">Contest sets</button>
-      <button id="mockTab" onclick="startMock()" style="display:none">Mock test</button>
-    </div>
-    <div class="sub" id="shelfNote" style="margin-top:10px"></div>
-    <div class="hint" id="shelfEmpty" style="display:none;margin-top:10px">
-      No questions in here yet. <b>Ask Ananya</b> for some — say “can I have more questions” and she will write them
-      for this exam. A parent can add a paper too.
-    </div>
-    <div class="chapterlist" id="shelf" style="margin-top:6px"></div>
-  </div>
+  <div id="trackCard"></div>
 
   <div class="card"><div class="sub" id="trackStats"></div></div>
 </main>
@@ -1114,7 +1082,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.23.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.24.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2281,10 +2249,6 @@ async function bootInner() {
   if (route && route.view === "track" && route.track) {
     S.restoring = true;
     await openTrack(route.track);
-    if (route.shelf && route.shelf !== "book") {
-      const btn = $("subDj");
-      pickShelf(route.shelf, btn);
-    }
     S.restoring = false;
     return;
   }
@@ -3886,40 +3850,6 @@ function barRow(label, value, pct, colour) {
 /* --------------------------------------------------------------- track -- */
 /* the uploaded papers for this exam, and a way to read them */
 /* readiness per section, not one number for the whole thing */
-async function loadParts(family) {
-  const card = $("partsCard"), list = $("partsList");
-  if (!card || !list) return;
-  const { data } = await sb.rpc("readiness_parts", { p_family: family });
-  if (!data?.parts?.length) { card.style.display = "none"; return; }
-  card.style.display = "";
-  const pill = (v) => v === "solid" ? "ok" : v === "needs work" ? "amber"
-    : v === "not measured here" || v === "no questions yet" ? "grey" : "amber";
-  list.innerHTML = data.parts.map((p) => `
-    <div class="bar" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:8px 0">
-      <div><b>${esc(p.part)}</b>
-        <div class="sub">${p.minutes} minutes${p.coverage === "not covered" ? "" : ` · ${p.loaded} questions · ${p.practised} tried`}</div>
-      </div>
-      <span class="pill ${pill(p.verdict)}">${esc(p.verdict)}</span>
-    </div>`).join("");
-  $("partsNote").textContent = data.note ?? "";
-
-  // and below it, every topic with two bars: how sound the content is, and how far he is
-  const topics = await sb.rpc("topic_readiness", { p_family: family });
-  const rows = topics.data ?? [];
-  const withQuestions = rows.filter((t) => (t.questions ?? 0) > 0);
-  const box = $("topicList");
-  if (box) {
-    box.innerHTML = withQuestions.length ? `
-      <div class="topicHead"><span>Topic</span><span>Content</span><span>His progress</span></div>
-      ${withQuestions.map((t) => `
-        <div class="topicRow">
-          <span class="topicName">${esc(t.title.split(" · ").pop())}
-            <span class="sub">${t.questions} questions${t.by_coach ? ` · ${t.by_coach} by the coach` : ""}${t.from_files ? ` · ${t.from_files} from files` : ""}</span></span>
-          <span class="bar2"><i style="width:${t.confidence}%"></i></span>
-          <span class="bar2 his"><i style="width:${t.preparedness}%"></i></span>
-        </div>`).join("")}` : "";
-  }
-}
 
 /* what has arrived for this exam lately, and how long ago */
 async function loadWhatsNew(family) {
@@ -3943,19 +3873,6 @@ async function loadWhatsNew(family) {
   }).join("");
 }
 
-async function loadPapers(exam) {
-  const card = $("paperCard"), list = $("paperList");
-  if (!card || !list) return;
-  const { data } = await sb.from("papers").select("*").eq("exam", exam).order("created_at", { ascending: false });
-  const rows = data ?? [];
-  card.style.display = rows.length ? "" : "none";
-  if (!rows.length) return;
-  list.innerHTML = rows.map((r) => `
-    <div class="bar" style="justify-content:space-between;align-items:center;margin-top:8px">
-      <div><b>${esc(r.title)}</b><div class="sub">${r.pages} page${r.pages === 1 ? "" : "s"} · ${r.questions} questions taken from it</div></div>
-      <button class="go small" onclick="openPaper(${r.id})">Open</button>
-    </div>`).join("");
-}
 
 async function openPaper(id) {
   const { data: row } = await sb.from("papers").select("*").eq("id", id).maybeSingle();
@@ -3992,80 +3909,90 @@ async function openPaper(id) {
   }
 }
 
+/* the exam as a card: same shape as the Timetable, on the child's screen too */
+async function paintTrackCard(id) {
+  const box = $("trackCard");
+  if (!box) return;
+  box.innerHTML = `<div class="card"><div class="sub">One moment…</div></div>`;
+
+  const fam = (TRACKS.find((t) => t.id === id) ?? {});
+  const { data: tt } = await sb.rpc("timetable");
+  const mine = (tt ?? []).find((x) => String(x.label).toLowerCase() === String(fam.name ?? "").toLowerCase());
+  const { data: specs } = await sb.rpc("exam_specs");
+  const spec = (specs ?? []).filter((x) => x.family === (mine?.label ?? fam.name));
+  const { data: topics } = await sb.rpc("topic_readiness", { p_family: String(id) });
+
+  const SOURCE_SECTION = {
+    edutest: "Numerical reasoning", elms: "Mathematics", aas: "Mathematics",
+    icas: "Whole paper", amc: "Whole paper", book: "Each contest", apsmo: "Each contest",
+  };
+
+  const all = topics ?? [];
+  const rows = mine?.rows ?? [];
+  const done = mine?.topics_done ?? 0, total = mine?.topics_all ?? all.length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  const behind = mine?.behind ?? 0;
+  const verdict = behind > 0 ? `${behind} behind` : done > 0 ? "on track" : "not started";
+  const vcls = behind > 0 ? "red" : done > 0 ? "green" : "grey";
+
+  const topicLine = (t) => {
+    const has = (t.questions ?? 0) > 0;
+    return `<div class="ttRow" ${has ? `onclick="openChapter(${t.n})" style="cursor:pointer"` : ""}>
+      <span class="dot ${t.preparedness >= 60 ? "green" : t.preparedness > 0 ? "amber" : "grey"}"></span>
+      <span class="ttTopic">${esc(String(t.title).split(" · ").pop())}
+        <span class="sub">${has ? `${t.questions} questions` : "no questions yet"}</span></span>
+      <span class="ttTarget">${has ? (t.tried ? `${t.correct}/${t.tried} right` : "not tried") : ""}</span>
+      <span class="bar2" style="width:80px"><i style="width:${t.preparedness}%"></i></span>
+    </div>`;
+  };
+
+  const paper = spec.map((y) => {
+    const sections = (y.sections ?? []).map((sec) => {
+      const own = all.filter((t) => (SOURCE_SECTION[t.source] ?? "Whole paper") === sec.part);
+      return `<div class="ttSection">
+        <div class="ttSectionHead">${esc(sec.part)} <span class="sub">· ${sec.minutes} min in the exam</span></div>
+        ${own.length ? own.map(topicLine).join("") : `<div class="ttNone">no questions for this section yet</div>`}
+      </div>`;
+    }).join("");
+    return `<div class="ttPaperHead">${esc(y.sits)} — ${y.minutes} min in the exam</div>${sections}`;
+  }).join("");
+
+  const when = mine?.exam_on
+    ? new Date(mine.exam_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+    : "no date";
+
+  const noQuestions = !all.some((t) => (t.questions ?? 0) > 0);
+
+  box.innerHTML = `<div class="card ttExam">
+    <div class="ttHead">
+      <span class="ttName">${esc(fam.name ?? "")}</span>
+      <span class="pill ${vcls}">${esc(verdict)}</span>
+      <span class="ttMeta">${esc(when)}${mine?.days_left !== null && mine?.days_left !== undefined ? ` · ${mine.days_left} days` : ""}</span>
+      <span class="ttMeta" style="margin-left:auto">${done} of ${total} topics</span>
+    </div>
+    <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
+    ${paper}
+    ${noQuestions ? `<div class="hint" style="margin-top:10px">No questions in here yet. <b>Ask Ananya</b> for some —
+      say “can I have more questions” and she will write them for this exam.</div>` : ""}
+    <div class="bar" style="margin-top:10px">
+      <button class="ghost small" onclick="goLanding()">← Home</button>
+      ${S.ctx?.mock?.due ? `<button class="go small" onclick="startMock()">Paper is due — sit it</button>` : ""}
+    </div>
+  </div>`;
+}
+
 async function openTrack(id) {
   S.track = id;
   paintExamTag("track");
   S.shelf = "book";
   show("track");
-  const t = TRACKS.find((x) => x.id === id);
-  $("trackName").textContent = t.name;
-  const lane = S.plan.find((p) => p.lane !== "R");
-  const famNow = TRACKS.find((x) => x.id === id);
-  const hasQuestions = (famNow?.members ?? []).some((m) => m.count > 0);
-
-  if (!hasQuestions) {
-    // nothing to teach in this exam yet: say so, do not invent a chapter
-    $("todayPlan").textContent = "No questions yet";
-    $("todayNote").textContent = "Nothing in here yet — ask Ananya for questions and she will write some.";
-  } else {
-    $("todayPlan").textContent = lane
-      ? `${lane.lane === "Q" ? "Quest" : lane.lane === "M" ? "Test" : lane.lane === "D" ? "Drill" : lane.lane}${lane.chapter ? " · Chapter " + lane.chapter : ""} · ${lane.minutes} min`
-      : "Rest day";
-    $("todayNote").textContent = lane ? (lane.note ?? "") : "Nothing scheduled today.";
-  }
-
-  const ready = S.readiness.find((r) => (r.exam || "").toLowerCase().includes(bankFor(id).toLowerCase().split(" ")[0]));
-  $("trackHint").textContent = ready ? ready.message : "";
+  if (!S.restoring) saveRoute();
   $("trackStats").textContent =
     `${(S.ctx?.xp ?? 0).toLocaleString()} XP · streak ${S.ctx?.streak ?? 0} days · ` +
     `day ${S.ctx?.days_in ?? 1} of the programme`;
 
-  // the family's own banks are the shelves; the old book/contest pair is gone
-  $("subBook").style.display = "none";
-  $("subDj").style.display = "none";
-  if (!S.restoring) saveRoute();
-  $("mockTab").style.display = (S.ctx?.mock?.due) ? "" : "none";
-
-  // a family shows its schools as extra shelves
-  const fam = TRACKS.find((t) => t.id === id);
-  const tabs = $("subTabs");
-  [...tabs.querySelectorAll(".famTab")].forEach((b) => b.remove());
-  $("subTabs").style.display = (fam?.members ?? []).some((m) => m.count > 0) ? "" : "none";
-  const SHELF_NAME = {
-    book: "Olympiad topics", olympiad: "Olympiad topics", apsmo: "Contest sets",
-    edutest: "Kilvington", elms: "McKinnon", aas: "Camberwell", icas: "ICAS", amc: "AMC",
-  };
-  const anyQuestions = (fam?.members ?? []).some((m) => m.count > 0);
-  $("shelfEmpty").style.display = anyQuestions ? "none" : "";
-  $("shelfNote").style.display = anyQuestions ? "" : "none";
-  $("shelf").style.display = anyQuestions ? "" : "none";
-  const usable = (fam?.members ?? []).filter((m) => m.count > 0);
-  if (usable.length) {
-    fam.members.filter((m) => m.count > 0).forEach((m, i) => {
-      const b = document.createElement("button");
-      b.className = "famTab" + (i === 0 ? " on" : "");
-      b.textContent = SHELF_NAME[m.kind] ?? (m.school || m.exam);
-      b.onclick = () => {
-        [...tabs.querySelectorAll(".famTab")].forEach((x) => x.classList.remove("on"));
-        b.classList.add("on");
-        S.familyKind = m.kind;
-        S.shelf = (m.kind === "apsmo" || m.kind === "amc") ? "dj" : "book";
-        renderShelf();
-      };
-      tabs.appendChild(b);
-      if (i === 0) { S.familyKind = m.kind; S.shelf = (m.kind === "apsmo" || m.kind === "amc") ? "dj" : "book"; }
-    });
-    S.familyKind = fam.members[0].kind;
-  } else {
-    S.familyKind = null;
-  }
-  loadParts(id);
+  paintTrackCard(id);
   loadWhatsNew(id);
-  loadPapers(id);
-  $("subBook").textContent = id === "amc" ? "Olympiad topics" : "Olympiad topics";
-  $("subDj").textContent = id === "amc" ? "AMC papers" : "Contest sets";
-  S.shelf = "book";
-  await renderShelf();
 }
 
 function bankFor(id) {
@@ -4075,55 +4002,8 @@ function bankFor(id) {
        : "Olympiad book";
 }
 
-function pickShelf(which, btn) {
-  S.shelf = which;
-  saveRoute();
-  document.querySelectorAll("#subTabs button").forEach((b) => b.classList.toggle("on", b === btn));
-  renderShelf();
-}
 
-async function renderShelf() {
-  const box = $("shelf");
-  box.innerHTML = `<div class="sub">Loading…</div>`;
 
-  if (S.shelf === "dj") {
-    const src = S.track === "amc" ? "amc" : "apsmo";
-    $("shelfNote").textContent = src === "amc"
-      ? "AMC Upper Primary papers — nothing uploaded yet"
-      : "Olympiad contest problems · nine sets";
-    const { data } = await sb.from("chapters").select("n,title,practice").eq("source", src).order("n");
-    box.innerHTML = (data ?? []).map((c) => `
-      <button class="ch" onclick="openChapter(${c.n})">
-        <span><b>${esc(c.title.replace("APSMO Division J · ", "").replace("APSMO Division J", "Contest set"))}</b>
-          <div class="sub">${c.practice} questions${c.n === 141 ? " · the first set" : ""}</div></span>
-        <span class="sub">›</span></button>`).join("")
-      || `<div class="sub">${src === "amc" ? "No AMC papers uploaded yet. Upload one from the parent view." : "No contest questions loaded yet."}</div>`;
-    return;
-  }
-
-  if (S.track === "olympiad" || S.track === "amc") {
-    $("shelfNote").textContent = "Olympiad topics · twenty-four of them";
-    const { data } = await sb.from("chapters").select("n,title,pages,examples,practice").lte("n", 24).order("n");
-    box.innerHTML = (data ?? []).map((c) => `
-      <button class="ch" onclick="openChapter(${c.n})">
-        <span><b>${c.n}. ${esc(c.title)}</b>
-          <div class="sub">pages ${c.pages ?? "—"} · ${c.examples} examples · ${c.practice} questions</div></span>
-        <span class="sub">›</span></button>`).join("");
-    return;
-  }
-
-  // aas / edutest — whatever has been uploaded
-  const kind = S.track;
-  $("shelfNote").textContent = kind === "aas" ? "Camberwell Grammar · AAS"
-    : kind === "edutest" ? "Kilvington · Edutest"
-    : "AMC Upper Primary · 30 questions in 60 minutes for 135 marks";
-  const { data } = await sb.from("chapters").select("n,title,practice").eq("source", kind).order("n");
-  box.innerHTML = (data && data.length)
-    ? data.map((c) => `<button class="ch" onclick="openChapter(${c.n})">
-        <span><b>${esc(c.title)}</b><div class="sub">${c.practice} questions</div></span>
-        <span class="sub">›</span></button>`).join("")
-    : `<div class="sub">Nothing uploaded for this exam yet. Add questions from the parent view and they appear here.</div>`;
-}
 
 /* one mock, shaped like the real thing for that exam */
 /* the chapter quiz comes when the chapter is done and done well, not on a streak */
@@ -5176,9 +5056,9 @@ api = {
   startQuiz, submitTest,
   goParent, goHome, openUpload, closeUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
-  openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
+  openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
