@@ -389,7 +389,7 @@ Deno.serve(async (req) => {
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
       `Exam readiness: ${JSON.stringify(c.readiness ?? [])}`,
-      `Question banks registered: ${JSON.stringify(c.banks ?? [])}`,
+      `THE ONE SOURCE OF TRUTH (every number you may say about him comes from here, read live this moment): ${JSON.stringify(c.truth ?? {})}`,
       `Weakest techniques: ${JSON.stringify(c.weak ?? [])}`,
       `Recent tests: ${JSON.stringify(c.recent_tests ?? [])}`,
       `Chapter progress: ${JSON.stringify(c.chapters ?? [])}`,

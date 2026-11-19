@@ -1084,7 +1084,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.29.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.30.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2866,7 +2866,8 @@ async function goParent() {
   const fams = {};
   rows.forEach((r) => { (fams[r.exam] = fams[r.exam] ?? []).push(r); });
 
-  const { data: srcRows } = await sb.rpc("exam_question_sources");
+  const { data: TR } = await sb.rpc("truth");
+  const { data: srcRows } = TR?.content?.banks ?? (await sb.rpc("exam_question_sources")).data;
   const src = {};
   (srcRows ?? []).forEach((r) => {
     const fam = BANK_FAMILY[r.exam] ?? r.exam;
@@ -3945,8 +3946,9 @@ async function paintTrackCard(id) {
   box.innerHTML = `<div class="card"><div class="sub">One moment…</div></div>`;
 
   const fam = (TRACKS.find((t) => t.id === id) ?? {});
-  const { data: tt } = await sb.rpc("timetable");
-  const mine = (tt ?? []).find((x) => String(x.label).toLowerCase() === String(fam.name ?? "").toLowerCase());
+  const { data: tr } = await sb.rpc("truth");
+  const mine = (tr?.families ?? []).find((x) =>
+    String(x.label ?? "").toLowerCase() === String(fam.name ?? "").toLowerCase());
   const { data: specs } = await sb.rpc("exam_specs");
   const spec = (specs ?? []).filter((x) => x.family === (mine?.label ?? fam.name));
   const { data: topics } = await sb.rpc("topic_readiness", { p_family: String(id) });
@@ -3957,12 +3959,10 @@ async function paintTrackCard(id) {
   };
 
   const all = topics ?? [];
-  const rows = mine?.rows ?? [];
   const done = mine?.topics_done ?? 0, total = mine?.topics_all ?? all.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
-  const behind = mine?.behind ?? 0;
-  const verdict = behind > 0 ? `${behind} behind` : done > 0 ? "on track" : "not started";
-  const vcls = behind > 0 ? "red" : done > 0 ? "green" : "grey";
+  const verdict = mine?.verdict === "needs work" ? "needs work" : done > 0 ? "on track" : "not started";
+  const vcls = mine?.verdict === "needs work" ? "red" : done > 0 ? "green" : "grey";
 
   const topicLine = (t) => {
     const has = (t.questions ?? 0) > 0;
