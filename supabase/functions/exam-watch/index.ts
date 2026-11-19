@@ -52,23 +52,37 @@ const KINDS = new Set(["date", "format", "timing", "topics", "news"]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  try {
+    return await handle(req);
+  } catch (e) {
+    return json({ error: "the watch failed", detail: String((e as Error)?.message ?? e) });
+  }
+});
+
+async function handle(req: Request) {
 
   const auth = req.headers.get("authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return json({ error: "not signed in" }, 401);
 
   const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const asUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { authorization: auth } },
-  });
-  const { data: { user } } = await asUser.auth.getUser();
-  if (!user) return json({ error: "not signed in" }, 401);
+
+  // who is asking: verified with the service client, so no second client and no missing key
+  const token = auth.replace(/^Bearer\s+/i, "");
+  const { data: who, error: whoErr } = await supa.auth.getUser(token);
+  const user = who?.user;
+  if (whoErr || !user) return json({ error: "not signed in" }, 401);
 
   // a test email, so the parent can prove delivery without waiting for news
   let mode = "check";
   try { mode = (await req.json())?.mode ?? "check"; } catch (_) {}
 
-  const { data: kidId } = await asUser.rpc("viewing_student");
-  const student = (kidId as string) ?? user.id;
+  // whose calendar: this account, or the child this account looks after
+  const { data: ownProfile } = await supa.from("profiles").select("student_id").eq("student_id", user.id).maybeSingle();
+  let student = user.id;
+  if (!ownProfile) {
+    const { data: g } = await supa.from("guardians").select("student_id").eq("parent_id", user.id).limit(1).maybeSingle();
+    if (g?.student_id) student = g.student_id;
+  }
 
   const { data: cal } = await supa
     .from("exam_calendar").select("id, exam, sits_on, date_status").eq("student_id", student);
@@ -200,4 +214,4 @@ If nothing has changed, reply {"findings":[]}.`;
   }
 
   return json({ checked: exams.length, alerts, emailed, willEmailTo: to });
-});
+}
