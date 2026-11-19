@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.68.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.69.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2351,12 +2351,17 @@ function openUpload() {
   if (!panel || !host) return;
   host.appendChild(panel);
   panel.classList.remove("hidden");
+  // one option per exam family, not per bank: the book and the contest sets are one Olympiad
+  const FAMILIES = [
+    { exam: "Olympiad book", label: "Olympiad — the book and the contest sets" },
+    { exam: "ELMS", label: "Edutest — Kilvington and McKinnon" },
+    { exam: "AAS numerical reasoning", label: "AAS — Camberwell Grammar" },
+    { exam: "ICAS Maths", label: "ICAS Mathematics" },
+    { exam: "AMC Upper Primary", label: "AMC Upper Primary" },
+  ];
   const sel = $("upBank");
-  const banks = (S.pctx?.banks ?? []).map((b) => b.exam);
-  const list = banks.length ? banks : ["ELMS", "Edutest numerical reasoning", "AAS numerical reasoning",
-                                        "ICAS Maths", "AMC Upper Primary", "Olympiad book"];
   if (sel && !sel.options.length) {
-    sel.innerHTML = list.map((b) => `<option value="${esc(b)}">${esc(BANK_LABEL[b] ?? b)}</option>`).join("");
+    sel.innerHTML = FAMILIES.map((f) => `<option value="${esc(f.exam)}">${esc(f.label)}</option>`).join("");
   }
   updateDest();
   $("upFiles").innerHTML = "";
