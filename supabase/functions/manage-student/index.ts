@@ -74,6 +74,51 @@ Deno.serve(async (req) => {
       return json({ ok: true, student_id: id, name, email });
     }
 
+    // ---- deleting an account outright ---------------------------------------
+    if (action === "delete-account") {
+      const target = String(body.user_id ?? "");
+      const password = String(body.password ?? "");
+      if (!target) return json({ error: "Which account?" }, 400);
+      if (target === user.id) return json({ error: "You cannot delete the account you are signed in from." }, 400);
+
+      const { data: targetUser } = await admin.auth.admin.getUserById(target);
+      if (!targetUser?.user) return json({ error: "No such account." }, 404);
+
+      const isParentTarget = !!(await admin.from("guardians")
+        .select("student_id").eq("parent_id", target).limit(1)).data?.length;
+      const childId = (await admin.from("guardians")
+        .select("student_id").eq("parent_id", user.id).limit(1)).data?.student_id;
+
+      if (!isParentTarget) {
+        // a child: it must be this parent's child, and the child's own password must be given
+        const { data: mine } = await admin.from("guardians")
+          .select("student_id").eq("parent_id", user.id).eq("student_id", target).limit(1);
+        if (!mine?.length) return json({ error: "That child is not linked to this login." }, 403);
+        if (password.length < 1) return json({ error: "Type the child's password to confirm." }, 400);
+
+        const check = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
+          { auth: { persistSession: false } });
+        const { error: badPw } = await check.auth.signInWithPassword({
+          email: targetUser.user.email!, password,
+        });
+        if (badPw) return json({ error: "That password is not right, so nothing was deleted." }, 403);
+      } else {
+        // another parent: they must share the child with you
+        const { data: shared } = await admin.from("guardians")
+          .select("student_id").eq("parent_id", target).eq("student_id", childId ?? "").limit(1);
+        if (!shared?.length) return json({ error: "That parent is not linked to your child." }, 403);
+      }
+
+      await admin.from("account_events").insert({
+        student_id: isParentTarget ? childId : target, by_user: user.id,
+        what: isParentTarget ? "a parent account was deleted" : "a child account was deleted",
+      }).then(() => {}, () => {});
+
+      const { error } = await admin.auth.admin.deleteUser(target);
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true });
+    }
+
     // ---- removing another parent's access ----------------------------------
     if (action === "remove-parent") {
       const parentId = String(body.parent_id ?? "");

@@ -617,17 +617,10 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
           </div>
           <div class="hint" id="newKidMsg" style="margin-top:8px"></div>
           <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
-            <label class="k">Parents with access</label>
-            <div id="parentList" class="sub">—</div>
+            <label class="k">Accounts</label>
+            <div id="parentList" style="display:grid;gap:8px">—</div>
           </div>
-          <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
-            <label class="k">Remove a child</label>
-            <div class="bar">
-              <input id="delKidConfirm" placeholder="Type DELETE" style="flex:1 1 140px">
-              <button class="ghost small" style="border-color:#f2c9c9;color:#b8383d" onclick="deleteChild()">Delete the account</button>
-            </div>
-            <div class="hint" id="delKidMsg" style="margin-top:8px">This removes the child's sign-in and everything recorded under it. It cannot be undone.</div>
-          </div>
+
         </div>
       </details>
 
@@ -898,7 +891,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.65.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.66.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2098,28 +2091,59 @@ async function preparePages(paperId) {
 async function loadParents() {
   const box = $("parentList");
   if (!box) return;
-  const { data } = await sb.rpc("list_guardians");
-  const rows = data ?? [];
+  const { data } = await sb.rpc("list_accounts");
+  const rows = data?.accounts ?? [];
   if (!rows.length) { box.textContent = "Nobody linked yet."; return; }
-  box.innerHTML = rows.map((g) => `
-    <div class="bar" style="justify-content:space-between;align-items:center;padding:6px 0">
-      <span>${esc(g.name ?? g.email ?? "parent")}</span>
-      <button class="link" onclick="removeParent('${g.parent_id}')">Remove access</button>
-    </div>`).join("");
+
+  const { data: kidData } = await sb.rpc("child_work_status");
+  const kid = kidData ?? {};
+
+  box.innerHTML = rows.map((a) => {
+    const work = a.is_child
+      ? `${kid.questions_answered ?? 0} questions answered · ${kid.right ?? 0}% right · ` +
+        `${kid.chapters_mastered ?? 0} chapters mastered · ${kid.sessions ?? 0} sessions`
+      : a.sees_child ? "Can see this child" : "No access to this child";
+    return `<div class="acctRow">
+      <div style="flex:1 1 200px">
+        <div><b>${esc(a.name ?? a.email)}</b>${
+          a.is_you ? `<span class="pill ok" style="margin-left:6px">signed in here</span>` : ""}${
+          a.role === "child" ? `<span class="pill grey" style="margin-left:6px">child</span>` : ""}</div>
+        <div class="sub">${esc(work)}</div>
+      </div>
+      ${a.is_you ? "" : `<button class="ghost small" style="border-color:#f2c9c9;color:#b8383d"
+          data-del="${a.user_id}" data-kid="${a.role === "child" ? "1" : ""}">Delete</button>`}
+    </div>`;
+  }).join("");
+
+  box.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.onclick = () => startDeleteAccount(btn.dataset.del, btn.dataset.kid === "1");
+  });
 }
 
-async function removeParent(parentId) {
-  const { data: c } = await sb.rpc("parent_context");
-  const childId = c?.student_id;
-  if (!childId) return;
-  if (!confirm("Remove this parent's access to the child?")) return;
+/* deleting a child needs the child's own password; deleting a parent does not */
+async function startDeleteAccount(userId, isChild) {
+  let password = "";
+  if (isChild) {
+    const { data } = await sb.rpc("child_work_status");
+    const k = data ?? {};
+    const msg = `This deletes ${k.name ?? "the child"}'s account and everything recorded under it:\n\n` +
+      `${k.questions_answered ?? 0} questions answered, ${k.right ?? 0}% right\n` +
+      `${k.chapters_mastered ?? 0} chapters mastered, ${k.sessions ?? 0} sessions, ${k.tests ?? 0} tests\n\n` +
+      `This cannot be undone. Type the child's password to go ahead.`;
+    password = prompt(msg) ?? "";
+    if (!password) return;
+  } else if (!confirm("Delete this parent account? It cannot be undone.")) {
+    return;
+  }
+
   const { data, error } = await sb.functions.invoke("manage-student", {
-    body: { action: "remove-parent", parent_id: parentId, student_id: childId },
+    body: { action: "delete-account", user_id: userId, password },
   });
   if (error || data?.error) { alert(data?.error ?? error?.message ?? "That did not work."); return; }
   loadParents();
-  loadPapersToRead();
 }
+
+async function removeParent(parentId) { startDeleteAccount(parentId, false); }
 
 /* add a child, or remove one */
 async function loadChildren() {
@@ -2148,22 +2172,10 @@ async function createChild() {
   $("newKidName").value = ""; $("newKidEmail").value = ""; $("newKidPw").value = "";
 }
 
+/* the account list above does the deleting now */
 async function deleteChild() {
-  const word = $("delKidConfirm").value.trim();
-  if (word !== "DELETE") { $("delKidMsg").textContent = "Type DELETE to confirm."; return; }
-  const { data: c } = await sb.rpc("parent_context");
-  const id = c?.student_id;
-  if (!id) { $("delKidMsg").textContent = "No child is linked to this login."; return; }
-  $("delKidMsg").textContent = "Deleting…";
-  const { data, error } = await sb.functions.invoke("manage-student", {
-    body: { action: "delete", student_id: id, confirm: "DELETE" },
-  });
-  if (error || data?.error) {
-    $("delKidMsg").textContent = data?.error ?? error?.message ?? "That did not work.";
-    return;
-  }
-  $("delKidMsg").textContent = "Deleted.";
-  $("delKidConfirm").value = "";
+  const { data } = await sb.rpc("parent_context");
+  if (data?.student_id) startDeleteAccount(data.student_id, true);
 }
 
 /* a parent sets the child's password, for when it is forgotten */
@@ -4249,7 +4261,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, openHelp, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, startDeleteAccount, loadParents, openHelp, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
