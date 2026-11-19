@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     if (!row) return json({ error: "no such page" }, 404);
 
     const { data: paper } = await admin.from("papers")
-      .select("id, exam, student_id").eq("id", paper_id).single();
+      .select("id, exam, student_id, strand_hint").eq("id", paper_id).single();
     if (!paper) return json({ error: "no such paper" }, 404);
 
     // the page image, straight from storage
@@ -134,7 +134,8 @@ Deno.serve(async (req) => {
       })
       .filter((x: any) => x.q.length > 3);
 
-    const strand = String(parsed.strand ?? "").trim() || "General";
+    // a parent can say where these belong; otherwise the reader names the strand
+    const strand = String(paper.strand_hint ?? "").trim() || String(parsed.strand ?? "").trim() || "General";
 
     // write them as this child, so the same rules apply as everywhere else
     const { data: added, error: addErr } = await asUser.rpc("add_questions", {

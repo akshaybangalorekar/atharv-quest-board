@@ -441,6 +441,10 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <button id="mockTab" onclick="startMock()" style="display:none">Mock test</button>
     </div>
     <div class="sub" id="shelfNote" style="margin-top:10px"></div>
+    <div class="hint" id="shelfEmpty" style="display:none;margin-top:10px">
+      Nothing here yet. A parent adds questions from <b>Sample questions</b> in the parent view — upload a paper
+      or press Generate.
+    </div>
     <div class="chapterlist" id="shelf" style="margin-top:6px"></div>
   </div>
 
@@ -672,8 +676,20 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
   <select id="upBank" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px"
           onchange="updateDest()"></select>
 
-  <label class="k">Strand</label>
-  <input id="upStrand" placeholder="Leave blank and the reader will name it" style="margin-bottom:12px" oninput="updateDest()">
+  <label class="k">Where should these questions go?</label>
+  <div class="bar" style="margin-bottom:8px">
+    <label class="radio"><input type="radio" name="strandMode" value="auto" checked onchange="strandModeChanged()">
+      Let the reader name the strand</label>
+    <label class="radio"><input type="radio" name="strandMode" value="existing" onchange="strandModeChanged()">
+      Add to an existing tab</label>
+    <label class="radio"><input type="radio" name="strandMode" value="new" onchange="strandModeChanged()">
+      Create a new tab</label>
+  </div>
+  <select id="upStrandPick" class="hidden" style="width:100%;font:inherit;padding:12px;
+          border:1px solid var(--line);border-radius:12px;margin-bottom:8px"></select>
+  <input id="upStrand" class="hidden" placeholder="Name the new tab, for example: Venn diagrams"
+         style="margin-bottom:8px" oninput="updateDest()">
+  <div class="hint" id="upStrandHint" style="margin-bottom:12px">The reader will name the tab from what it finds.</div>
 
   <textarea id="upRows" rows="1" class="hidden"></textarea>
 
@@ -899,7 +915,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.79.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.83.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1992,8 +2008,12 @@ async function bootInner() {
 
 async function loadBanks() {
   // the family is what folds two banks into one card: it must be fetched
-  const { data } = await sb.from("exam_banks")
+  const { data: banks } = await sb.from("exam_banks")
     .select("exam, kind, family, school, chapter_from, chapter_to").order("chapter_from");
+  const { data: counts } = await sb.from("chapters").select("n, source, practice");
+  const byKind = {};
+  (counts ?? []).forEach((c) => { byKind[c.source] = (byKind[c.source] ?? 0) + (c.practice ?? 0); });
+  const data = (banks ?? []).map((b) => ({ ...b, count: byKind[b.kind] ?? 0 }));
   buildTracks(data);
 }
 
@@ -2548,6 +2568,29 @@ async function goParent() {
     : `<tr><td class="sub">No tests yet.</td></tr>`;
 }
 
+function strandMode() {
+  return document.querySelector('input[name="strandMode"]:checked')?.value ?? "auto";
+}
+
+async function strandModeChanged() {
+  const mode = strandMode();
+  const pick = $("upStrandPick"), name = $("upStrand"), hint = $("upStrandHint");
+  pick.classList.toggle("hidden", mode !== "existing");
+  name.classList.toggle("hidden", mode !== "new");
+  if (mode === "auto") hint.textContent = "The reader will name the tab from what it finds.";
+  if (mode === "existing") hint.textContent = "Pick the tab these questions belong in.";
+  if (mode === "new") hint.textContent = "This becomes a new tab under the exam you chose.";
+
+  if (mode === "existing" && !pick.options.length) {
+    const exam = $("upBank").value;
+    const { data: bank } = await sb.from("exam_banks").select("kind").eq("exam", exam).maybeSingle();
+    const { data } = await sb.from("chapters").select("n, title").eq("source", bank?.kind ?? "").order("n");
+    pick.innerHTML = (data ?? []).map((c) => `<option value="${esc(c.title)}">${esc(c.title)}</option>`).join("")
+      || `<option value="">No tabs yet — make a new one</option>`;
+  }
+  updateDest();
+}
+
 function openUpload() {
   const panel = $("upPanel"), host = $("upHost");
   if (!panel || !host) return;
@@ -2565,6 +2608,7 @@ function openUpload() {
   if (sel && !sel.options.length) {
     sel.innerHTML = FAMILIES.map((f) => `<option value="${esc(f.exam)}">${esc(f.label)}</option>`).join("");
   }
+  strandModeChanged();
   updateDest();
   $("upFiles").innerHTML = "";
   panel.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -2632,6 +2676,9 @@ async function uploadAndRead(input) {
 
   const { data: { user } } = await sb.auth.getUser();
   const exam = $("upBank")?.value || "ELMS";
+  const mode = strandMode();
+  const strandChoice = mode === "existing" ? ($("upStrandPick")?.value ?? "")
+    : mode === "new" ? ($("upStrand")?.value.trim() ?? "") : "";
   const wrap = $("upProgWrap"), bar = $("upProgBar"), txt = $("upProgText");
   wrap.classList.remove("hidden");
   $("upErr").textContent = "";
@@ -2682,6 +2729,9 @@ async function uploadAndRead(input) {
       state.textContent = `Saved in storage only · file ${paperId}`;
     }
 
+    // where the parent said these belong, if they said
+    if (strandChoice) await sb.from("papers").update({ strand_hint: strandChoice }).eq("id", paperId);
+
     // a copy in storage too, so pages can be shown without decoding the database
     const path = `${user.id}/${Date.now()}-${safeName(file.name)}`;
     await sb.storage.from("papers").upload(path, file, { upsert: true, contentType: file.type });
@@ -2700,7 +2750,7 @@ async function uploadAndRead(input) {
 
   // the reading runs behind all of them, page by page
   for (const { file, paperId } of saved) {
-    await readInBackground(file, user.id, exam, paperId);
+    await readInBackground(file, user.id, exam, paperId, strandChoice);
   }
   runServerQueue();
   loadPapersToRead();
@@ -2712,7 +2762,7 @@ async function uploadAndRead(input) {
 }
 
 /* the reading is the server's job now; this just keeps asking it for the next page */
-async function readInBackground(file, userId, exam, paperId) {
+async function readInBackground(file, userId, exam, paperId, strand = "") {
   const { data: jobId } = await sb.rpc("start_parse_job", { p_paper: paperId, p_exam: exam, p_pages: 0 });
   paintTopProgress(0, 1, "Preparing…");
 
@@ -2881,6 +2931,9 @@ async function readPaper(input) {
   if (!files.length) return;
   const { data: { user } } = await sb.auth.getUser();
   const exam = $("upBank")?.value || "ELMS";
+  const mode = strandMode();
+  const strandChoice = mode === "existing" ? ($("upStrandPick")?.value ?? "")
+    : mode === "new" ? ($("upStrand")?.value.trim() ?? "") : "";
   const note = $("upProgText");
   $("upErr").textContent = "";
   let added = 0, suggested = "";
@@ -3493,12 +3546,16 @@ async function openTrack(id) {
   const fam = TRACKS.find((t) => t.id === id);
   const tabs = $("subTabs");
   [...tabs.querySelectorAll(".famTab")].forEach((b) => b.remove());
+  $("subTabs").style.display = (fam?.members ?? []).some((m) => m.count > 0) ? "" : "none";
   const SHELF_NAME = {
     book: "The book", olympiad: "The book", apsmo: "Contest sets",
     edutest: "Kilvington", elms: "McKinnon", aas: "Camberwell", icas: "ICAS", amc: "AMC",
   };
-  if (fam?.members?.length) {
-    fam.members.forEach((m, i) => {
+  const anyQuestions = (fam?.members ?? []).some((m) => m.count > 0);
+  $("shelfEmpty").style.display = anyQuestions ? "none" : "";
+  const usable = (fam?.members ?? []).filter((m) => m.count > 0);
+  if (usable.length) {
+    fam.members.filter((m) => m.count > 0).forEach((m, i) => {
       const b = document.createElement("button");
       b.className = "famTab" + (i === 0 ? " on" : "");
       b.textContent = SHELF_NAME[m.kind] ?? (m.school || m.exam);
@@ -3947,6 +4004,9 @@ function pickOption(btn) {
   btn.classList.add("on");
   const box = $("ans");
   if (box) box.value = btn.dataset.full || btn.dataset.letter;
+  // choosing an option is answering: make that obvious
+  const chk = $("chk");
+  if (chk) { chk.disabled = false; chk.textContent = "Submit"; }
 }
 
 function showQuestion(q) {
@@ -4531,7 +4591,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
