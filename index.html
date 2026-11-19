@@ -581,9 +581,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
           Progress, Journal, Formula board.</p>
           <p><b>Keeping the bank ahead of him.</b> She writes new questions herself, modelled on the samples you
           upload and aimed at his level — accuracy and speed together decide whether the next set is harder, the
-          same, or easier. Only for the three exams she is allowed to write for: <b>AAS, Edutest and Olympiad</b>.
-          Every time the app opens it counts the questions he has not tried in each of those; when fewer than
-          <b>20</b> are left, she writes 20 more, in that exam's own scope. Nothing outside the paper's range.</p>
+          same, or easier. They go into the right place: <b>AAS</b> into Camberwell's strand, <b>Edutest</b> into
+          Kilvington and McKinnon's, <b>Olympiad</b> into the book and the contest sets, and ICAS and AMC into their
+          own. Within a family she adds to whichever strand has the fewest questions, so the bank spreads instead of
+          piling into one. Every time the app opens she counts what he has not tried; when fewer than <b>20</b> are
+          left in an exam, she writes 20 more inside that paper's scope.</p>
           <p><b>Never.</b> Invent a button, a screen or a feature. Invent a score, a date or a fact. Send him to another
           screen in the middle of a chapter. Scold him for missing days.</p>
           <p>If she writes something outside these lines, it is a fault in her instructions — send me the words she used.</p>
@@ -896,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.67.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.68.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
