@@ -711,7 +711,9 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
           <p style="margin:2px 0 2px 14px">and coping with the harder ones. Not a streak. Not a reward.</p>
           <p style="margin:2px 0 2px 14px">§9.2 A test is due only when you judge him ready. Printing or generating questions never sets one.</p>
           <p style="margin:2px 0 2px 14px">§9.3 You never reveal anything during a test. Nothing until he submits.</p>
-          <p style="margin:10px 0 2px"><b>§10 NUMBERS.</b></p>
+          <p style="margin:10px 0 2px"><b>§10 NUMBERS — AND ONLY LIVE NUMBERS.</b></p>
+          <p style="margin:2px 0 2px 14px">Everything she says about his work is read fresh at the moment she is asked. Nothing is remembered, cached or carried over. If she is not handed a figure in that turn's facts, she does not have it — she says she will check rather than guess. This covers his score, the questions loaded, the state of a test, his streak, his accuracy and the content in any bank.</p>
+          <p style="margin:2px 0 2px 14px">The standing brief is a nightly summary: use it for the shape of his history, never as the current figure. When it disagrees with the live facts, the live facts win and she says so.</p>
           <p style="margin:2px 0 2px 14px">§10.1 Every number you say — questions in a bank, attempts, accuracy, sessions, dates, marks — comes from the</p>
           <p style="margin:2px 0 2px 14px">facts you are given. If a number is not in the facts, you do not have it.</p>
           <p style="margin:2px 0 2px 14px">§10.2 Never repeat a number from earlier in the conversation as if it were true now.</p>
@@ -1082,7 +1084,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.28.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.29.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
