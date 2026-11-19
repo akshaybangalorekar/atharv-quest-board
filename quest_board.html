@@ -1114,7 +1114,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.22.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.23.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2865,7 +2865,7 @@ async function goParent() {
   const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
                   thin: "Need more data", no_content: "Nothing yet" };
 
-  // one line per exam. Everything else waits behind the arrow.
+  // the same shape as the Timetable: one card per exam, its sections, and the questions under them
   const rows = S.schoolReadiness ?? [];
   const cls = (v) => v === "solid" ? "ok" : v === "needs work" ? "red"
     : v === "partly measured" ? "amber" : "grey";
@@ -2884,80 +2884,93 @@ async function goParent() {
     src[fam] = cur;
   });
 
+  const { data: specRows } = await sb.rpc("exam_specs");
+  const specFor = {};
+  (specRows ?? []).forEach((x) => { (specFor[x.family] = specFor[x.family] ?? []).push(x); });
+
+  const SOURCE_SECTION = {
+    edutest: "Numerical reasoning", elms: "Mathematics", aas: "Mathematics",
+    icas: "Whole paper", amc: "Whole paper", book: "Each contest", apsmo: "Each contest",
+  };
+
   const topicMap = {};
   for (const fam of Object.keys(fams)) {
     const { data } = await sb.rpc("topic_readiness", { p_family: fam.toLowerCase() });
     topicMap[fam] = data ?? [];
   }
 
-  const shortDate = (d) => d
-    ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "2-digit" })
-    : "no date";
-
   $("pExams").innerHTML = Object.entries(fams).map(([fam, list]) => {
     const q = src[fam] ?? { uploaded: 0, by_coach: 0, files: new Set() };
     const files = [...q.files].filter(Boolean);
-    const total = (q.uploaded ?? 0) + (q.by_coach ?? 0);
-    const key = fam.replace(/[^a-z]/gi, "");
+    const totalQ = (q.uploaded ?? 0) + (q.by_coach ?? 0);
 
-    // the one line: where, when, how many
-    const where = list.map((r) => `${esc(r.school)} · ${shortDate(r.sits_on)}`).join("  ·  ");
+    const first = list[0] ?? {};
+    const when = first.sits_on
+      ? new Date(first.sits_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+      : "no date";
+    const days = first.sits_on ? Math.round((new Date(first.sits_on) - new Date()) / 86400000) : null;
 
-    const detail = list.map((r, i) => {
-      const when = shortDate(r.sits_on);
-      const days = r.sits_on ? Math.round((new Date(r.sits_on) - new Date()) / 86400000) : null;
-      const sections = (r.sections ?? []).map((x) => {
-        const mark = x.covered ? `${x.tried} tried${x.accuracy === null ? "" : ` · ${x.accuracy}%`}` : "not measured";
-        return `<div>${esc(x.part)} · <b>${x.minutes} min in the exam</b> · ${mark} — <b>${esc(x.verdict)}</b></div>`;
+    // the bar is how much of the paper this app can actually test
+    const sitsMin = Math.max(...list.map((r) => r.sits_minutes ?? 0), 0);
+    const coveredMin = Math.max(...list.map((r) => r.measured_minutes ?? 0), 0);
+    const pct = sitsMin ? Math.round((coveredMin / sitsMin) * 100) : 0;
+
+    const verdicts = list.map((r) => r.headline).filter(Boolean);
+    const headline = verdicts.includes("needs work") ? "needs work"
+      : verdicts.includes("partly measured") ? "partly measured"
+      : verdicts.includes("solid") ? "solid" : (verdicts[0] ?? "too early to say");
+
+    const mine = specFor[fam] ?? [];
+    const topics = topicMap[fam] ?? [];
+
+    const schools = list.map((r, i) => {
+      const d = r.sits_on
+        ? new Date(r.sits_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+        : "no date";
+      const dd = r.sits_on ? Math.round((new Date(r.sits_on) - new Date()) / 86400000) : null;
+      const spec = mine.find((y) => y.sits === r.school) ?? mine[0] ?? {};
+      const sections = (spec.sections ?? [{ part: "Whole paper", minutes: r.sits_minutes ?? 0 }]).map((sec) => {
+        const own = topics.filter((t) => (SOURCE_SECTION[t.source] ?? "Whole paper") === sec.part
+          && (t.questions ?? 0) > 0);
+        const loaded = own.reduce((a, t) => a + (t.questions ?? 0), 0);
+        return `<div class="ttSection">
+          <div class="ttSectionHead">${esc(sec.part)} <span class="sub">· ${sec.minutes} min in the exam</span>
+            <span class="sub" style="float:right">${loaded ? `${loaded} questions` : "none yet"}</span></div>
+          ${own.length ? own.map((t) => `<div class="ttRow">
+              <span class="dot ${t.preparedness >= 60 ? "green" : t.preparedness > 0 ? "amber" : "grey"}"></span>
+              <span class="ttTopic">${esc(String(t.title).split(" · ").pop())}
+                <span class="sub">${t.questions} questions${t.by_coach ? ` · ${t.by_coach} by the coach` : ""}${t.from_files ? ` · ${t.from_files} from files` : ""}</span></span>
+              <span class="ttTarget">${t.tried ? `${t.correct}/${t.tried} right` : "not tried"}</span>
+              <span class="bar2" style="width:80px"><i style="width:${t.preparedness}%"></i></span>
+            </div>`).join("") : ""}
+        </div>`;
       }).join("");
-      return `<div class="exSchool">
-        <span class="exWhere">${esc(r.school)}</span>
-        <span class="exDate" id="dl${fam}${i}">${esc(when)}${days !== null ? ` · ${days}d` : ""}</span>
-        <button class="pencil" title="Change the date" onclick="editDate('${fam}${i}', this.dataset.exam, this.dataset.on)"
-                data-exam="${esc(r.calendar_name ?? "")}" data-on="${r.sits_on ?? ""}">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
-            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-        <span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>
-        <details class="exMore"><summary title="Of the paper's exam minutes, this is how many we can test">${
-          r.measured_minutes ?? 0} of the paper's ${r.sits_minutes ?? 0} min</summary>
-          <div class="exParts">${sections}${(() => {
-            const topics = (topicMap[fam] ?? []).filter((t) => (t.questions ?? 0) > 0);
-            if (!topics.length) return "";
-            return `<div class="topicHead" style="margin-top:8px"><span>Topic</span><span>Content</span><span>His progress</span></div>`
-              + topics.map((t) => `<div class="topicRow">
-                  <span class="topicName">${esc(String(t.title).split(" · ").pop())}
-                    <span class="sub">${t.questions} questions</span></span>
-                  <span class="bar2"><i style="width:${t.confidence}%"></i></span>
-                  <span class="bar2 his"><i style="width:${t.preparedness}%"></i></span>
-                </div>`).join("");
-          })()}</div></details>
-      </div>`;
+
+      return `<div class="ttPaperHead">
+          ${esc(r.school)} — ${r.sits_minutes ?? 0} min in the exam
+          <span class="exDate" id="dl${fam}${i}" style="font-weight:400">${esc(d)}${dd !== null ? ` · ${dd}d` : ""}</span>
+          <button class="pencil" title="Change the date" onclick="editDate('${fam}${i}', this.dataset.exam, this.dataset.on)"
+                  data-exam="${esc(r.calendar_name ?? "")}" data-on="${r.sits_on ?? ""}">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        </div>${sections}`;
     }).join("");
 
-    return `<div class="exRow">
-      <div class="exHead">
-        <span class="exName">${esc(fam)}</span>
-        <span class="exSchools">${where}</span>
-        <span class="exCount">${total ? `${total} questions` : "empty"}</span>
-        <details class="exInfo"><summary title="More">⋯</summary>
-          <div class="exMenu">
-            <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
-            <button class="mini" data-print="${esc(fam)}">Print the questions</button>
-            <div class="exSrc">
-              From your files: <b>${q.uploaded}</b>${files.length ? `<br><span class="sub">${esc(files.join(", "))}</span>` : ""}<br>
-              Written by the coach: <b>${q.by_coach}</b>
-            </div>
-          </div>
-        </details>
+    return `<div class="card ttExam">
+      <div class="ttHead">
+        <span class="ttName">${esc(fam)}</span>
+        <span class="pill ${cls(headline)}">${esc(headline)}</span>
+        <span class="ttMeta">${esc(when)}${days !== null ? ` · ${days} days` : ""}</span>
+        <span class="ttMeta" style="margin-left:auto">${coveredMin} of ${sitsMin} min testable · ${totalQ} questions</span>
       </div>
-      ${(() => {
-        const hasSections = list.some((r) => (r.sections ?? []).length > 0);
-        const hasTopics = (topicMap[fam] ?? []).some((t) => (t.questions ?? 0) > 0);
-        return hasSections || hasTopics
-          ? `<details class="exAll"><summary>dates and detail</summary>
-               <div style="margin-top:6px">${detail}</div></details>` : "";
-      })()}
+      <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
+      ${schools}
+      <div class="bar" style="margin-top:10px">
+        <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
+        <button class="mini" data-print="${esc(fam)}">Print</button>
+        ${files.length ? `<span class="sub" style="margin-left:8px">${esc(files.join(", "))}</span>` : ""}
+      </div>
     </div>`;
   }).join("") || `<div class="sub">Nothing loaded yet.</div>`;
 
