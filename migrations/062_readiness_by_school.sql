@@ -24,7 +24,10 @@ begin
       ('Verbal reasoning',      'ver',  30, 1),
       ('Numerical reasoning',   'nr',   30, 2),
       ('Reading comprehension', 'rc',   30, 3),
-      ('Mathematics',           'math', 30, 4),
+      ('Mathematics',           'math',   30, 4),
+      ('Mathematics',           'math45', 45, 4),   -- AAS: each paper is 40 to 50 minutes
+      ('Mathematics',           'math30', 30, 4),   -- APSMO Division J: 5 questions in 30 minutes
+      ('Mathematics',           'math60', 60, 4),   -- ICAS Paper D and AMC Upper Primary: 60 minutes
       ('Written expression',    'we',   15, 5)
     ) as t(part, code, minutes, seq)
   ),
@@ -37,10 +40,10 @@ begin
       ('Kilvington Grammar',           'Edutest',   'math', 'elms'),
       ('Kilvington Grammar',           'Edutest',   'we',   null),
       ('McKinnon Secondary (ELMS)',    'Edutest',   'math', 'elms'),
-      ('Camberwell Grammar',           'AAS',       'math', 'aas'),
-      ('The book · APSMO Division J',  'Olympiad',  'math', 'book'),
-      ('ICAS Mathematics',             'ICAS',      'math', 'icas'),
-      ('Australian Maths Competition', 'AMC',       'math', 'amc')
+      ('Camberwell Grammar',           'AAS',       'math45', 'aas'),
+      ('The book · APSMO Division J',  'Olympiad',  'math30', 'book'),
+      ('ICAS Mathematics',             'ICAS',      'math60', 'icas'),
+      ('Australian Maths Competition', 'AMC',       'math60', 'amc')
     ) as s(school, exam, code, kind)
   ),
   detail as (
