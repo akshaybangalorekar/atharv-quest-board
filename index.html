@@ -563,15 +563,20 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
           <p><b>Teaching rules.</b> Never gives the answer to a question he has not submitted — the next step only.
           One question at a time. Praises something specific or nothing at all. If he asks for the answer, she offers
           the next step instead. If he is stuck, she asks one question that moves him a step.</p>
+          <p><b>One question, the same way every time.</b> She sets the whole question, in full, and points him at the
+          figure when there is one. She solves it herself first and checks her own answer is right before she judges
+          his — she never marks him against a hunch. When a photo of his working arrives she reads it, says what he
+          did right, names the exact line where his thinking went elsewhere, and explains that step more simply —
+          with an analogy, or the same idea in smaller numbers.</p>
+          <p><b>When he stalls.</b> If he has not started after a while, she nudges him to talk to her: the app sounds
+          a small beep and puts “Talk to Ananya — I will answer as you think” on his screen. Then she asks where he is,
+          never what the answer is.</p>
           <p><b>What she is given.</b> A standing brief, rebuilt every night: his day in the programme, questions
           answered, accuracy, chapters started and mastered, weakest techniques, test results, the next real exam and
           how far off it is, and what is missing from his formula board.</p>
           <p><b>What she may mention.</b> Only what is on his screen: Start or Resume, Chapter N, Check where I am,
           Paper is due, Skip this one, Chapter quiz, Talk, Photo, Pause for now, Talk to Ananya, Back to Ananya,
           Progress, Journal, Formula board.</p>
-          <p><b>What no longer exists.</b> Her voice — she does not speak aloud. The Draw it button — figures appear by
-          themselves. The paperclip — the button is called Photo. The “I worked on my own” tab. “Call it a day” — it is
-          Pause for now. Page numbers and book images. Menus, settings, badges.</p>
           <p><b>Never.</b> Invent a button, a screen or a feature. Invent a score, a date or a fact. Send him to another
           screen in the middle of a chapter. Scold him for missing days.</p>
           <p>If she writes something outside these lines, it is a fault in her instructions — send me the words she used.</p>
@@ -891,7 +896,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.61.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.62.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -3663,6 +3668,29 @@ function paintQuestionClock() {
   el.classList.toggle("over", s >= budget * 2);
 }
 
+/* a small, soft beep — never loud, never repeated */
+let audioCtx = null;
+function beep(times = 1) {
+  try {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return;
+    audioCtx = audioCtx ?? new Ctor();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    for (let i = 0; i < times; i++) {
+      const t0 = audioCtx.currentTime + i * 0.22;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, t0);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.06, t0 + 0.02);   // quiet: a nudge, not an alarm
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t0); osc.stop(t0 + 0.18);
+    }
+  } catch (_) { /* no sound is fine */ }
+}
+
 function tickQuestion() {
   const s = Math.floor((Date.now() - S.startedAt) / 1000);
   const el = $("qtimer");
@@ -3686,6 +3714,18 @@ function tickQuestion() {
     micArmed = true;
     paintMic();
     $("micState").textContent = "She is asking you to think out loud — tap “Talk to Ananya” and say what you are trying.";
+
+    // the first check-in also sounds, so he looks up from the page
+    if (n === 0) {
+      beep(2);
+      const strip = document.createElement("div");
+      strip.className = "talkStrip";
+      strip.innerHTML = `<span>Talk to Ananya — say what you are trying, out loud.</span>
+        <button class="go small">Talk</button>`;
+      strip.querySelector("button").onclick = () => { strip.remove(); startThinking(); };
+      $("chatWrap").appendChild(strip);
+      stickBottom();
+    }
   }
 }
 
@@ -4142,7 +4182,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, openHelp, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, openHelp, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
