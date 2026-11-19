@@ -353,6 +353,21 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 .bar2.his i{background:linear-gradient(90deg,#2fa06a,#7bd3a4)}
 
 .buildTag{font-size:11.5px;color:var(--mut);letter-spacing:.03em;margin-right:4px;align-self:center}
+
+/* the timetable: quiet rows, a colour dot, a target date, a bar */
+.ttExam{padding:14px 16px}
+.ttHead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ttName{font-weight:700;font-size:15.5px}
+.ttMeta{color:var(--mut);font-size:12.5px}
+.ttMore summary{list-style:none;cursor:pointer;color:var(--acc);font-size:12.5px;margin-top:6px}
+.ttMore summary::-webkit-details-marker{display:none}
+.ttRows{margin-top:8px;display:grid;gap:2px}
+.ttRow{display:grid;grid-template-columns:10px 1fr 60px 80px;gap:10px;align-items:center;
+  font-size:13px;padding:3px 0;border-top:1px solid var(--line)}
+.ttTopic{font-weight:500}
+.ttTarget{color:var(--mut);font-size:12px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.dot.green{background:#2fa06a}.dot.amber{background:#d99a2b}.dot.red{background:#cf4b52}.dot.grey{background:#c3c6d4}
 </style>
 </head>
 <body>
@@ -372,6 +387,7 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
       <div class="topProgTrack"><span id="topProgBar"></span></div>
     </div>
     <span class="buildTag" id="buildTag" title="Which copy of the app this is">v—</span>
+    <button class="out" onclick="openTimetable()">Timetable</button>
     <button class="out" id="helpBtn" onclick="openHelp()">Help</button>
     <button class="out hidden" id="homeBtn" onclick="goHome()">Home</button>
     <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
@@ -783,6 +799,20 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 </main>
 
 <!-- logging work done away from the app -->
+<!-- timetable -->
+<main id="timetable" class="hidden">
+  <div class="card">
+    <div class="k">The plan</div>
+    <div class="sub">Each exam's topics, spread evenly between today and the day it is sat.
+      A topic counts as done when his work in it reaches 60 per cent.</div>
+  </div>
+  <div id="ttBody"></div>
+  <div class="card"><div class="bar">
+    <button class="ghost small" onclick="goHome()">← Back</button>
+    <button class="ghost small" onclick="openTimetable()">Refresh</button>
+  </div></div>
+</main>
+
 <!-- help -->
 <main id="help" class="hidden">
   <div class="card">
@@ -974,7 +1004,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.05.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.06.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1089,6 +1119,55 @@ async function dismissNote(id) {
   $("noteBar").innerHTML = "";
 }
 
+/* the plan, per exam and per topic, and whether he is ahead of it */
+async function openTimetable() {
+  show("timetable");
+  const box = $("ttBody");
+  box.innerHTML = `<div class="card"><div class="sub">Working out where you are…</div></div>`;
+  const { data, error } = await sb.rpc("timetable");
+  if (error) { box.innerHTML = `<div class="card"><div class="sub">${esc(error.message)}</div></div>`; return; }
+  const rows = data ?? [];
+  if (!rows.length) { box.innerHTML = `<div class="card"><div class="sub">Nothing planned yet.</div></div>`; return; }
+
+  const colour = (st) => st === "done" ? "green" : st === "behind" ? "red"
+    : st === "due" ? "amber" : st === "no_date" ? "grey" : "green";
+
+  box.innerHTML = rows.map((x) => {
+    const done = x.topics_done ?? 0, all = x.topics_all ?? 0, behind = x.behind ?? 0;
+    const due = x.due_by_now ?? 0;
+    const verdict = behind > 0 ? `${behind} behind` : done >= due && due > 0 ? "on track" : done > due ? "ahead" : "not started";
+    const vcls = behind > 0 ? "red" : done > due ? "green" : due > 0 ? "amber" : "grey";
+    const pct = all ? Math.round((done / all) * 100) : 0;
+    const examWhen = x.exam_on
+      ? new Date(x.exam_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+      : "no date";
+    return `<div class="card ttExam">
+      <div class="ttHead">
+        <span class="ttName">${esc(x.label)}</span>
+        <span class="pill ${vcls}">${esc(verdict)}</span>
+        <span class="ttMeta">${examWhen}${x.days_left !== null ? ` · ${x.days_left} days` : ""}</span>
+        <span class="ttMeta" style="margin-left:auto">${done} of ${all} topics</span>
+      </div>
+      <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
+      <details class="ttMore"><summary>the topics</summary>
+        <div class="ttRows">
+          ${(x.rows ?? []).map((r) => {
+            const target = r.target_on
+              ? new Date(r.target_on).toLocaleDateString("en-AU", { day: "numeric", month: "short" })
+              : "—";
+            return `<div class="ttRow">
+              <span class="dot ${colour(r.state)}"></span>
+              <span class="ttTopic">${esc(String(r.title).split(" · ").pop())}</span>
+              <span class="ttTarget">${target}</span>
+              <span class="bar2" style="width:80px"><i style="width:${r.preparedness}%"></i></span>
+            </div>`;
+          }).join("")}
+        </div>
+      </details>
+    </div>`;
+  }).join("");
+}
+
 async function openHelp() {
   show("help");
   if ($("helpVer")) $("helpVer").textContent = "Version " + APP_VERSION;
@@ -1098,7 +1177,7 @@ function show(id) {
   S.view = id;
   if (!S.restoring) saveRoute();
   ["boot", "signin", "landing", "track", "session", "chapter", "exam", "results",
-   "parent", "pchat", "dash", "journal", "formula", "paper", "help"]
+   "parent", "pchat", "dash", "journal", "formula", "paper", "help", "timetable"]
     .forEach((m) => { const el = $(m); if (el) el.classList.add("hidden"); });
   const signing = id === "signin";
   document.body.classList.toggle("signing", signing);
@@ -4836,7 +4915,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, pickShelf, renderShelf, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, loadParts, paintTopProgress, checkRunningJob, needsFigure, openPaper, loadPapers, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
