@@ -1084,7 +1084,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.30.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.31.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1204,11 +1204,17 @@ async function openTimetable() {
   show("timetable");
   const box = $("ttBody");
   box.innerHTML = `<div class="card"><div class="sub">Working out where you are…</div></div>`;
-  const { data: specs } = await sb.rpc("exam_specs");
+  const specs = (S.TR ?? {}).specs ?? [];
   const specFor = {};
   (specs ?? []).forEach((x) => { (specFor[x.family] = specFor[x.family] ?? []).push(x); });
 
-  const { data, error } = await sb.rpc("timetable");
+  const { data: trTT } = await sb.rpc("truth");
+  const data = (trTT?.families ?? []).map((f) => ({
+    label: f.label, exam_on: f.exam_on, days_left: f.days_left,
+    topics_all: f.topics_all, topics_done: f.topics_done, topics_started: f.topics_started,
+    behind: 0, due_by_now: 0, rows: [],
+  }));
+  const error = null;
   if (error) { box.innerHTML = `<div class="card"><div class="sub">${esc(error.message)}</div></div>`; return; }
   const rows = data ?? [];
   if (!rows.length) { box.innerHTML = `<div class="card"><div class="sub">Nothing planned yet.</div></div>`; return; }
@@ -2305,8 +2311,8 @@ async function keepBankAhead() {
   if (toppingUp) return;
   toppingUp = true;
   try {
-    const { data } = await sb.rpc("topup_needed");
-    const short = data ?? [];
+    const { data: trTop } = await sb.rpc("truth");
+    const short = trTop?.topup_needed ?? [];
     for (const want of short) {
       const { data: made, error } = await sb.functions.invoke("make-questions", {
         body: { exam: want.exam, count: want.want ?? 20 },
@@ -2322,7 +2328,7 @@ async function keepBankAhead() {
 
 async function loadContext() {
   await loadBanks();
-  const { data: fresh } = await sb.rpc("family_freshness");
+  const { data: fresh } = { data: (S.TR ?? {}).freshness ?? null };
   S.freshness = fresh ?? [];
   await checkReset();
   checkRunningJob();
@@ -2649,7 +2655,7 @@ async function preparePages(paperId) {
 async function loadTough() {
   const card = $("toughCard"), box = $("pTough");
   if (!card || !box) return;
-  const { data } = await sb.rpc("tough_topics", { p_limit: 6 });
+  const data = (S.TR ?? {}).tough_topics ?? [];
   const rows = data ?? [];
   if (!rows.length) { card.style.display = "none"; return; }
   card.style.display = "";
@@ -2685,12 +2691,10 @@ async function loadRequests() {
 async function loadParents() {
   const box = $("parentList");
   if (!box) return;
-  const { data } = await sb.rpc("list_accounts");
-  const rows = data?.accounts ?? [];
+  const rows = (S.TR ?? {}).accounts?.accounts ?? [];
   if (!rows.length) { box.textContent = "Nobody linked yet."; return; }
 
-  const { data: kidData } = await sb.rpc("child_work_status");
-  const kid = kidData ?? {};
+  const kid = (S.TR ?? {}).child ?? {};
 
   box.innerHTML = rows.map((a) => {
     const work = a.is_child
@@ -2718,7 +2722,7 @@ async function loadParents() {
 async function startDeleteAccount(userId, isChild) {
   let password = "";
   if (isChild) {
-    const { data } = await sb.rpc("child_work_status");
+    const data = (S.TR ?? {}).child ?? {};
     const k = data ?? {};
     const msg = `This deletes ${k.name ?? "the child"}'s account and everything recorded under it:\n\n` +
       `${k.questions_answered ?? 0} questions answered, ${k.right ?? 0}% right\n` +
@@ -2741,7 +2745,7 @@ async function removeParent(parentId) { startDeleteAccount(parentId, false); }
 
 /* add a child, or remove one */
 async function loadChildren() {
-  const { data } = await sb.rpc("parent_context");
+  const { data } = { data: S.TR ?? {} };
   const kids = data?.student ? [{ name: data.student, id: data.student_id }] : [];
   if ($("kidList")) {
     $("kidList").textContent = kids.length
@@ -2768,7 +2772,7 @@ async function createChild() {
 
 /* the account list above does the deleting now */
 async function deleteChild() {
-  const { data } = await sb.rpc("parent_context");
+  const { data } = { data: S.TR ?? {} };
   if (data?.student_id) startDeleteAccount(data.student_id, true);
 }
 
@@ -2813,10 +2817,13 @@ async function setExamDate(exam, value) {
 }
 
 async function loadParent() {
-  const { data } = await sb.rpc("parent_context");
+  const { data } = await sb.rpc("truth");
+  S.TR = data ?? {};
   S.pctx = data ?? {};
-  const { data: sr } = await sb.rpc("readiness_by_school");
-  S.schoolReadiness = sr?.schools ?? [];
+  S.schoolReadiness = (data?.families ?? []).map((f) => ({
+    exam: f.label, school: f.schools, sits_on: f.exam_on, headline: f.verdict,
+    sits_minutes: 0, measured_minutes: 0, sections: [], calendar_name: "",
+  }));
   loadAccount();
   loadChildren();
   loadParents();
@@ -2834,7 +2841,7 @@ const BANK_LABEL = {
 
 async function goParent() {
   await loadParent();
-  sb.rpc("journey").then(({ data, error }) => {
+  Promise.resolve({ data: (S.TR ?? {}).journey, error: null }).then(({ data, error }) => {
     if (!$("pFlight")) return;
     if (error) {
       $("pFlight").innerHTML = `<div class="sub">The flight plan could not load: ${esc(error.message)}</div>`;
@@ -2849,94 +2856,70 @@ async function goParent() {
   const c = S.pctx ?? {};
   const me = (await sb.auth.getUser()).data?.user?.email ?? "";
   $("pWho").textContent = me ? `Parent view · signed in as ${me}` : "Parent view";
-  $("pChild").textContent = `${c.student ?? "your child"} — how it is going`;
+  $("pChild").textContent = `${c.student?.name ?? "your child"} — how it is going`;
+  const a = c.attempts ?? {}, se = c.sessions ?? {}, st = c.student ?? {};
   $("pSummary").textContent =
-    `${c.attempts_total ?? 0} questions answered in all · ${c.attempts_7d ?? 0} this week · ` +
-    `${c.accuracy_7d ?? 0}% right this week · ${c.sessions_7d ?? 0} sessions logged · ` +
-    `${(c.xp ?? 0).toLocaleString()} XP · streak ${c.streak ?? 0} days`;
+    `${a.total ?? 0} questions answered in all · ${a.last_7 ?? 0} this week · ` +
+    `${a.accuracy_7 ?? 0}% right this week · ${se.last_7 ?? 0} sessions logged · ` +
+    `${(st.xp ?? 0).toLocaleString()} XP · streak ${st.streak ?? 0} days`;
 
   const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
                   thin: "Need more data", no_content: "Nothing yet" };
 
-  // the same shape as the Timetable: one card per exam, its sections, and the questions under them
-  const rows = S.schoolReadiness ?? [];
+  // one source of truth: every number below comes from a single read of the truth function
+  const TR = S.TR ?? {};
+  const rows = TR.families ?? [];
+  const banks = TR.content?.banks ?? [];
+  const specs = TR.specs ?? [];
+  const topicMap = {};
+  for (const f of rows) {
+    const { data } = await sb.rpc("topic_readiness", { p_family: String(f.family) });
+    topicMap[f.family] = data ?? [];
+  }
+
   const cls = (v) => v === "solid" ? "ok" : v === "needs work" ? "red"
     : v === "partly measured" ? "amber" : "grey";
-
-  const fams = {};
-  rows.forEach((r) => { (fams[r.exam] = fams[r.exam] ?? []).push(r); });
-
-  const { data: TR } = await sb.rpc("truth");
-  const { data: srcRows } = TR?.content?.banks ?? (await sb.rpc("exam_question_sources")).data;
-  const src = {};
-  (srcRows ?? []).forEach((r) => {
-    const fam = BANK_FAMILY[r.exam] ?? r.exam;
-    const cur = src[fam] ?? { uploaded: 0, by_coach: 0, files: new Set() };
-    cur.uploaded += r.uploaded ?? 0;
-    cur.by_coach += r.by_coach ?? 0;
-    if (r.from_files) String(r.from_files).split(", ").forEach((f) => cur.files.add(f));
-    src[fam] = cur;
-  });
-
-  const { data: specRows } = await sb.rpc("exam_specs");
-  const specFor = {};
-  (specRows ?? []).forEach((x) => { (specFor[x.family] = specFor[x.family] ?? []).push(x); });
 
   const SOURCE_SECTION = {
     edutest: "Numerical reasoning", elms: "Mathematics", aas: "Mathematics",
     icas: "Whole paper", amc: "Whole paper", book: "Each contest", apsmo: "Each contest",
   };
 
-  const topicMap = {};
-  for (const fam of Object.keys(fams)) {
-    const { data } = await sb.rpc("topic_readiness", { p_family: fam.toLowerCase() });
-    topicMap[fam] = data ?? [];
-  }
+  $("pExams").innerHTML = rows.map((f) => {
+    const fam = f.label;
+    const mine = specs.filter((x) => x.family === fam);
+    const topics = topicMap[f.family] ?? [];
+    const myBanks = banks.filter((b) => (BANK_FAMILY[b.exam] ?? b.exam) === fam);
+    const totalQ = myBanks.reduce((a, b) => a + (b.questions ?? 0), 0);
+    const files = myBanks.map((b) => b.from_files).filter(Boolean);
 
-  $("pExams").innerHTML = Object.entries(fams).map(([fam, list]) => {
-    const q = src[fam] ?? { uploaded: 0, by_coach: 0, files: new Set() };
-    const files = [...q.files].filter(Boolean);
-    const totalQ = (q.uploaded ?? 0) + (q.by_coach ?? 0);
-
-    const first = list[0] ?? {};
-    const when = first.sits_on
-      ? new Date(first.sits_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+    const when = f.exam_on
+      ? new Date(f.exam_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
       : "no date";
-    const days = first.sits_on ? Math.round((new Date(first.sits_on) - new Date()) / 86400000) : null;
 
-    // the bar is how much of the paper this app can actually test
-    const sitsMin = Math.max(...list.map((r) => r.sits_minutes ?? 0), 0);
-    const coveredMin = Math.max(...list.map((r) => r.measured_minutes ?? 0), 0);
+    const sitsMin = Math.max(0, ...(f.schools_list ?? []).map((x) => x.sits_minutes ?? 0));
+    const coveredMin = Math.max(0, ...(f.schools_list ?? []).map((x) => x.measured_minutes ?? 0));
     const pct = sitsMin ? Math.round((coveredMin / sitsMin) * 100) : 0;
 
-    const verdicts = list.map((r) => r.headline).filter(Boolean);
-    const headline = verdicts.includes("needs work") ? "needs work"
-      : verdicts.includes("partly measured") ? "partly measured"
-      : verdicts.includes("solid") ? "solid" : (verdicts[0] ?? "too early to say");
-
-    const mine = specFor[fam] ?? [];
-    const topics = topicMap[fam] ?? [];
-
-    const schools = list.map((r, i) => {
+    const schools = (f.schools_list ?? []).map((r, i) => {
       const d = r.sits_on
         ? new Date(r.sits_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
         : "no date";
       const dd = r.sits_on ? Math.round((new Date(r.sits_on) - new Date()) / 86400000) : null;
       const spec = mine.find((y) => y.sits === r.school) ?? mine[0] ?? {};
       const sections = (spec.sections ?? [{ part: "Whole paper", minutes: r.sits_minutes ?? 0 }]).map((sec) => {
-        const own = topics.filter((t) => (SOURCE_SECTION[t.source] ?? "Whole paper") === sec.part
-          && (t.questions ?? 0) > 0);
-        const loaded = own.reduce((a, t) => a + (t.questions ?? 0), 0);
+        const own = topics.filter((t) => (SOURCE_SECTION[t.source] ?? "Whole paper") === sec.part && (t.questions ?? 0) > 0);
+        const loaded = own.reduce((a2, t) => a2 + (t.questions ?? 0), 0);
         return `<div class="ttSection">
           <div class="ttSectionHead">${esc(sec.part)} <span class="sub">· ${sec.minutes} min in the exam</span>
             <span class="sub" style="float:right">${loaded ? `${loaded} questions` : "none yet"}</span></div>
-          ${own.length ? own.map((t) => `<div class="ttRow">
+          ${own.map((t) => `<div class="ttRow">
               <span class="dot ${t.preparedness >= 60 ? "green" : t.preparedness > 0 ? "amber" : "grey"}"></span>
               <span class="ttTopic">${esc(String(t.title).split(" · ").pop())}
                 <span class="sub">${t.questions} questions${t.by_coach ? ` · ${t.by_coach} by the coach` : ""}${t.from_files ? ` · ${t.from_files} from files` : ""}</span></span>
               <span class="ttTarget">${t.tried ? `${t.correct}/${t.tried} right` : "not tried"}</span>
               <span class="bar2" style="width:80px"><i style="width:${t.preparedness}%"></i></span>
-            </div>`).join("") : ""}
+            </div>`).join("")}
         </div>`;
       }).join("");
 
@@ -2954,8 +2937,8 @@ async function goParent() {
     return `<div class="card ttExam">
       <div class="ttHead">
         <span class="ttName">${esc(fam)}</span>
-        <span class="pill ${cls(headline)}">${esc(headline)}</span>
-        <span class="ttMeta">${esc(when)}${days !== null ? ` · ${days} days` : ""}</span>
+        <span class="pill ${cls(f.verdict)}">${esc(f.verdict)}</span>
+        <span class="ttMeta">${esc(when)}${f.days_left !== null ? ` · ${f.days_left} days` : ""}</span>
         <span class="ttMeta" style="margin-left:auto">${coveredMin} of ${sitsMin} min testable · ${totalQ} questions</span>
       </div>
       <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
@@ -2963,7 +2946,6 @@ async function goParent() {
       <div class="bar" style="margin-top:10px">
         <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
         <button class="mini" data-print="${esc(fam)}">Print</button>
-        ${files.length ? `<span class="sub" style="margin-left:8px">${esc(files.join(", "))}</span>` : ""}
       </div>
     </div>`;
   }).join("") || `<div class="sub">Nothing loaded yet.</div>`;
@@ -3828,7 +3810,7 @@ function runCoachPlan() {
 async function openDash() {
   show("dash");
   sb.rpc("journey").then(({ data }) => { if ($("dashFlight")) $("dashFlight").innerHTML = journeyChart(data); });
-  const { data, error } = await sb.rpc("progress_dashboard");
+  const { data, error } = await sb.rpc("progress_dashboard");   // dashboard is its own read
   if (error || !data) { $("dashHead").textContent = "Could not load the numbers."; return; }
   const d = data;
   const behind = (d.planned_questions || 0) - (d.done_questions || 0);
@@ -3885,7 +3867,8 @@ function barRow(label, value, pct, colour) {
 async function loadWhatsNew(family) {
   const card = $("newCard"), box = $("newList");
   if (!card || !box) return;
-  const { data } = await sb.rpc("whats_new", { p_family: family });
+  const { data: tr } = await sb.rpc("truth");
+  const data = (tr?.whats_new ?? {})[family] ?? [];
   const rows = (data ?? []).slice(0, 8);
   if (!rows.length) { card.style.display = "none"; return; }
   card.style.display = "";
@@ -3949,7 +3932,7 @@ async function paintTrackCard(id) {
   const { data: tr } = await sb.rpc("truth");
   const mine = (tr?.families ?? []).find((x) =>
     String(x.label ?? "").toLowerCase() === String(fam.name ?? "").toLowerCase());
-  const { data: specs } = await sb.rpc("exam_specs");
+  const specs = (S.TR ?? {}).specs ?? [];
   const spec = (specs ?? []).filter((x) => x.family === (mine?.label ?? fam.name));
   const { data: topics } = await sb.rpc("topic_readiness", { p_family: String(id) });
 
