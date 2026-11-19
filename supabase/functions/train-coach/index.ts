@@ -25,6 +25,11 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "content-type": "application/json" } });
 
 /* strip a page down to readable text */
+async function sha(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function textOf(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -172,7 +177,7 @@ async function handle(req: Request) {
   // --------------------------------------------------------------- uploads --
   if (mode === "upload") {
     const { data: papers } = await supa.from("papers").select("id, title, url, pages").eq("student_id", student);
-    let kept = 0;
+    let kept = 0, skipped = 0;
     for (const p of papers ?? []) {
       const { data: pages } = await supa.from("paper_pages")
         .select("page_no, text").eq("paper_id", p.id).order("page_no");
@@ -184,14 +189,15 @@ async function handle(req: Request) {
       const qText = (qs ?? []).map((q: any) =>
         `Q: ${q.prompt}${Array.isArray(q.options) ? ` Options: ${q.options.join(" / ")}` : ""}`).join("\n\n");
 
-      const chunks = chunk(all + (qText ? "\n\n" + qText : "")).map((b) => ({ body: b, topic: p.title ?? "uploaded paper" }));
-      const { error: upErr } = await supa.rpc("store_doc", {
+      const whole = all + (qText ? "\n\n" + qText : "");
+      const chunks = chunk(whole).map((b) => ({ body: b, topic: p.title ?? "uploaded paper" }));
+      const { data: upRes, error: upErr } = await supa.rpc("store_doc", {
         p_kind: "upload", p_title: p.title ?? `paper ${p.id}`, p_url: p.url ?? null,
-        p_source_id: null, p_chunks: chunks,
+        p_source_id: null, p_chunks: chunks, p_hash: await sha(whole),
       });
-      if (!upErr) kept++;
+      if (!upErr) { kept++; if ((upRes as any)?.stored === false) skipped++; }
     }
-    return json({ mode, papers: kept });
+    return json({ mode, papers: kept, unchanged: skipped });
   }
 
   // -------------------------------------------------------------- discover --
@@ -251,11 +257,13 @@ async function handle(req: Request) {
       if (text.length < 200) { done.push({ source: s.name, ok: false, reason: "no readable text" }); continue; }
 
       const chunks = chunk(text).map((b) => ({ body: b, topic: s.name, family: s.family }));
-      const { error: storeErr } = await supa.rpc("store_doc", {
-        p_kind: "web", p_title: s.name, p_url: s.url, p_source_id: s.id, p_chunks: chunks,
+      const hash = await sha(text);
+      const { data: stored, error: storeErr } = await supa.rpc("store_doc", {
+        p_kind: "web", p_title: s.name, p_url: s.url, p_source_id: s.id, p_chunks: chunks, p_hash: hash,
       });
       if (storeErr) { done.push({ source: s.name, ok: false, reason: storeErr.message.slice(0, 120) }); continue; }
-      done.push({ source: s.name, ok: true, chunks: chunks.length });
+      const fresh = (stored as any)?.stored !== false;
+      done.push({ source: s.name, ok: true, chunks: fresh ? chunks.length : 0, unchanged: !fresh });
     } catch (e) {
       done.push({ source: s.name, ok: false, reason: String((e as Error)?.message ?? e).slice(0, 120) });
     }

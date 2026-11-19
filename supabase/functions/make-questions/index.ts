@@ -311,8 +311,14 @@ Deno.serve(async (req) => {
       const fig = rowAny?.fig && typeof rowAny.fig === "object" ? rowAny.fig : null;
       if (fig && fig.what) drawn.push({ chapter: ch.n, idx, prompt: String(row.q), what: String(fig.what) });
 
+      // a question already in the bank is skipped, not added again
+      const prompt = String(row.q).trim();
+      const { data: already } = await admin.from("problems").select("idx")
+        .eq("chapter", ch.n).eq("prompt", prompt).maybeSingle();
+      if (already) { idx -= 1; continue; }
+
       const { error } = await admin.from("problems").insert({
-        chapter: ch.n, idx, prompt: String(row.q).trim(),
+        chapter: ch.n, idx, prompt,
         ...(Array.isArray((row as any).options) ? { options: (row as any).options } : {}),
         difficulty: Number(row.d) || difficulty,
         technique_tags: [ch.title.split("·").pop()?.trim() ?? ch.title],
