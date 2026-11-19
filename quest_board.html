@@ -1132,7 +1132,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.43.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.44.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -4479,6 +4479,7 @@ function nextStep() {
   paintActions();
   if (S.si >= S.script.length) {
     bubble("coach", "That is the whole set done — well worked. Close the session below, or ask me anything about what we just did.");
+    if (!S.boardShown) { S.boardShown = true; showBoardReminder(S.chapter).catch(() => {}); }
     const done = document.createElement("div");
     done.className = "qcard";
     done.innerHTML = `<div class="q" style="font-size:16px">What next?</div>
@@ -4868,28 +4869,43 @@ async function tickFormula(chapter, technique, on) {
 }
 
 async function endSession() {
-  bubble("think", "…");
-  const reply = await callCoach({ mode: "summary" });
-  if (reply) {
-    const { data: { user } } = await sb.auth.getUser();
-    const done = (S.script ?? []).slice(0, S.si).filter((x) => x.type === "question").length;
-    await sb.from("session_notes").insert({
-      student_id: user.id,
-      title: (window.__lastTitle || "").trim() || `Chapter ${S.chapter} session`,
-      body: reply,
-      chapter: S.chapter ?? null,
-      questions: done,
-    });
-    // the conversation stays: he resumes here next time
-    saveSession();
-    const finished = !S.script?.length || S.si >= S.script.length;
-    if (finished) await showBoardReminder(S.chapter);
-    else bubble("coach", "We have not finished this chapter yet, so leave your board for now — we will write it up when the chapter is done.");
-  }
+  // pausing is not a summary and not a new session: stop the clock, keep his place, say so plainly
+  clearInterval(S.budgetTimer);
+  S.budgetTimer = null;
+  const bar = $("budgetBar");
+  if (bar) bar.classList.add("hidden");
   document.querySelector(".msg.think")?.remove();
-  if (reply) bubble("coach", reply);
-  await sb.rpc("record_session", { p_lane: "Q", p_minutes: 30, p_status: "done", p_note: "chat session" });
-  loadContext();
+
+  const total = (S.script ?? []).filter((x) => x.type === "question").length;
+  const done = (S.script ?? []).slice(0, S.si).filter((x) => x.type === "question").length;
+  const place = S.chapter ? `chapter ${S.chapter}` : "where we are";
+  const where = total ? `question ${Math.min(done + 1, total)} of ${total}` : "the start";
+
+  saveSession();
+
+  const note = `Paused. We stopped at ${where} in ${place}. Nothing is lost — tap Resume where you left off and we carry on from here.`;
+  bubble("coach", note);
+  keepChat("coach", note, "child");
+
+  try {
+    const { data: { user } } = await sb.auth.getUser();
+    if (user?.id) {
+      await sb.from("session_notes").insert({
+        student_id: user.id,
+        title: (window.__lastTitle || "").trim() || `Chapter ${S.chapter} session`,
+        body: note,
+        chapter: S.chapter ?? null,
+        questions: done,
+      });
+    }
+  } catch (_) { /* the pause still works if the note cannot be saved */ }
+
+  try { await sb.rpc("record_session", { p_lane: "Q", p_minutes: 30, p_status: "paused", p_note: "paused mid-session" }); }
+  catch (_) {}
+
+  S.script = null;
+  S.si = 0;
+  setTimeout(() => goLanding(), 900);
 }
 
 /* --------------------------------------------------------------- photo -- */
