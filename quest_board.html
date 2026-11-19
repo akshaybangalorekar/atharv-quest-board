@@ -1168,7 +1168,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.46.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.47.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -4006,7 +4006,12 @@ function runCoachPlan() {
 
 async function openDash() {
   show("dash");
-  { const j = S.TR?.journey ?? null; if ($("dashFlight")) $("dashFlight").innerHTML = journeyChart(j); }
+  {
+    const { data: trD } = await sb.rpc("truth");
+    S.TR = trD ?? S.TR;
+    const j = trD?.journey ?? S.TR?.journey ?? null;
+    if ($("dashFlight")) $("dashFlight").innerHTML = journeyChart(j);
+  }
   const { data, error } = { data: (S.TR ?? {}).progress ?? null, error: null };   // dashboard is its own read
   if (error || !data) { $("dashHead").textContent = "Could not load the numbers."; return; }
   const d = data;
