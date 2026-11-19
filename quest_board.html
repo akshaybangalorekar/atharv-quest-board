@@ -487,6 +487,14 @@ main#pchat > .card{flex:0 0 auto}
 .roundBtn.on{background:var(--acc);color:#fff}
 .roundBtn:disabled{opacity:.35}
 #micState{flex:1 1 100%}
+
+.secBlock{padding:6px 0;border-top:1px solid var(--line)}
+.secBlock:first-child{border-top:0}
+.secLine{display:grid;grid-template-columns:1.1fr auto auto 1.5fr 64px;gap:10px;align-items:center;
+  padding:0;border-top:0;font-size:12.5px}
+.secChips{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0 0 0}
+.chip{font-size:11.5px;color:var(--ink);background:#f4f2fd;border:1px solid var(--line);
+  border-radius:999px;padding:2px 9px}
 </style>
 </head>
 <body>
@@ -1168,7 +1176,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.47.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.48.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1355,12 +1363,17 @@ async function openTimetable() {
         const names = own.map((t) => String(t.title).split(" · ").pop());
         const shown = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3} more` : "");
         const pctSec = own.length ? Math.round(own.reduce((a, t) => a + (t.preparedness ?? 0), 0) / own.length) : 0;
-        return `<div class="secLine">
-          <span class="secName">${esc(sec.part)}</span>
-          <span class="secMin">${sec.minutes} min</span>
-          <span class="secQ">${loaded ? `${loaded} q` : "no questions"}</span>
-          <span class="secTopics" title="${esc(names.join(", "))}">${own.length ? `${ready}/${own.length} ready · ${esc(shown)}` : "no topics yet"}</span>
-          <span class="bar2 secBar"><i style="width:${pctSec}%"></i></span>
+        const official = sec.topics ?? [];
+        return `<div class="secBlock">
+          <div class="secLine">
+            <span class="secName">${esc(sec.part)}</span>
+            <span class="secMin">${sec.minutes} min</span>
+            <span class="secQ">${loaded ? `${loaded} q` : "no questions"}</span>
+            <span class="secTopics" title="${esc(names.join(", "))}">${own.length ? `${ready}/${own.length} ready · ${esc(shown)}` : ""}</span>
+            <span class="bar2 secBar"><i style="width:${pctSec}%"></i></span>
+          </div>
+          ${official.length ? `<div class="secChips">${official.map((t) =>
+            `<span class="chip">${esc(t)}</span>`).join("")}</div>` : ""}
         </div>`;
       }).join("");
 
