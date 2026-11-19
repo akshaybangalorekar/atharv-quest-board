@@ -415,11 +415,11 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
 
 <!-- track home -->
 <main id="track" class="hidden">
-  <div class="card" id="partsCard" style="display:none">
-    <div class="k">What this paper contains</div>
-    <div id="partsList"></div>
+  <div class="card" id="partsCard" style="display:none"><details>
+    <summary class="foldHead">What this paper contains</summary>
+    <div id="partsList" style="margin-top:10px"></div>
     <div class="hint" id="partsNote" style="margin-top:8px"></div>
-  </div>
+  </details></div>
 
   <div class="card" id="paperCard" style="display:none">
     <div class="k">Papers you have uploaded</div>
@@ -898,7 +898,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.75.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.76.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1954,8 +1954,7 @@ async function loadContext() {
   S.freshness = fresh ?? [];
   await checkReset();
   checkRunningJob();
-  runServerQueue();
-  keepBankAhead();                     // which exams exist decides which cards appear
+  runServerQueue();                     // which exams exist decides which cards appear
   const { data } = await sb.rpc("coach_context");
   S.ctx = data ?? {};
   const { data: prof } = await sb.from("profiles").select("*").limit(1).maybeSingle();
