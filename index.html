@@ -921,7 +921,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.92.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.94.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2711,11 +2711,13 @@ function askPhotoReason() {
   return new Promise((resolve) => {
     const wrap = document.createElement("div");
     wrap.className = "qcard";
-    wrap.innerHTML = `<div class="q" style="font-size:16px">What is the photo?</div>
+    wrap.innerHTML = `<div class="q" style="font-size:16px">What have you sent me?</div>
       <div class="bar">
-        <button class="go small" data-a="working">My working so far</button>
-        <button class="ghost small" data-a="stuck">I am stuck on this one</button>
-      </div>`;
+        <button class="go small" data-a="working">My working, so far</button>
+        <button class="ghost small" data-a="stuck">A question I am stuck on</button>
+      </div>
+      <div class="hint" style="margin-top:8px">If you are in the middle of a question I already know it is your
+        working — this is only for when you send something else.</div>`;
     $("chatWrap").appendChild(wrap);
     stickBottom();
     wrap.querySelectorAll("button").forEach((b) => {
@@ -4417,9 +4419,11 @@ function examForDoubt() {
   return "AAS numerical reasoning";
 }
 
-/* one button, and she is told which of the two things the photo is */
+/* One button. Mid-question a photo can only be his working, so she does not ask.
+   Between questions — a fresh sheet, a new problem — she does. */
 async function takePhoto() {
-  S.photoReason = await askPhotoReason();
+  const midQuestion = !!(S.script?.length && S.si < S.script.length && !S.finished);
+  S.photoReason = midQuestion ? "working" : await askPhotoReason();
   document.getElementById("doubt").click();
 }
 
@@ -4489,6 +4493,7 @@ async function askDoubt(input) {
 }
 
 async function uploadWorking(input) {
+  // she already knows which question he is on: no need to ask him in the message
   const file = input.files?.[0];
   if (!file) return;
   const q = S.qs[S.i];
