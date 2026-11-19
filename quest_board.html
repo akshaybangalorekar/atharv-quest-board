@@ -570,6 +570,15 @@ main#session, main#pchat{
 @media (min-width: 1100px){
   :root{ --col: 820px; }
 }
+
+/* the date banner: bright, unmissable, and dismissable */
+#dateBanner{position:sticky;top:0;z-index:60;background:#ff7a18;color:#2a1400;
+  padding:10px clamp(12px,3vw,24px);font-size:13.5px;font-weight:600;line-height:1.45;
+  display:flex;gap:12px;align-items:flex-start;box-shadow:0 2px 10px rgba(255,122,24,.35)}
+#dateBanner.hidden{display:none}
+#dateBanner .dBtn{margin-left:auto;background:#2a1400;color:#fff;border:0;border-radius:999px;
+  padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+#dateBanner ul{margin:4px 0 0;padding-left:16px;font-weight:500}
 </style>
 </head>
 <body>
@@ -580,6 +589,8 @@ main#session, main#pchat{
 </script>
 
 <div id="noteBar" class="bannerNote hidden" style="max-width:1080px;margin:0 auto;padding:0 22px"></div>
+
+<div id="dateBanner" class="hidden" role="status"></div>
 
 <div class="top">
   <h1 id="appTitle"><span id="appTitleText">Quest Coach</span><span class="ctxExam hidden" id="ctxExam"></span></h1>
@@ -1220,6 +1231,38 @@ if (!createClient) {
   window.visualViewport?.addEventListener("scroll", set);
 })();
 
+/* exam dates are checked against the providers' pages on each login */
+async function checkExamDates() {
+  try {
+    const { data: due } = await sb.rpc("date_check_due", { p_hours: 12 });
+    if (due) sb.functions.invoke("refresh-dates", { body: {} }).catch(() => {});
+    await paintDateBanner();
+  } catch (_) {}
+}
+
+async function paintDateBanner() {
+  const box = $("dateBanner");
+  if (!box) return;
+  const { data } = await sb.rpc("pending_date_changes");
+  const rows = data ?? [];
+  if (!rows.length) { box.classList.add("hidden"); return; }
+
+  const changes = rows.flatMap((r) => r.changes ?? []);
+  if (!changes.length) { box.classList.add("hidden"); return; }
+
+  const one = (c) => `${esc(c.exam)}: ${c.from ? esc(String(c.from).slice(0, 10)) + " → " : ""}<b>${esc(c.to)}</b>`;
+
+  box.classList.remove("hidden");
+  box.innerHTML = `<span>Exam dates have been updated from the official sites. Confirm with the school before you plan around them.</span>
+    <ul>${changes.map((c) => `<li>${one(c)}</li>`).join("")}</ul>
+    <button class="dBtn" onclick="dismissDateBanner()">Got it</button>`;
+}
+
+async function dismissDateBanner() {
+  $("dateBanner")?.classList.add("hidden");
+  try { await sb.rpc("dismiss_date_changes"); } catch (_) {}
+}
+
 window.addEventListener("error", (e) => {
   const box = document.getElementById("err");
   if (box && !box.textContent) box.textContent = "Something broke: " + (e.message || "unknown error");
@@ -1262,7 +1305,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.52.3";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.53.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -1370,6 +1413,7 @@ async function paintNote() {
 
   // a parent keeps it until they say so; a child's screen lets it go after three minutes
   if (!S.isParent) setTimeout(() => { if ($("noteBar")?.textContent) dismissNote(data.id); }, 180000);
+  checkExamDates();
 }
 
 async function dismissNote(id) {
@@ -5415,7 +5459,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, checkExamDates, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
