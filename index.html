@@ -638,19 +638,9 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
     <div id="pTough" style="margin-top:10px"></div>
   </details></div>
 
-  <div class="card"><details>
-    <summary class="foldHead">Weakest techniques</summary>
-    <ul id="pWeak" style="margin:10px 0 0;padding-left:18px"><li class="sub">Nothing recorded yet.</li></ul>
-  </details></div>
-
   <div class="card" id="reqCard" style="display:none"><details>
     <summary class="foldHead">Questions he asked for</summary>
     <div id="pRequests" style="margin-top:10px"></div>
-  </details></div>
-
-  <div class="card"><details>
-    <summary class="foldHead">Recent tests</summary>
-    <table style="margin-top:10px"><tbody id="pTests"><tr><td class="sub">No tests yet.</td></tr></tbody></table>
   </details></div>
 
   <div class="card"><details id="papersDetails" open>
@@ -1096,7 +1086,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.16.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.17.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2868,7 +2858,8 @@ async function goParent() {
                stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
         <span class="pill ${cls(r.headline)}">${esc(r.headline)}</span>
-        <details class="exMore"><summary>${r.measured_minutes ?? 0}/${r.sits_minutes ?? 0} min</summary>
+        <details class="exMore"><summary title="Minutes of the paper this app can test">${
+          r.measured_minutes ?? 0} of ${r.sits_minutes ?? 0} min</summary>
           <div class="exParts">${sections}${(() => {
             const topics = (topicMap[fam] ?? []).filter((t) => (t.questions ?? 0) > 0);
             if (!topics.length) return "";
@@ -2916,20 +2907,6 @@ async function goParent() {
     b.onclick = () => printQuestions(b.dataset.print);
   });
 
-  const weak = c.weak ?? [];
-  $("pWeak").innerHTML = weak.length
-    ? weak.map((w) => `<li><b>${esc(w.technique)}</b> <span class="sub">· ${w.open} open, ${w.misses} misses</span></li>`).join("")
-    : `<li class="sub">Nothing recorded yet.</li>`;
-
-  const tests = c.recent_tests ?? [];
-  $("pTests").innerHTML = tests.length
-    ? tests.map((t) => {
-        const d = new Date(t.taken_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
-        const cls = t.pct >= 80 ? "ok" : t.pct >= 60 ? "amber" : "red";
-        return `<tr><td>${d}</td><td>${esc(t.kind)}</td><td>${t.score}/${t.total}</td>
-                <td><span class="pill ${cls}">${t.pct}%</span></td></tr>`;
-      }).join("")
-    : `<tr><td class="sub">No tests yet.</td></tr>`;
 }
 
 function strandMode() {
