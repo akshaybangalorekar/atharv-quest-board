@@ -1314,7 +1314,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.57.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.58.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2789,9 +2789,16 @@ async function testAlertEmail() {
   $("alertToMsg").textContent = "Sending…";
   const { data, error } = await sb.functions.invoke("exam-watch", { body: { mode: "test" } });
   if (error) { $("alertToMsg").textContent = "Could not reach the mail service: " + error.message; return; }
-  $("alertToMsg").textContent = data?.sent
-    ? `Sent to ${(data.to ?? []).join(", ")}.`
-    : `Not sent — ${data?.reason ?? "the mail key is not set yet"}.`;
+  if (data?.sent) {
+    const bad = (data.failed ?? []).map((f) => f.to);
+    $("alertToMsg").textContent = `Sent to ${(data.to ?? []).join(", ")}.` +
+      (bad.length ? ` Not to ${bad.join(", ")} — ${data.failed[0].detail ?? "refused"}` : "");
+  } else {
+    const first = (data?.failed ?? [])[0];
+    $("alertToMsg").textContent = first
+      ? `Not sent — ${first.detail ?? "refused"}`
+      : `Not sent — ${data?.reason ?? "the mail key is not set yet"}.`;
+  }
 }
 
 async function removeAlertTo(email) {
