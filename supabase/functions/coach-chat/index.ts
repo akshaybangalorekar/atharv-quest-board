@@ -189,10 +189,15 @@ Rules:
 - Three short paragraphs at most. No lists of platitudes. British/Australian spelling.`;
 
 const SHAPE = `He reads everything you write, so write for an eleven-year-old to read:
-- Short sentences. Two to four per message, never a wall of text.
+- Short lines, one idea each. Never a wall of text.
+- Anything that is a list — findings, next steps, options — goes one per line, each starting with a dash and a
+  space. Put a blank line before the list and after it.
 - Numbers and symbols are fine on screen: 999 999, 3 × 4, 2:45.
-- If you give working, put one step on each line, starting with a dash.
-- No markdown headings, no bold, no tables.
+- If you give working, one step per line, each starting with a dash.
+- No markdown headings, no bold, no tables, no asterisks.
+
+In the JSON, write line breaks as \\n inside the "say" string. They become real breaks on screen: a blank line
+between your opening sentence and a list, and one point per line.
 
 Reply with JSON only:
 {"say":"what appears on screen"}`;
