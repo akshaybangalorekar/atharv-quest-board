@@ -891,7 +891,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "1.59.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "1.60.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -2025,7 +2025,8 @@ async function preparePages(paperId) {
   paintTopProgress(0, pages.length, `Saving page 0 of ${pages.length}`);
   for (let i = 0; i < pages.length; i++) {
     const path = `${owner}/page-${paperId}-${i + 1}.jpg`;
-    await sb.storage.from("papers").upload(path, pages[i], { upsert: true, contentType: "image/jpeg" });
+    const up = await sb.storage.from("papers").upload(path, pages[i], { upsert: true, contentType: "image/jpeg" });
+    if (up.error) { alert(`Page ${i + 1} could not be stored: ${up.error.message}`); return; }
     await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: i + 1, path }, { onConflict: "paper_id,page_no" });
     paintTopProgress(i + 1, pages.length, `Saving page ${i + 1} of ${pages.length}`);
   }
@@ -2382,8 +2383,10 @@ async function readInBackground(file, userId, exam, paperId) {
       // the pages go into storage once; after this the browser is not needed
       for (let i = 0; i < pages.length; i++) {
         const path = `${owner ?? userId}/page-${paperId}-${i + 1}.jpg`;
-        await sb.storage.from("papers").upload(path, pages[i], { upsert: true, contentType: "image/jpeg" });
-        await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: i + 1, path }, { onConflict: "paper_id,page_no" });
+        const up = await sb.storage.from("papers").upload(path, pages[i], { upsert: true, contentType: "image/jpeg" });
+        if (up.error) throw new Error(`page ${i + 1} could not be stored: ${up.error.message}`);
+        const rec = await sb.from("paper_pages").upsert({ paper_id: paperId, page_no: i + 1, path }, { onConflict: "paper_id,page_no" });
+        if (rec.error) throw new Error(`page ${i + 1} could not be recorded: ${rec.error.message}`);
         paintTopProgress(i + 1, pages.length, `Saving page ${i + 1} of ${pages.length}`);
       }
     } else {
@@ -2398,7 +2401,9 @@ async function readInBackground(file, userId, exam, paperId) {
       await sb.rpc("set_job_total", { p_id: jobId, p_total: 1 });
     }
   } catch (e) {
+    S.lastReadError = e.message;
     await sb.rpc("finish_parse_job", { p_id: jobId, p_added: 0, p_unanswered: 0, p_strand: "", p_pages_done: 0, p_failed: true });
+    loadPapersToRead();
     return;
   }
 
