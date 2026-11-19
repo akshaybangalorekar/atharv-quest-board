@@ -657,9 +657,13 @@ button,a,input,textarea,label,summary,.msg,.qcard,.pk{touch-action:manipulation}
           beginning. If he stalls she asks where he is, never the answer.</p>
 
           <p><b>Where questions come from.</b> Only two places: a paper you uploaded, or questions she writes. She
-          writes only when he asks her, or when you press <b>Generate</b> — nothing happens in the background. Every
-          question that needs a figure gets one: her own coloured drawing, checked; or the real figure cut from your
-          paper when her drawing does not match it.</p>
+          writes only when he asks her, or when you press <b>Generate</b> — nothing happens in the background.</p>
+
+          <p><b>What she writes.</b> Always for the topic the timetable puts next, and always inside that exam's
+          official topic list. Every question has a correct answer; every multiple-choice one has exactly four
+          believable options with exactly one that matches the answer, and a choice list that doesn't hold up is
+          thrown away rather than stored. Every figure is drawn and checked, or cut from your paper when her drawing
+          does not match it.</p>
 
           <p><b>When a chapter's quiz comes.</b> 80 per cent of the chapter done, 90 per cent right, under two
           minutes a question, and coping with the harder ones. Not a streak, not a reward.</p>
@@ -1020,7 +1024,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.11.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.12.0";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();

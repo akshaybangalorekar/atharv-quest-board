@@ -50,6 +50,7 @@ Difficulty ${difficulty} of 3 (1 = straightforward, 2 = two steps, 3 = needs a r
 ${seeds ? `Here are questions already in this strand. Match their style and vocabulary, but do NOT repeat them:\n${seeds}\n` : ""}
 
 Rules:
+- Stay inside the topic named above. Nothing from another topic, even if it is easier to write.
 - Every question must be solvable with Year 6 arithmetic — no algebra beyond a simple unknown, no trigonometry.
 - Numbers must be chosen so the answer is clean. Work each one out and check it.
 - About one question in three should need a figure — a shape, a grid, a bar chart, a table, a number
@@ -58,9 +59,15 @@ Rules:
 - For the rest, no "fig" key at all.
 - Vary the wording. Do not start three questions the same way.
 - Keep each question under 40 words.
+- About half the questions should be multiple choice. For those add "options": four short choices,
+  each one plausible, with EXACTLY ONE correct — and that correct choice must be the same value as "a".
+  Wrong options must be believable mistakes, not nonsense. Give the choices in a sensible order, not
+  always with the answer first.
+- For the rest, no "options" key at all.
 
 Reply with JSON only:
 {"rows":[{"q":"the question","a":"the final answer, short","m":"one sentence of method","d":${difficulty},
+          "options":["27","32","37","42"],
           "fig":{"what":"a rectangle 8 cm by 5 cm, the left half shaded"}}]}`;
 
 const DRAW = `You are drawing the figure that belongs to a maths question, as an SVG. A student will read
@@ -184,7 +191,9 @@ Deno.serve(async (req) => {
         max_tokens: 3600,
         messages: [
           { role: "system", content: PROMPT(focus, difficulty, seeds, scope) },
-          { role: "user", content: `Strand: ${ch.title}. Write ${n} questions.` },
+          { role: "user", content:
+            `Topic: ${String(ch.title).split(" · ").pop()} (${ch.title}). ` +
+            `This is one of the official topics for this exam. Write ${n} questions inside it.` },
         ],
       }),
     });
@@ -199,7 +208,18 @@ Deno.serve(async (req) => {
       return json({ error: "the model did not return usable questions" }, 422);
     }
 
-    const rows = (parsed.rows ?? []).filter((x) => x.q && x.a);
+    const rows = (parsed.rows ?? [])
+      .filter((x: any) => x.q && x.a)
+      .map((x: any) => {
+        if (!Array.isArray(x.options) || x.options.length < 3) return { ...x, options: undefined };
+        const opts = x.options.map((o: unknown) => String(o).trim()).filter(Boolean);
+        const ans = String(x.a).trim();
+        const hits = opts.filter((o: string) => o === ans
+          || o.replace(/^[A-D][).:\s]*/i, "").trim() === ans).length;
+        // exactly one correct choice, and it must be the answer we store
+        if (opts.length < 3 || hits !== 1) return { ...x, options: undefined };
+        return { ...x, options: opts };
+      });
     if (!rows.length) return json({ added: 0, difficulty, focus });
 
     const { data: maxRow } = await admin.from("problems")
@@ -216,6 +236,7 @@ Deno.serve(async (req) => {
 
       const { error } = await admin.from("problems").insert({
         chapter: ch.n, idx, prompt: String(row.q).trim(),
+        ...(Array.isArray((row as any).options) ? { options: (row as any).options } : {}),
         difficulty: Number(row.d) || difficulty,
         technique_tags: [ch.title.split("·").pop()?.trim() ?? ch.title],
         source: ch.source ?? "book",
