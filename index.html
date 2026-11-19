@@ -905,7 +905,6 @@ main#pchat > .card{flex:0 0 auto}
     <div style="display:flex;gap:8px">
       <input id="pSay" placeholder="Ask the coach…" onkeydown="if(event.key==='Enter')sendParent()">
       <button class="go small" onclick="sendParent()">Send</button>
-      <button class="ghost small" onclick="goParent()">← Back</button>
     </div>
   </div>
 </main>
@@ -920,7 +919,6 @@ main#pchat > .card{flex:0 0 auto}
   </div>
   <div id="ttBody"></div>
   <div class="card"><div class="bar">
-    <button class="ghost small" onclick="goHome()">← Back</button>
     <button class="ghost small" onclick="openTimetable()">Refresh</button>
   </div></div>
 </main>
@@ -948,7 +946,6 @@ main#pchat > .card{flex:0 0 auto}
     <div class="bar" style="justify-content:space-between;align-items:center">
       <span class="sub" id="helpVer">—</span>
       <div class="bar"><button class="ghost small" onclick="freshCopy()">Refresh the app</button>
-        <button class="ghost small" onclick="goHome()">← Back</button></div>
     </div>
   </div>
 </main>
@@ -960,7 +957,6 @@ main#pchat > .card{flex:0 0 auto}
     <div class="big" style="font-size:20px" id="paperTitle">—</div>
   </div>
   <div id="paperPages"></div>
-  <div class="card"><button class="ghost" onclick="openTrack(S.track)">← Back</button></div>
 </main>
 
 <!-- the journal -->
@@ -1041,7 +1037,6 @@ main#pchat > .card{flex:0 0 auto}
     </details>
     <div class="bar">
       <button class="go small" onclick="startSolo()">Practise this chapter →</button>
-      <button class="ghost small" onclick="openTrack(S.track)">← Back</button>
     </div>
   </div>
   <div class="card">
@@ -1116,7 +1111,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.38.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.39.1";   // bumped on every push; shown at the foot of the page
 
 function todayISO() {
   const d = new Date();
@@ -4092,7 +4087,6 @@ async function paintTrackCard(id) {
     ${noQuestions ? `<div class="hint" style="margin-top:10px">No questions in here yet. <b>Ask Ananya</b> for some —
       say “can I have more questions” and she will write them for this exam.</div>` : ""}
     <div class="bar" style="margin-top:10px">
-      <button class="ghost small" onclick="goLanding()">← Home</button>
       ${S.ctx?.mock?.due ? `<button class="go small" onclick="startMock()">Paper is due — sit it</button>` : ""}
     </div>
   </div>`;
