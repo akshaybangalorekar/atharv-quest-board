@@ -98,16 +98,26 @@ async function handle(req: Request) {
     if (!key0 || !from0) return json({ sent: false, reason: "no mail key or sender set", to: to0 });
     if (!to0.length) return json({ sent: false, reason: "no addresses", to: [] });
 
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${key0}` },
-      body: JSON.stringify({
-        from: from0, to: to0,
-        subject: "Quest Coach — test email",
-        html: "<p>This is a test from Quest Coach. Exam updates for Atharv will arrive at this address.</p>",
-      }),
+    const results = [];
+    for (const addr of to0) {
+      const r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${key0}` },
+        body: JSON.stringify({
+          from: from0, to: [addr],
+          subject: "Quest Coach — test email",
+          html: "<p>This is a test from Quest Coach. Exam updates for Atharv will arrive at this address.</p>",
+        }),
+      });
+      const detail = r.ok ? null : (await r.text()).slice(0, 220);
+      results.push({ to: addr, ok: r.ok, status: r.status, detail });
+    }
+    const anyOk = results.some((x) => x.ok);
+    return json({
+      sent: anyOk, results,
+      to: results.filter((x) => x.ok).map((x) => x.to),
+      failed: results.filter((x) => !x.ok).map((x) => ({ to: x.to, detail: x.detail })),
     });
-    return json({ sent: r.ok, status: r.status, detail: r.ok ? null : await r.text(), to: to0 });
   }
 
   if (!exams.length) return json({ checked: 0, alerts: [] });
@@ -201,12 +211,16 @@ If nothing has changed, reply {"findings":[]}.`;
       <pre style="font:14px/1.6 system-ui;white-space:pre-wrap">${lines.replace(/</g, "&lt;")}</pre>
       <p style="color:#666">Confirm anything that matters with the school before you plan around it.</p>`;
 
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-      body: JSON.stringify({ from, to, subject: `Exam update — ${alerts.length} change${alerts.length === 1 ? "" : "s"}`, html }),
-    });
-    if (r.ok) {
+    let anyOk = false;
+    for (const addr of to) {
+      const r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+        body: JSON.stringify({ from, to: [addr], subject: `Exam update — ${alerts.length} change${alerts.length === 1 ? "" : "s"}`, html }),
+      });
+      if (r.ok) anyOk = true;
+    }
+    if (anyOk) {
       emailed = alerts.length;
       await supa.from("alerts").update({ emailed_at: new Date().toISOString() })
         .in("id", alerts.map((a) => a.id));
