@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.09.0";
+import * as data from "./data.js?v=3.09.1";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.09.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.09.1";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -320,6 +320,8 @@ async function dismissNote(id) {
 
 /* the plan, per exam and per topic, and whether he is ahead of it */
 async function openTimetable() {
+  // the timetable shows counts, so it needs the shared view like every other screen
+  if (!S.sync) await loadSync();
   show("timetable");
   const box = $("ttBody");
   box.innerHTML = `<div class="card"><div class="sub">Working out where you are…</div></div>`;
@@ -434,7 +436,8 @@ async function openTimetable() {
     return `<div class="card ttExam">
       <div class="ttHead">
         <span class="ttName">${esc(x.label)}</span>
-        <span class="chip ${examTone}" title="${examTip}"><b>${left}</b> left</span>
+        <span class="chip ${toneForCount(examCount)}"
+              title="${examCount} questions for this exam."><b>${examCount}</b> questions</span>
         <span class="chip grey" title="${esc(x.label)} sits on ${esc(examWhen)}"><b>${x.days_left ?? 0}</b> days</span>
         <span class="ttMeta" style="margin-left:auto">${done} of ${all} topics</span>
       </div>
@@ -2486,7 +2489,7 @@ async function goParent() {
     return `<div class="card ttExam">
       <div class="ttHead">
         <span class="ttName">${esc(fam)}</span>
-        <span class="chip ${pipeTone}" title="${pipeTip}"><b>${examCount}</b> questions</span>
+        <span class="chip ${toneForCount(examCount)}" title="${pipeTip}"><b>${examCount}</b> questions</span>
         <span class="chip grey" title="${esc(fam)} sits on ${esc(when)}"><b>${f.days_left ?? 0}</b> days</span>
         <span class="ttMeta" style="margin-left:auto">${coveredMin} of ${sitsMin} min testable</span>
       </div>
@@ -4168,6 +4171,12 @@ function pickOption(btn) {
 }
 
 /* who sits this exam: the school, or the competition's own name */
+/* the colour rule for a question count: none, some, enough — used by every card */
+function toneForCount(n) {
+  const v = Number(n ?? 0);
+  return v === 0 ? "orange" : v < 30 ? "amber" : "green";
+}
+
 /* who sits this exam, and when: two schools are two sittings, never one date */
 function sittingLine(f, fallbackWhen) {
   const label = String(f?.label ?? "");
@@ -5046,7 +5055,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, toneForCount, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
