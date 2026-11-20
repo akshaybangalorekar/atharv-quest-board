@@ -17,12 +17,56 @@ UI = os.path.join(ROOT, "tests", "ui")
 RUNNER = """
 <script>
 window.__results = [];
+// every generated scenario becomes a case, with the same assertion interface
+if (window.__scenarios) {
+  window.CASES = (window.CASES || []).concat(window.__scenarios.map((sc) => ({
+    name: sc.name,
+    run: async ({ assert, T }) => {
+      const d = sc.data || {};
+      window.__fixtures["truth"] = T.baseTruth(d.dayone ? { student: { id: "kid", name: "A", xp: 0, streak: 0, days_in: 1 } } : {});
+      window.__fixtures["sync_view"] = d.sync || { totals: {}, library: {}, exams: [] };
+      window.__fixtures["exam_pipeline"] = [];
+      window.__fixtures["plan_sitting"] = { minutes: 60, questions: 2, chapter: 1 };
+      window.__fixtures["next_in_chapter"] = d.questions || [];
+      window.__fixtures["submit_answer"] = { correct: true, answer: "12", method: "add" };
+      window.__fixtures["log_visit"] = {};
+      window.__fixtures["question_budget"] = { seconds: 90 };
+      window.__fixtures["save_session"] = { ok: true };
+      window.__fixtures["load_session"] = { chapter: 1, si: 1, paused: true, script: d.questions || [] };
+      window.__fixtures["print_rows"] = d.questions || [];
+      window.__fixtures["wipe_history"] = { attempts: 0, sessions: 0, mocks: 0 };
+      window.__fixtures["wipe_questions"] = { deleted: 0 };
+      window.__fixtures["credits_state"] = d.wallet ? { empty: true, empty_at: "2026-11-20T00:00:00Z" } : { empty: false };
+      window.__fixtures["may_call_model"] = d.cap ? { allowed: false, reason: "cap" } : { allowed: true };
+      window.__fixtures["fn:coach-chat"] = { reply: "next: subtraction" };
+      window.__fixtures["training_status"] = { docs: 1, chunks: 1, web_docs: 1, upload_docs: 0, cleared: 0,
+        provisional: (d.sync && d.sync.totals && d.sync.totals.questions) || 0, draft: 0, failed: 0, servable: 0, official_exams: [] };
+      window.__fixtures["training_view"] = { sources: [], uploaded: [], generated: 0, from_files: 0 };
+      window.__fixtures["recent_jobs"] = [];
+      window.__fixtures["held_back_reasons"] = [];
+      window.__fixtures["model_balance"] = { balance_inr: 100, alert_below_inr: 10, low: false,
+        today: { inr: 0, calls: 0 }, week: { inr: 0 }, calls_by_function: {}, model: "glm5.3-flash" };
+      window.__fixtures["usage_limits"] = {};
+      window.__fixtures["topic_readiness"] = [];
+      window.__fixtures["exam_specs"] = [];
+      window.__fixtures["list_accounts"] = [];
+      T.show("session");
+      const fails = await window.__runScenario({ ...sc, wait: 15 }, T);
+      if (fails.length) fails.forEach((f) => assert(f, false));
+      else assert("the journey holds", true);
+    },
+  })));
+}
 window.__done = false;
 (async function () {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(1200);
   const only = %FILTER%;
-  for (const c of (window.CASES || [])) {
+  const batch = %BATCH%;
+  let cases = (window.CASES || []);
+  if (batch) { const [i, of] = batch.split("/").map(Number);
+    const size = Math.ceil(cases.length / of); cases = cases.slice(i * size, (i + 1) * size); }
+  for (const c of cases) {
     if (only && !c.name.toLowerCase().includes(only)) continue;
     const checks = [];
     const assert = (what, ok) => checks.push({ what, ok: !!ok });
@@ -43,16 +87,20 @@ window.__done = false;
 """
 
 
+BATCH = os.environ.get("BATCH", "")   # "0/5" means the first fifth of the scenarios
+
+
 def build(filter_name: str, out_path: str) -> None:
     html = open(HTML, encoding="utf-8").read()
     inject = (
         '<script src="./tests/ui/harness.js"></script>'
+        '<script src="./tests/ui/scenarios.js"></script>'
         '<script src="./tests/ui/cases.js"></script>'
     )
     # the stub has to exist before the app creates its client
     html = html.replace('<script src="./supabase.js"></script>',
                         '<script src="./supabase.js"></script>' + inject, 1)
-    runner = RUNNER.replace("%FILTER%", json.dumps(filter_name))
+    runner = RUNNER.replace("%FILTER%", json.dumps(filter_name)).replace("%BATCH%", json.dumps(BATCH))
     head, sep, tail = html.rpartition("</body>")
     html = head + runner + sep + tail
     open(out_path, "w", encoding="utf-8").write(html)
@@ -62,7 +110,7 @@ def run_case(page: str) -> list:
     cmd = [
         "chromium", "--headless=new", "--no-sandbox", "--disable-gpu",
         "--allow-file-access-from-files", "--window-size=1100,800",
-        "--virtual-time-budget=25000", "--dump-dom", "file://" + page,
+        "--virtual-time-budget=60000", "--dump-dom", "file://" + page,
     ]
     out = subprocess.run(cmd, capture_output=True, text=True, timeout=120).stdout
     m = re.search(r'id="testout">(.*?)</div>', out, re.S)

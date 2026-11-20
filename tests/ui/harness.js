@@ -75,3 +75,66 @@ window.T = {
     };
   },
 };
+
+/* ---------- the step language the generated scenarios use ----------
+   Each step is one string:
+     do:startChapter(1)      call an app function
+     fill:ans=12             put a value in a field
+     click:submitTest        press a real button by its data-action
+     expect:screen:session   a screen is visible
+     expect:call:submit_answer   a call was made
+     expect:text:actionBar~Chapter   some element's text matches
+     expect:state:chapter=1  app state
+     expect:note~chapter     the last coach note matches
+*/
+window.__runScenario = async function (spec, T) {
+  const fails = [];
+  const ok = (m) => fails.push(m);
+  for (const raw of spec.steps) {
+    const step = String(raw);
+    const [kind, rest = ""] = [step.slice(0, step.indexOf(":")), step.slice(step.indexOf(":") + 1)];
+    try {
+      if (kind === "do") {
+        const m = rest.match(/^(\w+)\(([^)]*)\)$/);
+        if (!m) { ok("bad step " + step); continue; }
+        const args = m[2].split(",").filter((x) => x.trim() !== "").map((x) => {
+          const v = x.trim();
+          return /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v.replace(/^["']|["']$/g, "");
+        });
+        const fn = window[m[1]];
+        if (typeof fn !== "function") { ok("no such function: " + m[1]); continue; }
+        await fn(...args);
+        await T.wait(spec.wait ?? 120);
+      } else if (kind === "fill") {
+        const [id, val] = rest.split("=");
+        const el = T.$(id);
+        if (!el) { ok("no field: " + id); continue; }
+        el.value = val;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      } else if (kind === "click") {
+        const el = document.querySelector(`[data-action="${rest}"]`);
+        if (!el) { ok("no button: " + rest); continue; }
+        el.click();
+        await T.wait(spec.wait ?? 120);
+      } else if (kind === "expect") {
+        const [what, arg = ""] = [rest.slice(0, rest.indexOf(":")), rest.slice(rest.indexOf(":") + 1)];
+        if (what === "screen" && !T.screen(arg)) ok("screen not shown: " + arg);
+        if (what === "call" && T.calls(arg).length === 0) ok("no call: " + arg);
+        if (what === "state") {
+          const [k, v] = arg.split("=");
+          if (String(window.__state[k]) !== v) ok(`state ${k} is ${window.__state[k]}, wanted ${v}`);
+        }
+        if (what === "text") {
+          const [id, want] = arg.split("~");
+          const got = T.text(id);
+          if (!new RegExp(want).test(got)) ok(`${id} does not match /${want}/`);
+        }
+        if (what === "note") {
+          const note = String(T.calls("coach-chat").at(-1)?.args?.note ?? "");
+          if (!new RegExp(arg).test(note)) ok("coach note does not match /" + arg + "/");
+        }
+      }
+    } catch (e) { ok("threw at " + step + ": " + e.message); }
+  }
+  return fails;
+};
