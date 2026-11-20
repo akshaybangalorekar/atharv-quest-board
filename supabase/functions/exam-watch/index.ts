@@ -1,27 +1,7 @@
-// exam-watch — look for anything that changed about these exams, not just dates.
-//
-// Watches: dates, paper format, sections and their timings, the topic list, and news.
-// Every finding must carry the provider's own page. If it cannot, it is thrown away.
-//
-// Email: sent through Resend when RESEND_API_KEY is set (and ALERT_FROM is a verified sender).
-// Without that key, findings are still logged and shown in the app banner, and marked un-emailed
-// so nothing is lost — the parent can see them and we can send them once the key exists.
-//
-// Secrets: SARVAM_API_KEY (set), RESEND_API_KEY (optional), ALERT_FROM (optional)
+// exam-watch — anything that changed about these exams: dates, format, timing, topics, news.
+// Plumbing comes from _shared/mod.ts.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const ENDPOINT = "https://api.sarvam.ai/v2/chat/completions";
-const MODEL = "sarvam-m";
-
-const cors = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
-  "access-control-allow-methods": "POST, OPTIONS",
-};
-
-const json = (b: unknown, s = 200) =>
-  new Response(JSON.stringify(b), { status: s, headers: { ...cors, "content-type": "application/json" } });
+import { serve, ok, fail, context, studentFor } from "./_shared/mod.ts";
 
 const OFFICIAL: Record<string, string[]> = {
   aas: ["academicassessment.com.au"],
@@ -84,39 +64,20 @@ async function sendOne(to: string, from: string, subject: string, html: string) 
 type Finding = { exam: string; kind: string; summary: string; detail?: string; source: string; sits_on?: string | null };
 const KINDS = new Set(["date", "format", "timing", "topics", "news"]);
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  try {
-    return await handle(req);
-  } catch (e) {
-    return json({ error: "the watch failed", detail: String((e as Error)?.message ?? e) });
-  }
-});
+serve(handle);
 
 async function handle(req: Request) {
 
-  const auth = req.headers.get("authorization") ?? "";
-  if (!auth.startsWith("Bearer ")) return json({ error: "not signed in" }, 401);
-
-  const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-  // who is asking: verified with the service client, so no second client and no missing key
-  const token = auth.replace(/^Bearer\s+/i, "");
-  const { data: who, error: whoErr } = await supa.auth.getUser(token);
-  const user = who?.user;
-  if (whoErr || !user) return json({ error: "not signed in" }, 401);
+  const ctx = await context(req);
+  if ("error" in ctx) return ctx.error;
+  const { admin: supa, user } = ctx;
 
   // a test email, so the parent can prove delivery without waiting for news
   let mode = "check";
   try { mode = (await req.json())?.mode ?? "check"; } catch (_) {}
 
   // whose calendar: this account, or the child this account looks after
-  const { data: ownProfile } = await supa.from("profiles").select("student_id").eq("student_id", user.id).maybeSingle();
-  let student = user.id;
-  if (!ownProfile) {
-    const { data: g } = await supa.from("guardians").select("student_id").eq("parent_id", user.id).limit(1).maybeSingle();
-    if (g?.student_id) student = g.student_id;
-  }
+  const student = await studentFor(supa, user.id);
 
   const { data: cal } = await supa
     .from("exam_calendar").select("id, exam, sits_on, date_status").eq("student_id", student);
@@ -129,8 +90,8 @@ async function handle(req: Request) {
     const key0 = Deno.env.get("BREVO_API_KEY") ?? Deno.env.get("RESEND_API_KEY");
     const from0 = Deno.env.get("ALERT_FROM");
     const to0 = (recipients ?? []).map((r) => r.email).filter(Boolean);
-    if (!key0 || !from0) return json({ sent: false, reason: "no mail key or sender set", to: to0 });
-    if (!to0.length) return json({ sent: false, reason: "no addresses", to: [] });
+    if (!key0 || !from0) return ok({ sent: false, reason: "no mail key or sender set", to: to0 });
+    if (!to0.length) return ok({ sent: false, reason: "no addresses", to: [] });
 
     const results = [];
     for (const addr of to0) {
@@ -139,14 +100,14 @@ async function handle(req: Request) {
       results.push({ to: addr, ok: r.ok, status: r.status, detail: r.detail });
     }
     const anyOk = results.some((x) => x.ok);
-    return json({
+    return ok({
       sent: anyOk, results,
       to: results.filter((x) => x.ok).map((x) => x.to),
       failed: results.filter((x) => !x.ok).map((x) => ({ to: x.to, detail: x.detail })),
     });
   }
 
-  if (!exams.length) return json({ checked: 0, alerts: [] });
+  if (!exams.length) return ok({ checked: 0, alerts: [] });
 
   const brief = exams.map((r) => {
     const s = (sources ?? []).find((x) => x.exam === r.exam);
@@ -189,7 +150,7 @@ If nothing has changed, reply {"findings":[]}.`;
       }),
     });
     if (r.ok) {
-      const body = await r.json();
+      const body = await r.ok();
       const raw = (body?.choices?.[0]?.message?.content ?? "").trim();
       const m = raw.match(/\{[\s\S]*\}/);
       if (m) findings = (JSON.parse(m[0]).findings ?? []) as Finding[];
@@ -249,5 +210,5 @@ If nothing has changed, reply {"findings":[]}.`;
     }
   }
 
-  return json({ checked: exams.length, alerts, emailed, willEmailTo: to });
+  return ok({ checked: exams.length, alerts, emailed, willEmailTo: to });
 }
