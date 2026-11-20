@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.81.1";
+import * as data from "./data.js?v=2.82.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.81.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.82.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2083,9 +2083,10 @@ async function setExamDate(exam, value) {
 async function loadParent() {
   try {
     const { data: st } = await sb.rpc("training_status");
+    const passages = st?.chunks ?? 0, sites = st?.web_docs ?? 0;
     S.libNote = (st?.docs ?? 0)
-      ? `She has read ${st.passages ?? 0} passages from ${st.web_docs ?? 0} sites — Generate 20 turns them into questions for this exam.`
-      : "";
+      ? `She has read ${passages} passages from ${sites} site${sites === 1 ? "" : "s"} — Generate 20 turns them into questions for this exam.`
+      : "She has not read any sources yet — Train her now in Help.";
   } catch (_) { S.libNote = ""; }
 
   const { data } = await sb.rpc("truth");
@@ -2182,7 +2183,7 @@ async function goParent() {
           <span class="ttMeta" style="margin-left:auto">0 questions</span>
         </div>
         <div class="sub" style="margin:8px 0 0">No questions in this exam's bank yet — none uploaded, none written.
-          ${(f.schools_list ?? []).map((r) => esc(r.school)).join(", ")} sits it on ${esc(when)}.</div>
+          ${(f.schools_list ?? []).map((r) => esc(r.school)).join(", ") || esc(String(f.schools ?? "the school").replace(" + ", ", "))} sits it on ${esc(when)}.</div>
         ${(S.libNote ?? "") ? `<div class="sub" style="margin:4px 0 0">${esc(S.libNote)}</div>` : ""}
         <div class="bar" style="margin-top:10px">
           <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
