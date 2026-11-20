@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.00.2";
+import * as data from "./data.js?v=3.00.3";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.00.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.00.3";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2291,7 +2291,7 @@ async function goParent() {
           <span class="ttMeta" style="margin-left:auto">0 questions</span>
         </div>
         <div class="sub" style="margin:8px 0 0">No questions in this exam's bank yet — none uploaded, none written.
-          ${(f.schools_list ?? []).map((r) => esc(r.school)).join(", ") || esc(String(f.schools ?? "the school").replace(" + ", ", "))} sits it on ${esc(when)}.</div>
+          ${esc(sittingName(f))} sits on ${esc(when)}.</div>
 
         <div class="bar" style="margin-top:10px">
           <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
@@ -4011,6 +4011,17 @@ function pickOption(btn) {
   // choosing an option is answering: make that obvious
   const chk = $("chk");
   if (chk) { chk.disabled = false; chk.textContent = "Submit"; }
+}
+
+/* who sits this exam: the school, or the competition's own name */
+function sittingName(f) {
+  const label = String(f?.label ?? "");
+  if (label === "Olympiad") return "APSMO Division J";
+  if (label === "AMC") return "the Australian Maths Competition";
+  if (label === "ICAS") return "the ICAS Mathematics paper";
+  const schools = (f?.schools_list ?? []).map((r) => r.school).filter(Boolean);
+  if (schools.length) return schools.join(" and ");
+  return String(f?.schools ?? "the school").replace(" + ", " and ");
 }
 
 /* a question that has not been cleared against official material is labelled as such */
