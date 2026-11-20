@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.08.0";
+import * as data from "./data.js?v=3.08.1";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.08.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.08.1";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -536,16 +536,25 @@ async function loadTraining() {
     const tone = j.status === "failed" ? "#d64545" : j.status === "running" ? "#e6a817" : "#1f9d55";
     const gen = d.generated ?? d.train?.generated ?? 0;
     const fetched = d.fetched ?? d.train?.fetched ?? 0;
+    const parts = [];
+    if (gen > 0) parts.push(`wrote ${gen} question${gen === 1 ? "" : "s"}`);
+    if (fetched > 0) parts.push(`read ${fetched} new source${fetched === 1 ? "" : "s"}`);
+    if (!fetched && gen > 0) parts.push("nothing new to read");
+    if (!gen && !fetched) parts.push("nothing new to do");
     const what = j.status === "failed"
       ? esc(String(j.error ?? "stopped without finishing").slice(0, 70))
-      : `${fetched} read · ${gen} written`;
+      : esc(parts.join(" · "));
     return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)">
       <span style="width:8px;height:8px;border-radius:50%;background:${tone};flex:none"></span>
       <span class="sub" style="min-width:96px">${esc(when)}</span>
       <span class="sub" style="flex:1">${esc(String(j.kind).replace("train:", ""))}</span>
       <span class="sub">${what}</span></div>`;
   }).join("");
-  $("trainJobs").innerHTML = jobLine ? `<div class="k" style="margin-top:8px;margin-bottom:4px">Last runs</div>${jobLine}` : "";
+  $("trainJobs").innerHTML = jobLine
+    ? `<div class="k" style="margin-top:8px;margin-bottom:2px">Last runs — today</div>
+       <div class="sub" style="margin-bottom:6px">Each line is one automatic pass: what she read, and how many
+         questions she wrote. Kept for a day.</div>${jobLine}`
+    : "";
 
   // the same shape of card everywhere: a heading, then chips, then one bar
   const chip = (n, label, tone, tip) =>

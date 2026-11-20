@@ -193,6 +193,8 @@ Deno.serve(async (req) => {
 
   // a run whose request died is not work in progress
   try { await admin.rpc("reap_stuck_jobs"); } catch (e) { console.error("reap failed:", String((e as Error)?.message ?? e)); }
+  // a day of history is enough to answer "did it run", and it keeps the list readable
+  try { await admin.rpc("prune_jobs", { p_keep_days: 1 }); } catch (e) { console.error("prune failed:", String((e as Error)?.message ?? e)); }
 
   const { data: students } = await admin.rpc("students_with_queued");
   const ran: any[] = [];
