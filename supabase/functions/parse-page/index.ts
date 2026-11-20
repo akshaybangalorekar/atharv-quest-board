@@ -126,7 +126,13 @@ Deno.serve(async (req) => {
           {
             role: "user",
             content: [
-              { type: "text", text: "Extract the questions from this page." },
+              { type: "text", text: `Extract the questions from this image.
+
+Two things to check before you start:
+1. A scanned image often holds TWO facing book pages. Read the LEFT page first, then the RIGHT page.
+   Give every question a "page" field: the printed page number if you can see it, otherwise "left" or "right".
+   Never merge a question from the left page with a question from the right page.
+2. If the image has no readable text at all, return {"rows": [], "why": "no readable text"} rather than guessing.` },
               { type: "image_url", image_url: { url: `data:image/jpeg;base64,${b64}` } },
             ],
           },
