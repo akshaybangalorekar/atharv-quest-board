@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.00.3";
+import * as data from "./data.js?v=3.00.4";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.00.3";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.00.4";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -630,7 +630,7 @@ const S = {
 /* how each exam is introduced. Anything registered in exam_banks appears,
    whether or not it is listed here — this only supplies the friendly words. */
 const TRACK_LOOK = {
-  olympiad: { name: "Olympiad", school: "Olympiad problems · contests May to September", note: "Twenty-four topics and the contest sets · contests May to September" },
+  olympiad: { name: "Olympiad", school: "APSMO Division J", note: "The book's twenty-four topics, then the Division J contests from May to September" },
   amc:      { name: "AMC", school: "Australian Maths Competition · 3–5 August 2027", note: "Thirty questions, sixty minutes" },
   aas:      { name: "AAS", school: "Camberwell Grammar", note: "Scholarship test · February 2027" },
   edutest:  { name: "Edutest", school: "Kilvington Grammar · McKinnon Secondary (ELMS)", note: "One paper family · same year level · February and September 2027" },
@@ -2213,7 +2213,7 @@ async function loadParent() {
 
 const BANK_LABEL = {
   "Olympiad book": "Olympiad topics",
-  "APSMO Division J": "Olympiad · contest sets",
+  "APSMO Division J": "APSMO Division J",
   "AAS numerical reasoning": "AAS · Camberwell Grammar",
   "Edutest numerical reasoning": "Edutest · Kilvington",
   "ICAS Maths": "ICAS · Maths",
@@ -2389,9 +2389,9 @@ function openUpload() {
   if (!panel || !host) return;
   host.appendChild(panel);
   panel.classList.remove("hidden");
-  // one option per exam family, not per bank: the topics and the contest sets are one Olympiad
+  // one option per exam family, not per bank: the book's topics and Division J are one Olympiad
   const FAMILIES = [
-    { exam: "Olympiad book", label: "Olympiad — topics and contest sets" },
+    { exam: "Olympiad book", label: "Olympiad — book topics and Division J" },
     { exam: "ELMS", label: "Edutest — Kilvington and McKinnon" },
     { exam: "AAS numerical reasoning", label: "AAS — Camberwell Grammar" },
     { exam: "ICAS Maths", label: "ICAS Mathematics" },
