@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.17.1";
+import * as data from "./data.js?v=3.18.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -181,7 +181,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.17.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.18.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2076,9 +2076,18 @@ async function deletePaper(paperId) {
   if (!confirm("Delete this file and everything that came from it — its questions, answers and any record of him answering them? This cannot be undone.")) return;
 
   // the files go first, then the records: nothing is left behind either way
-  const { data: paths } = await sb.rpc("paper_objects", { p_id: paperId });
-  const { data, error } = await sb.rpc("delete_paper", { p_id: paperId });
-  if (error) { alert(error.message); return; }
+  if (paperId === null || paperId === undefined || Number.isNaN(Number(paperId))) {
+    alert("That file has no id, so nothing was deleted. Reload the page and try again.");
+    return;
+  }
+  const { data: paths } = await sb.rpc("paper_objects", { p_id: Number(paperId) });
+  const { data, error } = await sb.rpc("delete_paper", { p_id: Number(paperId) });
+  if (error) {
+    // never a blind delete: say which file failed and why, and leave everything in place
+    alert(`Could not delete that file: ${error.message}\nNothing was removed.`);
+    console.error("delete_paper failed", { paperId, error });
+    return;
+  }
 
   const files = [...(paths ?? [])];
   for (let i = 0; i < files.length; i += 100) {
