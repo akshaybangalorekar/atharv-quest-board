@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.04.0";
+import * as data from "./data.js?v=3.05.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.04.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.05.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -513,25 +513,58 @@ async function loadTraining() {
     }
   } catch (_) {}
 
-  const { data: jobs } = await sb.rpc("recent_jobs", { p_limit: 4 });
+  const { data: jobs } = await sb.rpc("recent_jobs", { p_limit: 5 });
   const jobLine = (jobs ?? []).map((j) => {
     const when = new Date(j.started_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
     const d = j.detail ?? {};
+    const tone = j.status === "failed" ? "#d64545" : j.status === "running" ? "#e6a817" : "#1f9d55";
+    const gen = d.generated ?? d.train?.generated ?? 0;
+    const fetched = d.fetched ?? d.train?.fetched ?? 0;
     const what = j.status === "failed"
-      ? `failed — ${j.error ?? "no reason given"}`
-      : `${d.fetched ?? 0} sources, ${d.kept ?? 0} uploads, ${d.checked ?? 0} checked${d.held_back ? `, ${d.held_back} held back` : ""}`;
-    return `<div class="sub">${esc(when)} · ${esc(String(j.kind).replace("train:", ""))} · ${esc(what)}</div>`;
+      ? esc(String(j.error ?? "stopped without finishing").slice(0, 70))
+      : `${fetched} read · ${gen} written`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)">
+      <span style="width:8px;height:8px;border-radius:50%;background:${tone};flex:none"></span>
+      <span class="sub" style="min-width:96px">${esc(when)}</span>
+      <span class="sub" style="flex:1">${esc(String(j.kind).replace("train:", ""))}</span>
+      <span class="sub">${what}</span></div>`;
   }).join("");
   $("trainJobs").innerHTML = jobLine ? `<div class="k" style="margin-top:8px;margin-bottom:4px">Last runs</div>${jobLine}` : "";
 
-  $("trainStore").innerHTML = `<div class="k" style="margin-bottom:4px">What she has read</div>
-    <div class="sub">${k.docs ?? 0} documents kept · ${k.chunks ?? 0} passages · ${k.web_docs ?? 0} from the web ·
-      ${k.upload_docs ?? 0} from your files</div>
-    <div class="sub" style="margin-top:4px">Questions he can be given: <b>${S.sync?.totals?.questions ?? k.servable ?? 0}</b>
-      — <b>${k.cleared ?? 0}</b> checked against official material, <b>${k.provisional ?? 0}</b> checked but
-      provisional${(k.official_exams ?? []).length ? ` (${(k.official_exams ?? []).join(", ")} has official material)` : " (no exam has official material yet)"}.</div>
-    <div class="sub" style="margin-top:2px"><b>${k.draft ?? 0}</b> awaiting a check ·
-      <b>${k.failed ?? 0}</b> held back and never shown.</div>`;
+  // the same shape of card everywhere: a heading, then chips, then one bar
+  const chip = (n, label, tone) =>
+    `<span class="pill ${tone}">${n} ${label}</span>`;
+  const servable = Number(S.sync?.totals?.questions ?? k.servable ?? 0);
+  const cleared = Number(k.cleared ?? 0), prov = Number(k.provisional ?? 0);
+  const draft = Number(k.draft ?? 0), failed = Number(k.failed ?? 0);
+  const total = Math.max(1, cleared + prov + draft + failed);
+  const pct = (n) => Math.round((n / total) * 100);
+
+  $("trainStore").innerHTML = `
+    <div class="k" style="margin-bottom:6px">What she has read</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${chip(k.docs ?? 0, (k.docs === 1 ? "document" : "documents"), "grey")}
+      ${chip(k.chunks ?? 0, "passages", "grey")}
+      ${chip(k.web_docs ?? 0, "from the web", "ok")}
+      ${chip(k.upload_docs ?? 0, "from your files", (k.upload_docs ? "ok" : "grey"))}
+    </div>
+
+    <div class="k" style="margin:12px 0 6px">Questions he can be given — ${servable}</div>
+    <div style="display:flex;height:10px;border-radius:999px;overflow:hidden;background:#eef1f5">
+      <div style="width:${pct(cleared)}%;background:#1f9d55" title="cleared"></div>
+      <div style="width:${pct(prov)}%;background:#e6a817" title="provisional"></div>
+      <div style="width:${pct(draft)}%;background:#9aa7b4" title="awaiting a check"></div>
+      <div style="width:${pct(failed)}%;background:#d64545" title="held back"></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      ${chip(cleared, "cleared", cleared ? "ok" : "grey")}
+      ${chip(prov, "provisional", prov ? "amber" : "grey")}
+      ${chip(draft, "awaiting a check", draft ? "amber" : "grey")}
+      ${chip(failed, "held back", failed ? "red" : "grey")}
+    </div>
+    <div class="sub" style="margin-top:6px">${(k.official_exams ?? []).length
+      ? `Official material loaded for ${(k.official_exams ?? []).join(", ")}. Those questions are checked against it and can be cleared.`
+      : "No official material yet, so every question is provisional until you upload some."}</div>`;
 }
 
 /* read the sources, keep your uploads, and check the bank */
