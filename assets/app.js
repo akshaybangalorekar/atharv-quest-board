@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.00.0";
+import * as data from "./data.js?v=3.00.1";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.00.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.00.1";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -491,8 +491,11 @@ async function loadTraining() {
   $("trainStore").innerHTML = `<div class="k" style="margin-bottom:4px">What she has read</div>
     <div class="sub">${k.docs ?? 0} documents kept · ${k.chunks ?? 0} passages · ${k.web_docs ?? 0} from the web ·
       ${k.upload_docs ?? 0} from your files</div>
-    <div class="sub" style="margin-top:4px">Questions: <b>${k.verified ?? 0}</b> checked and sound ·
-      <b>${k.unverified ?? 0}</b> not yet checked · <b>${k.failed_check ?? 0}</b> failed and held back</div>`;
+    <div class="sub" style="margin-top:4px">Questions he can be given: <b>${k.servable ?? 0}</b>
+      — <b>${k.cleared ?? 0}</b> checked against official material, <b>${k.provisional ?? 0}</b> checked but
+      provisional${(k.official_exams ?? []).length ? ` (${(k.official_exams ?? []).join(", ")} has official material)` : " (no exam has official material yet)"}.</div>
+    <div class="sub" style="margin-top:2px"><b>${k.draft ?? 0}</b> awaiting a check ·
+      <b>${k.failed ?? 0}</b> held back and never shown.</div>`;
 }
 
 /* read the sources, keep your uploads, and check the bank */
