@@ -18,6 +18,43 @@ RUNNER = """
 <script>
 window.__results = [];
 // every generated scenario becomes a case, with the same assertion interface
+if (window.__uploads) {
+  window.CASES = (window.CASES || []).concat(window.__uploads.map((sc) => ({
+    name: sc.name,
+    run: async ({ assert, T }) => {
+      const up = sc.upload || {};
+      window.__fixtures["truth"] = T.baseTruth();
+      window.__fixtures["sync_view"] = { totals: { questions: 0 }, library: {}, exams: [] };
+      window.__fixtures["exam_pipeline"] = [];
+      window.__fixtures["save_upload"] = 11;
+      window.__fixtures["next_parse_page"] = up.next ?? null;
+      window.__fixtures["parse_progress"] = up.prog ?? { pages_done: 0, pages_total: 1 };
+      window.__fixtures["papers_to_read"] = [{ id: 1, title: up.name, pages: up.pages, questions: 0 }];
+      window.__fixtures["restart_reading"] = { ok: true };
+      window.__fixtures["delete_paper"] = { ok: true };
+      window.__fixtures["dismiss_parse_note"] = {};
+      window.__fixtures["add_questions"] = { added: 1, enriched: 0, skipped: 0 };
+      window.__fixtures["print_rows"] = [];
+      window.__fixtures["training_status"] = { docs: 0, chunks: 0, web_docs: 0, upload_docs: 1, cleared: 0,
+        provisional: 0, draft: 0, failed: 0, servable: 0, official_exams: [] };
+      window.__fixtures["training_view"] = { sources: [], uploaded: [{ id: 1, title: up.name, questions: 0, pages: up.pages }], generated: 0, from_files: 0 };
+      window.__fixtures["recent_jobs"] = [];
+      window.__fixtures["held_back_reasons"] = [];
+      window.__fixtures["model_balance"] = { balance_inr: 100, alert_below_inr: 10, low: false,
+        today: { inr: 0, calls: 0 }, week: { inr: 0 }, calls_by_function: {}, model: "glm5.3-flash" };
+      window.__fixtures["usage_limits"] = {};
+      window.__fixtures["fn:parse-page"] = up.fail
+        ? { error: "the page could not be read", detail: "the image was unreadable" }
+        : { ok: true, questions: 3, diagrams: 1, answers: 3 };
+      T.show("parent");
+      const file = new File(["x"], up.name || "B1.pdf", { type: up.mime || "application/pdf" });
+      const fails = await window.__runScenario({ ...sc, wait: 15 }, T, { __FILE__: file, kid: "kid", edutest: "edutest" });
+      if (fails.length) fails.forEach((f) => assert(f, false));
+      else assert("the upload journey holds", true);
+    },
+  })));
+}
+
 if (window.__scenarios) {
   window.CASES = (window.CASES || []).concat(window.__scenarios.map((sc) => ({
     name: sc.name,
@@ -95,6 +132,7 @@ def build(filter_name: str, out_path: str) -> None:
     inject = (
         '<script src="./tests/ui/harness.js"></script>'
         '<script src="./tests/ui/scenarios.js"></script>'
+        '<script src="./tests/ui/uploads.js"></script>'
         '<script src="./tests/ui/cases.js"></script>'
     )
     # the stub has to exist before the app creates its client

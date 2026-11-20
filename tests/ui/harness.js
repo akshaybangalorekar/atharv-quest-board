@@ -87,7 +87,7 @@ window.T = {
      expect:state:chapter=1  app state
      expect:note~chapter     the last coach note matches
 */
-window.__runScenario = async function (spec, T) {
+window.__runScenario = async function (spec, T, subs) {
   const fails = [];
   const ok = (m) => fails.push(m);
   for (const raw of spec.steps) {
@@ -99,6 +99,7 @@ window.__runScenario = async function (spec, T) {
         if (!m) { ok("bad step " + step); continue; }
         const args = m[2].split(",").filter((x) => x.trim() !== "").map((x) => {
           const v = x.trim();
+          if (subs && Object.prototype.hasOwnProperty.call(subs, v)) return subs[v];
           return /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v.replace(/^["']|["']$/g, "");
         });
         const fn = window[m[1]];
