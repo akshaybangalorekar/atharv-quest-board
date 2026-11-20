@@ -117,4 +117,6 @@ export const wipe_questions = (args) => call((a) => sb.rpc("wipe_questions", a),
 export const credits_state = (args) => call((a) => sb.rpc("credits_state", a), args);
 export const clear_credits_flag = (args) => call((a) => sb.rpc("clear_credits_flag", a), args);
 
+export const print_rows = (args) => call((a) => sb.rpc("print_rows", a), args);
+
 export const table = (name) => sb.from(name);
