@@ -19,9 +19,11 @@ For the question you are shown, check all of these:
 1. Does it carry every diagram, table or figure it refers to? A question that says "the diagram below" with no
    diagram is broken.
 2. Does it give every number and fact needed to answer it? Nothing unnamed, nothing missing.
-3. Do its multiple-choice options make sense — exactly one correct, the rest believable?
-4. Solve it yourself. Is there exactly one answer, and is the stored answer that answer?
-5. If a drawing is shown to you, check it against the question: every label, length, angle and value the question
+3. If it measures anything — length, area, mass, time, money, volume — is the unit stated? A triangle with
+   "base 6 and height 4" has no answer, because 6 what? Treat a missing unit on a measured quantity as NO.
+4. Do its multiple-choice options make sense — exactly one correct, the rest believable?
+5. Solve it yourself. Is there exactly one answer, and is the stored answer that answer?
+6. If a drawing is shown to you, check it against the question: every label, length, angle and value the question
    names must appear, nothing may be false, and bars or shapes must be in proportion. A drawing that misleads is
    as bad as no drawing.
 
