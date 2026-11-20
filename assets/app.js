@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.00.4";
+import * as data from "./data.js?v=3.01.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.00.4";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.01.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2291,7 +2291,7 @@ async function goParent() {
           <span class="ttMeta" style="margin-left:auto">0 questions</span>
         </div>
         <div class="sub" style="margin:8px 0 0">No questions in this exam's bank yet — none uploaded, none written.
-          ${esc(sittingName(f))} sits on ${esc(when)}.</div>
+          ${sittingLine(f, esc(when))}.</div>
 
         <div class="bar" style="margin-top:10px">
           <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
@@ -4014,14 +4014,21 @@ function pickOption(btn) {
 }
 
 /* who sits this exam: the school, or the competition's own name */
-function sittingName(f) {
+/* who sits this exam, and when: two schools are two sittings, never one date */
+function sittingLine(f, fallbackWhen) {
   const label = String(f?.label ?? "");
-  if (label === "Olympiad") return "APSMO Division J";
-  if (label === "AMC") return "the Australian Maths Competition";
-  if (label === "ICAS") return "the ICAS Mathematics paper";
-  const schools = (f?.schools_list ?? []).map((r) => r.school).filter(Boolean);
-  if (schools.length) return schools.join(" and ");
-  return String(f?.schools ?? "the school").replace(" + ", " and ");
+  const fmt = (d) => d ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
+
+  if (label === "Olympiad") return `APSMO Division J sits on ${fmt(f?.exam_on) || fallbackWhen}`;
+  if (label === "AMC") return `The Australian Maths Competition sits on ${fmt(f?.exam_on) || fallbackWhen}`;
+  if (label === "ICAS") return `The ICAS Mathematics paper sits on ${fmt(f?.exam_on) || fallbackWhen}`;
+
+  const rows = (f?.schools_list ?? []).filter((r) => r.school);
+  if (rows.length > 1) {
+    return rows.map((r) => `${esc(r.school)} on ${fmt(r.sits_on) || "a date to be confirmed"}`).join(" · ");
+  }
+  if (rows.length === 1) return `${esc(rows[0].school)} sits on ${fmt(rows[0].sits_on) || fallbackWhen}`;
+  return `${esc(String(f?.schools ?? "the school").replace(" + ", " and "))} sits on ${fallbackWhen}`;
 }
 
 /* a question that has not been cleared against official material is labelled as such */
