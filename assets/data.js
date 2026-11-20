@@ -105,4 +105,6 @@ export const set_usage_limits = (args) => call((a) => sb.rpc("set_usage_limits",
 
 export const ingest_progress = (args) => call((a) => sb.rpc("ingest_progress", a), args);
 
+export const sync_view = (args) => call((a) => sb.rpc("sync_view", a), args);
+
 export const table = (name) => sb.from(name);

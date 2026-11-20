@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.02.0";
+import * as data from "./data.js?v=3.03.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.02.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.03.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -385,7 +385,8 @@ async function openTimetable() {
           const claimed = new Set((y.sections ?? []).map((z) => z.part));
           own = topics.filter((t) => !claimed.has(SOURCE_SECTION[t.source] ?? "Whole paper"));
         }
-        const loaded = own.reduce((a, t) => a + (t.questions ?? 0), 0);
+        const syncedChild = syncCount(String(own[0]?.source ?? "").toLowerCase(), "servable");
+        const loaded = syncedChild >= 0 ? syncedChild : own.reduce((a, t) => a + (t.questions ?? 0), 0);
         const ready = own.filter((t) => (t.preparedness ?? 0) >= 60).length;
         const names = own.map((t) => String(t.title).split(" · ").pop());
         const shown = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3} more` : "");
@@ -526,7 +527,7 @@ async function loadTraining() {
   $("trainStore").innerHTML = `<div class="k" style="margin-bottom:4px">What she has read</div>
     <div class="sub">${k.docs ?? 0} documents kept · ${k.chunks ?? 0} passages · ${k.web_docs ?? 0} from the web ·
       ${k.upload_docs ?? 0} from your files</div>
-    <div class="sub" style="margin-top:4px">Questions he can be given: <b>${k.servable ?? 0}</b>
+    <div class="sub" style="margin-top:4px">Questions he can be given: <b>${S.sync?.totals?.questions ?? k.servable ?? 0}</b>
       — <b>${k.cleared ?? 0}</b> checked against official material, <b>${k.provisional ?? 0}</b> checked but
       provisional${(k.official_exams ?? []).length ? ` (${(k.official_exams ?? []).join(", ")} has official material)` : " (no exam has official material yet)"}.</div>
     <div class="sub" style="margin-top:2px"><b>${k.draft ?? 0}</b> awaiting a check ·
@@ -2231,7 +2232,22 @@ async function setExamDate(exam, value) {
   goParent();
 }
 
+async function loadSync() {
+  try {
+    const { data } = await sb.rpc("sync_view");
+    S.sync = data ?? null;
+  } catch (e) { console.error("sync_view failed:", e); S.sync = null; }
+  return S.sync;
+}
+
+/* the count for one exam, from the shared view; -1 means "the view has not loaded yet" */
+function syncCount(key, field) {
+  const ex = (S.sync?.exams ?? []).find((x) => String(x.key).toLowerCase() === String(key).toLowerCase());
+  return ex ? Number(ex[field] ?? 0) : -1;
+}
+
 async function loadParent() {
+  await loadSync();
   const { data } = await sb.rpc("truth");
   S.TR = data ?? {};
   S.studentId = data?.student?.id ?? S.studentId ?? null;
@@ -2304,6 +2320,10 @@ async function goParent() {
 
   $("pExams").innerHTML = rows.map((f) => {
     const fam = f.label;
+    // the count comes from the shared view, so this card and the child's agree
+    const syncKey = String(f.family ?? fam).toLowerCase();
+    const synced = syncCount(syncKey, "servable");
+    const examCount = synced >= 0 ? synced : (f.items ?? 0);
     const mine = specs.filter((x) => x.family === fam);
     const topics = topicMap[f.family] ?? [];
     const myBanks = banks.filter((b) => (BANK_FAMILY[b.exam] ?? b.exam) === fam);
@@ -2324,7 +2344,7 @@ async function goParent() {
           <span class="ttName">${esc(fam)}</span>
           <span class="pill grey">no questions</span>
           <span class="ttMeta">${esc(when)}${f.days_left !== null ? ` · ${f.days_left} days` : ""}</span>
-          <span class="ttMeta" style="margin-left:auto">0 questions</span>
+          <span class="ttMeta" style="margin-left:auto">${examCount} question${examCount === 1 ? "" : "s"}</span>
         </div>
         <div class="sub" style="margin:8px 0 0">No questions in this exam's bank yet — none uploaded, none written.
           ${sittingLine(f, esc(when))}.</div>
