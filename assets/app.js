@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.24.0";
+import * as data from "./data.js?v=3.24.1";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -210,7 +210,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.24.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.24.1";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2432,7 +2432,7 @@ async function goParent() {
       : `${examCount} questions for this exam${Number(pipeRow.solved ?? 0) ? ` · ${pipeRow.solved} attempted so far` : ""}. The five exams add up to the total in Help.`;
     const mine = specs.filter((x) => x.family === fam);
     const topics = topicMap[f.family] ?? [];
-    const myBanks = banks.filter((b) => (BANK_FAMILY[b.exam] ?? b.exam) === fam);
+    const myBanks = (banks ?? []).filter((b) => b && (BANK_FAMILY[b.exam] ?? b.exam) === fam);
     const totalQ = myBanks.reduce((a, b) => a + (b.questions ?? 0), 0);
     const files = myBanks.map((b) => b.from_files).filter(Boolean);
 
