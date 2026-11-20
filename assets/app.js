@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.21.1";
+import * as data from "./data.js?v=3.22.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -46,6 +46,35 @@ async function paintWalletBanner() {
     }
     el.className = "hidden";
   } catch (e) { console.error("wallet check failed:", e); }
+}
+
+/* every question she set aside, with the reason and the two ways out */
+async function renderAmbiguous() {
+  const box = $("ambiguousBox");
+  if (!box) return;
+  const { data, error } = await sb.rpc("ambiguous_questions", { p_limit: 20 });
+  if (error) { box.innerHTML = `<div class="sub">Could not load them: ${esc(error.message)}</div>`; return; }
+  const rows = data ?? [];
+  if (!rows.length) {
+    box.innerHTML = `<div class="chipRow"><span class="chip green"><b>0</b> ambiguous</span>
+      <span class="sub" style="margin-left:6px">nothing is waiting for you</span></div>`;
+    return;
+  }
+  box.innerHTML = `<div class="chipRow" style="margin-bottom:8px">
+      <span class="chip red"><b>${rows.length}</b> ambiguous</span>
+      <span class="sub" style="margin-left:6px">held back, never shown to him</span>
+    </div>` + rows.map((r) => `
+    <div style="padding:8px 0;border-bottom:1px solid var(--line)">
+      <div class="sub" style="font-size:13px">${esc(r.prompt)}</div>
+      <div class="sub" style="margin-top:4px;opacity:.8">Why: ${esc(String(r.why).slice(0, 180))}</div>
+      <div class="sub" style="margin-top:2px;opacity:.7">${esc(r.exam)} · ${esc(r.strand)} · from ${esc(r.source_ref)}</div>
+      <div class="bar" style="margin-top:6px">
+        <button class="mini" data-action="fixAmbiguous" data-a0="${r.chapter}" data-a1="${r.idx}"
+          title="She rewrites it, then it is checked again before he ever sees it.">Ask her to fix it</button>
+        <button class="ghost small" style="border-color:#f2c9c9;color:#b8383d" data-action="dropAmbiguous"
+          data-a0="${r.chapter}" data-a1="${r.idx}" title="Removes it for good.">Drop it</button>
+      </div>
+    </div>`).join("");
 }
 
 /* what the scan is doing right now, at the top of the screen for both of them */
@@ -181,7 +210,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.21.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.22.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -5055,6 +5084,27 @@ registerActions({
   deletePaper: (el) => deletePaper(Number(el.dataset.a0)),
   openChapter: (el) => openChapter(Number(el.dataset.a0)),
   padKey: (el) => padKey(el.dataset.a0),
+
+  fixAmbiguous: async (el) => {
+    const chapter = Number(el.dataset.a0), idx = Number(el.dataset.a1);
+    el.disabled = true; el.textContent = "Asking her…";
+    try {
+      await sb.rpc("set_question_status", { p_chapter: chapter, p_idx: idx, p_status: "draft",
+        p_note: "parent asked for a rewrite" });
+      await sb.functions.invoke("train-coach", { body: { mode: "align", chapter } }).catch(() => {});
+      el.textContent = "She will rewrite it, then it is checked again";
+    } catch (e) { el.textContent = "Could not ask her"; }
+    renderAmbiguous();
+  },
+
+  dropAmbiguous: async (el) => {
+    const chapter = Number(el.dataset.a0), idx = Number(el.dataset.a1);
+    if (!confirm("Drop this question for good? It will not come back.")) return;
+    const { error } = await sb.rpc("drop_question", { p_chapter: chapter, p_idx: idx });
+    if (error) { alert("Could not drop it: " + error.message); return; }
+    renderAmbiguous();
+    loadSync(); loadTraining();
+  },
 
   skipProvisional: async (el) => {
     const chapter = Number(el.dataset.a0), idx = Number(el.dataset.a1);

@@ -129,4 +129,10 @@ export const regate_exam = (args) => call((a) => sb.rpc("regate_exam", a), args)
 
 export const provisional_to_check = (args) => call((a) => sb.rpc("provisional_to_check", a), args);
 
+export const ambiguous_questions = (args) => call((a) => sb.rpc("ambiguous_questions", a), args);
+
+export const drop_question = (args) => call((a) => sb.rpc("drop_question", a), args);
+
+export const set_question_status = (args) => call((a) => sb.rpc("set_question_status", a), args);
+
 export const table = (name) => sb.from(name);
