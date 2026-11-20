@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.07.3";
+import * as data from "./data.js?v=3.08.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.07.3";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.08.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -573,6 +573,14 @@ async function loadTraining() {
     </div>
 
     <div class="k" style="margin:12px 0 6px">Questions he can be given — ${servable}</div>
+    <div class="chipRow" style="margin-bottom:6px">
+      ${chip((S.pipeline ?? []).reduce((a, p) => a + Number(p.pipeline ?? 0), 0), "in the pipeline", "blue",
+        "Every question he can be given, across all five exams. This is the number the exam cards add up to.")}
+      ${chip((S.pipeline ?? []).reduce((a, p) => a + Number(p.solved ?? 0), 0), "solved", "green",
+        "Questions he has already attempted. A question leaves the pipeline when he has answered it once.")}
+      ${chip((S.pipeline ?? []).reduce((a, p) => a + Number(p.left_to_solve ?? 0), 0), "left", "amber",
+        "Pipeline minus solved. This is what each exam card shows, and the five add up to this.")}
+    </div>
     <div style="display:flex;height:10px;border-radius:999px;overflow:hidden;background:#eef1f5">
       <div style="width:${pct(cleared)}%;background:#1f9d55" title="cleared"></div>
       <div style="width:${pct(prov)}%;background:#e6a817" title="provisional"></div>
@@ -2491,6 +2499,16 @@ async function goParent() {
       </div>
     </div>`;
   }).join("") || `<div class="sub">Nothing loaded yet.</div>`;
+
+  const pipeTotals = (S.pipeline ?? []).reduce((a, p) => ({
+    pipeline: a.pipeline + Number(p.pipeline ?? 0),
+    solved: a.solved + Number(p.solved ?? 0),
+    left: a.left + Number(p.left_to_solve ?? 0),
+  }), { pipeline: 0, solved: 0, left: 0 });
+  const sumLine = $("pExamSum");
+  if (sumLine) sumLine.innerHTML = `<span class="chip blue" title="Every question across the five exams."><b>${pipeTotals.pipeline}</b> in the pipeline</span>
+    <span class="chip green" title="Already attempted by him."><b>${pipeTotals.solved}</b> solved</span>
+    <span class="chip amber" title="What the five cards below add up to."><b>${pipeTotals.left}</b> left</span>`;
 
   $("pExams").querySelectorAll("[data-gen]").forEach((b) => {
     b.onclick = () => generateFor(b.dataset.gen, 20, b);
