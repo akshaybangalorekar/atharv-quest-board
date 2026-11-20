@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.78.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.79.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -387,6 +387,17 @@ async function loadTraining() {
 
   const { data: st } = await sb.rpc("training_status");
   const k = st ?? {};
+  const { data: jobs } = await sb.rpc("recent_jobs", { p_limit: 4 });
+  const jobLine = (jobs ?? []).map((j) => {
+    const when = new Date(j.started_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    const d = j.detail ?? {};
+    const what = j.status === "failed"
+      ? `failed — ${j.error ?? "no reason given"}`
+      : `${d.fetched ?? 0} sources, ${d.kept ?? 0} uploads, ${d.checked ?? 0} checked${d.held_back ? `, ${d.held_back} held back` : ""}`;
+    return `<div class="sub">${esc(when)} · ${esc(String(j.kind).replace("train:", ""))} · ${esc(what)}</div>`;
+  }).join("");
+  $("trainJobs").innerHTML = jobLine ? `<div class="k" style="margin-top:8px;margin-bottom:4px">Last runs</div>${jobLine}` : "";
+
   $("trainStore").innerHTML = `<div class="k" style="margin-bottom:4px">What she has read</div>
     <div class="sub">${k.docs ?? 0} documents kept · ${k.chunks ?? 0} passages · ${k.web_docs ?? 0} from the web ·
       ${k.upload_docs ?? 0} from your files</div>

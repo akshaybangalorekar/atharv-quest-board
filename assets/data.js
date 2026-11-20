@@ -85,4 +85,8 @@ export const solve_questions = (body) => call((b) => sb.functions.invoke("solve-
 export const train_coach = (body) => call((b) => sb.functions.invoke("train-coach", b), body);
 
 /* a table read, kept here so the page never names a table itself */
+export const recent_jobs = (args) => call((a) => sb.rpc("recent_jobs", a), args);
+export const start_job = (args) => call((a) => sb.rpc("start_job", a), args);
+export const finish_job = (args) => call((a) => sb.rpc("finish_job", a), args);
+
 export const table = (name) => sb.from(name);

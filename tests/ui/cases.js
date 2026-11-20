@@ -148,4 +148,24 @@ window.CASES = [
       assert("each school is listed", text.includes("Kilvington Grammar") && text.includes("McKinnon"));
     },
   },
+  {
+    name: "the training card shows what the last run actually did",
+    async run({ assert, T }) {
+      window.__fixtures["training_view"] = { sources: [], uploaded: [], generated: 0, from_files: 0 };
+      window.__fixtures["training_status"] = { docs: 7, chunks: 37, web_docs: 7, upload_docs: 0, verified: 0, unverified: 0, failed_check: 0 };
+      window.__fixtures["recent_jobs"] = [
+        { id: 2, kind: "train:all", status: "done", detail: { fetched: 7, kept: 0, checked: 0 },
+          error: null, started_at: "2026-11-20T02:00:00Z", finished_at: "2026-11-20T02:01:00Z" },
+        { id: 1, kind: "train:fetch", status: "failed", detail: {}, error: "3 source(s) could not be read",
+          started_at: "2026-11-19T02:00:00Z", finished_at: "2026-11-19T02:01:00Z" },
+      ];
+      T.show("help");
+      await window.loadTraining();
+      await T.wait(120);
+      const text = T.$("trainJobs")?.textContent ?? "";
+      assert("the last run is listed", text.includes("7 sources"));
+      assert("a failed run says why", text.includes("could not be read"));
+      assert("it does not claim work it did not do", !text.includes("37 checked"));
+    },
+  },
 ];
