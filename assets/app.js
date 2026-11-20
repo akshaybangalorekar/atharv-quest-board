@@ -45,7 +45,7 @@ async function paintDateBanner() {
   box.classList.remove("hidden");
   box.innerHTML = `<span>An update about these exams, from the providers' own pages. Confirm anything that matters with the school.</span>
     <ul>${rows.map((a) => `<li>${one(a)}</li>`).join("")}</ul>
-    <button class="dBtn" onclick="dismissDateBanner()">Got it</button>`;
+    <button class="dBtn" data-action="dismissDateBanner">Got it</button>`;
 }
 
 async function dismissDateBanner() {
@@ -95,9 +95,35 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 data.setClient(sb);
 window.data = data;
 const $ = (id) => document.getElementById(id);
+
+/* ---------------------------------------------------------------------------
+   Actions: markup names an action, this table says what it does.
+   No inline handlers, no functions on window for the markup to reach.
+--------------------------------------------------------------------------- */
+const ACTIONS = {};
+
+export function registerActions(map) {
+  Object.assign(ACTIONS, map);
+}
+
+window.__actions = ACTIONS;   // read-only view for the checks
+
+function runAction(el) {
+  const name = el.dataset.action;
+  if (!name) return;
+  const fn = ACTIONS[name];
+  if (!fn) { console.warn("no action registered for", name); return; }
+  try { fn(el); } catch (e) { console.warn("action failed:", name, e?.message ?? e); }
+}
+
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-action]");
+  if (el) { e.preventDefault(); runAction(el); }
+});
+
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.76.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.77.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -197,12 +223,12 @@ async function paintNote() {
   const { data } = await sb.rpc("parse_note");
   if (!data) { bar.innerHTML = ""; return; }
   const retry = data.status === "failed" && data.paper_id
-    ? `<button class="go small" onclick="retryReading(${data.paper_id}, true)">Try the reading again</button>`
+    ? `<button class="go small" data-action="retryReading" data-a0="${data.paper_id}" data-a1="1">Try the reading again</button>`
     : "";
   bar.innerHTML = `<div class="card" style="padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       <div style="flex:1 1 240px"><b>${esc(data.note)}</b></div>
       ${retry}
-      <button class="link" onclick="dismissNote(${data.id})">OK</button>
+      <button class="link" data-action="dismissNote" data-a0="${data.id}">OK</button>
     </div>`;
 
   // a parent keeps it until they say so; a child's screen lets it go after three minutes
@@ -347,7 +373,7 @@ async function loadTraining() {
         <span class="sub" style="display:block">${esc(KIND[x.kind] ?? x.kind)}${x.url ? ` · ${esc(String(x.url).replace(/^https?:\/\//, ""))}` : ""}</span></span>
       <span class="srcWhen">${x.found_by === "coach" ? `<span class="chip" style="font-size:10.5px">found by her</span> ` : ""}${x.passages ? `${x.passages} passages · ${when(x.last_read)}` : when(x.last_read)}</span>
       ${S.isParent ? `<button class="mini" data-id="${x.id}" data-on="${x.active ? "1" : ""}"
-          onclick="toggleTrainingSource(this.dataset.id, this.dataset.on !== '1')">${x.active ? "Pause" : "Resume"}</button>` : ""}
+          data-action="toggleTrainingSource" data-id="${x.id}" data-on="${x.active ? "1" : ""}">${x.active ? "Pause" : "Resume"}</button>` : ""}
     </div>`).join("") : `<div class="sub">No sources yet.</div>`;
 
   const uploads = v.uploaded ?? [];
@@ -859,14 +885,14 @@ function paintPad() {
   const rows = PAD_KEYS[padKind].map((row) => row.map((k) => {
     const label = k === "⌫" ? "⌫" : k === "done" ? "Done" : k === " " ? "space" : (padShift && /^[a-z]$/.test(k) ? k.toUpperCase() : k);
     const wide = k === "done" ? " wide" : k === "⌫" ? " del" : "";
-    return `<button class="pk${wide}" onclick="padKey('${k === "'" ? "\\'" : k}')">${esc(label)}</button>`;
+    return `<button class="pk${wide}" data-action="padKey" data-a0="${k}">${esc(label)}</button>`;
   }).join(""));
 
   const extras = padKind === "text"
-    ? [`<button class="pk space" onclick="padKey(' ')">space</button>`,
-       `<button class="pk${padShift ? " on" : ""}" onclick="padShift=!padShift;paintPad()">⇧</button>`,
-       `<button class="pk del" onclick="padKey('⌫')">⌫</button>`,
-       `<button class="pk wide" onclick="padDone()">Done</button>`]
+    ? [`<button class="pk space" data-action="padKey" data-a0=" ">space</button>`,
+       `<button class="pk${padShift ? " on" : ""}" data-action="padShift">⇧</button>`,
+       `<button class="pk del" data-action="padKey" data-a0="⌫">⌫</button>`,
+       `<button class="pk wide" data-action="padDone">Done</button>`]
     : [];
 
   const body = padKind === "num"
@@ -955,19 +981,19 @@ function paintActions() {
   const c = S.ctx ?? {};
 
   // a placement only ever appears until he has been placed once
-  if (c.placement_due && !S.script?.length) btns.push(`<button class="go small" onclick="startPlacement()">Check where I am</button>`);
+  if (c.placement_due && !S.script?.length) btns.push(`<button class="go small" data-action="startPlacement">Check where I am</button>`);
 
   // the chapter the coach has just sent him to
   const plan = S.planAction;
   if (plan?.chapter && plan.action === "quest" && !S.script?.length) {
     const t = (TRACKS.find((x) => x.id === S.track) ?? {});
-    btns.push(`<button class="go small" onclick="startChapter(${plan.chapter})">Chapter ${plan.chapter} →</button>`);
+    btns.push(`<button class="go small" data-action="startChapter" data-a0="${plan.chapter}">Chapter ${plan.chapter} →</button>`);
   }
 
-  if (c.mock?.due) btns.push(`<button class="go small" onclick="startMock()">Paper is due — sit it</button>`);
+  if (c.mock?.due) btns.push(`<button class="go small" data-action="startMock">Paper is due — sit it</button>`);
 
-  if (S.script && S.si < S.script.length) btns.push(`<button class="ghost small" onclick="advance()">Skip this one</button>`);
-  if (S.chapter && S.script?.length && S.si >= S.script.length) btns.push(`<button class="ghost small" onclick="startQuiz()">Chapter quiz</button>`);
+  if (S.script && S.si < S.script.length) btns.push(`<button class="ghost small" data-action="advance">Skip this one</button>`);
+  if (S.chapter && S.script?.length && S.si >= S.script.length) btns.push(`<button class="ghost small" data-action="startQuiz">Chapter quiz</button>`);
   box.innerHTML = btns.join("");
 }
 
@@ -1688,7 +1714,7 @@ async function loadAlertTo() {
   const rows = data ?? [];
   box.innerHTML = rows.length
     ? rows.map((r) => `<div class="upRow"><span class="upName">${esc(r.email)}</span>
-        <button class="mini" data-mail="${esc(r.email)}" onclick="removeAlertTo(this.dataset.mail)">Remove</button></div>`).join("")
+        <button class="mini" data-mail="${esc(r.email)}" data-action="removeAlertTo" data-mail="${esc(r.email)}">Remove</button></div>`).join("")
     : `<div class="sub">No addresses yet.</div>`;
 }
 
@@ -1792,10 +1818,10 @@ async function loadPapersToRead() {
       </div>
       <div class="bar" style="gap:6px">
         ${left > 0 ? `<button class="go small" title="Carry on from the page it stopped at — pages already read are skipped"
-              onclick="retryReading(${r.id}, false)">Continue reading</button>` : ""}
+              data-action="retryReading" data-a0="${r.id}" data-a1="0">Continue reading</button>` : ""}
         <button class="ghost small" title="Read every page again from the start — for when the first reading was wrong"
-              onclick="retryReading(${r.id}, true)">Read the whole file again</button>
-        <button class="ghost small" style="border-color:#f2c9c9;color:#b8383d" onclick="deletePaper(${r.id})">Delete</button>
+              data-action="retryReading" data-a0="${r.id}" data-a1="1">Read the whole file again</button>
+        <button class="ghost small" style="border-color:#f2c9c9;color:#b8383d" data-action="deletePaper" data-a0="${r.id}">Delete</button>
       </div>
     </div>`;
   }).join("");
@@ -2171,7 +2197,7 @@ async function goParent() {
       return `<details class="ttMore"><summary>${esc(r.school)} — ${r.sits_minutes ?? 0} min in the exam</summary>
         <div class="ttPaperHead" style="display:none">${esc(r.school)}
           <span class="exDate" id="dl${fam}${i}" style="font-weight:400">${esc(d)}${dd !== null ? ` · ${dd}d` : ""}</span>
-          <button class="pencil" title="Change the date" onclick="editDate('${fam}${i}', this.dataset.exam, this.dataset.on)"
+          <button class="pencil" title="Change the date" data-action="editDate" data-a0="${fam}${i}" data-a1="${this.dataset.exam}" data-a2="${this.dataset.on}"
                   data-exam="${esc(r.calendar_name ?? "")}" data-on="${r.sits_on ?? ""}">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
@@ -2778,7 +2804,7 @@ async function submitUpload() {
   $("upDone").innerHTML = `<b>${data.added} question${data.added === 1 ? "" : "s"} added</b>` +
     (dupes ? ` · <b>${dupes} already there${fixed ? `, ${fixed} improved with their options and page` : ", skipped"}</b>` : "") +
     `<div class="m">into ${esc(data.strand)}. The readiness panel has already updated.</div>
-     <div class="bar"><button class="ghost small" onclick="solveBlanks()">Work out the missing answers</button></div>`;
+     <div class="bar"><button class="ghost small" data-action="solveBlanks">Work out the missing answers</button></div>`;
   $("upRows").value = "";
   delete $("upRows").dataset.savedFor;
   loadPapersToRead();
@@ -3013,7 +3039,7 @@ function goLanding() {
 
   $("examCards").innerHTML = TRACKS.map((t) => {
     const v = readinessFor(t.id);
-    return `<button class="exam" onclick="openTrack('${t.id}')">
+    return `<button class="exam" data-action="openTrack" data-a0="${t.id}">
       <h3>${t.name}</h3>
       <div class="school">${t.school}</div>
       <div class="state">
@@ -3281,7 +3307,7 @@ async function paintTrackCard(id) {
 
   const topicLine = (t) => {
     const has = (t.questions ?? 0) > 0;
-    return `<div class="ttRow" ${has ? `onclick="openChapter(${t.n})" style="cursor:pointer"` : ""}>
+    return `<div class="ttRow" ${has ? `data-action="openChapter" data-a0="${t.n}" style="cursor:pointer"` : ""}>
       <span class="dot ${t.preparedness >= 60 ? "green" : t.preparedness > 0 ? "amber" : "grey"}"></span>
       <span class="ttTopic">${esc(String(t.title).split(" · ").pop())}
         <span class="sub">${has ? `${t.questions} questions` : "no questions yet"}</span></span>
@@ -3335,7 +3361,7 @@ async function paintTrackCard(id) {
     ${noQuestions ? `<div class="hint" style="margin-top:10px">No questions in here yet. <b>Ask Ananya</b> for some —
       say “can I have more questions” and she will write them for this exam.</div>` : ""}
     <div class="bar" style="margin-top:10px">
-      ${S.ctx?.mock?.due ? `<button class="go small" onclick="startMock()">Paper is due — sit it</button>` : ""}
+      ${S.ctx?.mock?.due ? `<button class="go small" data-action="startMock">Paper is due — sit it</button>` : ""}
     </div>
   </div>`;
 }
@@ -3440,7 +3466,7 @@ async function openChapter(n) {
   $("chSummary").textContent = note?.summary ?? "";
   $("chMore").style.display = note?.summary ? "" : "none";
   $("chExamples").innerHTML = (exs ?? []).map((e) => `
-    <div class="ex" onclick="this.classList.toggle('open')">
+    <div class="ex" data-action="toggleOpen">
       <b>Example ${e.n}</b> · <span class="sub">tap to see the method</span>
       <div style="margin-top:6px">${esc(e.prompt)}</div>
       <div class="sol">${esc(e.solution)}</div>
@@ -3503,8 +3529,8 @@ async function startSolo(chapterArg) {
     const nx = document.createElement("div");
     nx.className = "qcard";
     nx.innerHTML = `<div class="bar">
-      <button class="go small" onclick="startQuiz()">Chapter quiz</button>
-      <button class="ghost small" onclick="openTrack(S.track)">Pick another chapter</button></div>`;
+      <button class="go small" data-action="startQuiz">Chapter quiz</button>
+      <button class="ghost small" data-action="openTrack" data-a0="${S.track}">Pick another chapter</button></div>`;
     $("chatWrap").appendChild(nx);
     return;
   }
@@ -3608,8 +3634,8 @@ async function startSession(chapterOverride, forceMode, mode) {
     card.className = "qcard";
     card.innerHTML = `<div class="q" style="font-size:16px">Ready for the check-in?</div>
       <div class="sub" style="margin:2px 0 8px">It shows me where to start you. Nothing to worry about.</div>
-      <div class="bar"><button class="go small" onclick="startPlacement()">Check where I am</button>
-      <button class="ghost small" onclick="goLanding()">Not now</button></div>`;
+      <div class="bar"><button class="go small" data-action="startPlacement">Check where I am</button>
+      <button class="ghost small" data-action="goLanding">Not now</button></div>`;
     $("chatWrap").appendChild(card);
     S.chapter = null; S.script = null;
     paintActions();
@@ -3665,7 +3691,7 @@ async function startSession(chapterOverride, forceMode, mode) {
   card.id = "startBar";
   card.innerHTML = `<div class="q" style="font-size:16px">Chapter ${S.chapter ?? ""} — shall we start?</div>
     <div class="sub" style="margin:2px 0 8px">Your ${S.sitting?.minutes ?? mins} minutes start when you tap.</div>
-    <div class="bar"><button class="go small" onclick="beginNow()">Start this →</button></div>`;
+    <div class="bar"><button class="go small" data-action="beginNow">Start this →</button></div>`;
   $("chatWrap").appendChild(card);
   paintActions();
 }
@@ -3747,10 +3773,10 @@ function nextStep() {
     done.className = "qcard";
     done.innerHTML = `<div class="q" style="font-size:16px">What next?</div>
       <div class="bar">${S.returnToCoach
-        ? `<button class="go small" onclick="backToCoach()">Back to ${COACH} →</button>`
-        : `<button class="go small" onclick="endSession()">Pause session</button>`}
-      <button class="ghost small" onclick="startSolo(S.chapter)">Another one</button>
-      <button class="ghost small" onclick="openDash()">See progress</button></div>`;
+        ? `<button class="go small" data-action="backToCoach">Back to ${COACH} →</button>`
+        : `<button class="go small" data-action="endSession">Pause session</button>`}
+      <button class="ghost small" data-action="startSolo" data-a0="${S.chapter}">Another one</button>
+      <button class="ghost small" data-action="openDash">See progress</button></div>`;
     $("chatWrap").appendChild(done);
     S.finished = true;
     saveSession();
@@ -3771,12 +3797,12 @@ function showExample(e) {
     <div class="q">${esc(e.prompt)}</div>
     <div id="exFig"></div>
     <div class="bar">
-      <button class="go small" id="exShow" onclick="revealExample(this)">Show me how</button>
+      <button class="go small" id="exShow" data-action="revealExample">Show me how</button>
     </div>
     <div class="fb hidden" id="exSol" style="background:#f7f7fb;border:1px solid var(--line)">
       <b>How it goes</b>${rich(e.solution)}
     </div>
-    <div class="bar hidden" id="exNext"><button class="go small" onclick="advance()">Next →</button></div>`;
+    <div class="bar hidden" id="exNext"><button class="go small" data-action="advance">Next →</button></div>`;
   $("chatWrap").appendChild(el);
   stickBottom();
   autoFigure("example", e.n, "exFig", e.prompt, e.diagram_svg);
@@ -3798,7 +3824,7 @@ function paintOptions(q) {
     const letter = String(o).trim().match(/^([A-H])[).:\s]/i)?.[1] ?? String.fromCharCode(65 + i);
     const text = String(o).trim().replace(/^[A-H][).:\s]\s*/i, "");
     return `<button class="opt" data-letter="${letter}" data-full="${esc(String(o))}"
-              onclick="pickOption(this)"><b>${letter}</b><span>${esc(text)}</span></button>`;
+              data-action="pickOption"><b>${letter}</b><span>${esc(text)}</span></button>`;
   }).join("");
 }
 
@@ -3823,8 +3849,8 @@ function showQuestion(q) {
     <div id="qOpts" class="opts"></div>
     <div style="display:flex;gap:8px">
       <input id="ans" placeholder="Your answer" inputmode="none" autocomplete="off"
-             readonly onclick="openPad(this,'num')" onkeydown="if(event.key==='Enter')check()">
-      <button class="go small" id="chk" onclick="check()">Check</button>
+             readonly data-action="openPad" data-self="1" data-a1="num" onkeydown="if(event.key==='Enter')check()">
+      <button class="go small" id="chk" data-action="check">Check</button>
     </div>
     <div class="timer" id="qtimer">0:00</div>
     <div id="qfb"></div>`;
@@ -3981,7 +4007,7 @@ async function check() {
 
   const bar = document.createElement("div");
   bar.className = "bar";
-  bar.innerHTML = `<button class="go small" onclick="advance()">Next →</button>`;
+  bar.innerHTML = `<button class="go small" data-action="advance">Next →</button>`;
   fb.appendChild(bar);
 }
 
@@ -4068,13 +4094,13 @@ async function showBoardReminder(chapter) {
         <input type="checkbox" ${on.has(t) ? "checked" : ""} style="width:19px;height:19px;margin-top:2px"
           onchange="tickFormula(${chapter}, ${JSON.stringify(t).replace(/"/g, "&quot;")}, this.checked)">
         <span>${esc(t)}</span></label>`).join("")}
-    <div class="bar"><button class="ghost small" onclick="openFormula()">See the whole board</button></div>`;
+    <div class="bar"><button class="ghost small" data-action="openFormula">See the whole board</button></div>`;
   $("chatWrap").appendChild(el);
   stickBottom();
 }
 
 function backButton() {
-  return `<div class="card"><button class="ghost" onclick="returnToSession()">← Back to ${COACH}</button></div>`;
+  return `<div class="card"><button class="ghost" data-action="returnToSession">← Back to ${COACH}</button></div>`;
 }
 
 function returnToSession() {
@@ -4307,8 +4333,8 @@ async function startPlacement() {
     card.className = "qcard";
     card.innerHTML = `<div class="q" style="font-size:16px">What next?</div>
       <div class="bar">
-        <button class="go small" onclick="writeMoreQuestions()">Ask for questions</button>
-        <button class="ghost small" onclick="goLanding()">Home</button>
+        <button class="go small" data-action="writeMoreQuestions">Ask for questions</button>
+        <button class="ghost small" data-action="goLanding">Home</button>
       </div>`;
     $("chatWrap").appendChild(card);
     return;
@@ -4534,6 +4560,93 @@ if ("serviceWorker" in navigator) {
     .then((keys) => Promise.all((keys ?? []).map((k) => caches.delete(k))))
     .catch(() => {});
 }
+
+
+/* the action table: name -> what happens. Arguments come from data-a0, data-a1, … */
+const CALL = (el, fn) => {
+  const args = [];
+  for (let i = 0; el.dataset[`a${i}`] !== undefined; i++) {
+    const v = el.dataset[`a${i}`];
+    args.push(v === "1" && el.dataset[`a${i}`] === "1" && /^(true|false)$/i.test(v) ? true : v);
+  }
+  return fn(...args, el);
+};
+
+registerActions({
+  addAlertTo: (el) => addAlertTo(el),
+  addFromChat: (el) => addFromChat(el),
+  addTrainingSource: (el) => addTrainingSource(el),
+  advance: (el) => advance(el),
+  applyContent: (el) => applyContent(el),
+  askForEarlyMock: (el) => askForEarlyMock(el),
+  backToCoach: (el) => backToCoach(el),
+  beginNow: (el) => beginNow(el),
+  check: (el) => check(el),
+  closeUpload: (el) => closeUpload(el),
+  createChild: (el) => createChild(el),
+  dismissDateBanner: (el) => dismissDateBanner(el),
+  editDate: (el) => editDate(el),
+  endSession: (el) => endSession(el),
+  findSources: (el) => findSources(el),
+  forgotPassword: (el) => forgotPassword(el),
+  freshCopy: (el) => freshCopy(el),
+  goHome: (el) => goHome(el),
+  goLanding: (el) => goLanding(el),
+  goParent: (el) => goParent(el),
+  leavePaper: (el) => leavePaper(el),
+  openDash: (el) => openDash(el),
+  openFormula: (el) => openFormula(el),
+  openHelp: (el) => openHelp(el),
+  openJournal: (el) => openJournal(el),
+  openParentChat: (el) => openParentChat(el),
+  openTimetable: (el) => openTimetable(el),
+  openUpload: (el) => openUpload(el),
+  padDone: (el) => padDone(el),
+  parentDictate: (el) => parentDictate(el),
+  parentWeekly: (el) => parentWeekly(el),
+  returnToSession: (el) => returnToSession(el),
+  runCoachPlan: (el) => runCoachPlan(el),
+  saveChildPassword: (el) => saveChildPassword(el),
+  saveName: (el) => saveName(el),
+  saveNewPassword: (el) => saveNewPassword(el),
+  savePassword: (el) => savePassword(el),
+  scanContent: (el) => scanContent(el),
+  sendMe: (el) => sendMe(el),
+  sendParent: (el) => sendParent(el),
+  signIn: (el) => signIn(el),
+  signOut: (el) => signOut(el),
+  solveBlanks: (el) => solveBlanks(el),
+  startMock: (el) => startMock(el),
+  startPlacement: (el) => startPlacement(el),
+  startQuiz: (el) => startQuiz(el),
+  submitTest: (el) => submitTest(el),
+  takePhoto: (el) => takePhoto(el),
+  testAlertEmail: (el) => testAlertEmail(el),
+  testMic: (el) => testMic(el),
+  toggleMic: (el) => toggleMic(el),
+  trainNow: (el) => trainNow(el),
+  useSystemKeyboard: (el) => useSystemKeyboard(el),
+  verifyBank: (el) => verifyBank(el),
+  writeMoreQuestions: (el) => writeMoreQuestions(el),
+
+  pickFile: () => { const f = $("upFile"); if (f) f.click(); },
+  toggleOpen: (el) => el.closest("details")?.toggleAttribute("open"),
+  padShift: (el) => { padShift = !padShift; paintPad(); },
+  wipe: (el) => wipe(el.dataset.arg ?? "all"),
+  openPad: (el) => openPad(document.getElementById(el.dataset.target ?? "say"), el.dataset.mode ?? "text"),
+  toggleTrainingSource: (el) => toggleTrainingSource(el.dataset.id, el.dataset.on !== "1"),
+  removeAlertTo: (el) => removeAlertTo(el.dataset.mail),
+  pickOption: (el) => pickOption(el),
+  revealExample: (el) => revealExample(el),
+  startSolo: (el) => startSolo(el.dataset.a0 ? Number(el.dataset.a0) : S.chapter),
+  openTrack: (el) => openTrack(el.dataset.a0 ?? S.track),
+  startChapter: (el) => startChapter(Number(el.dataset.a0)),
+  retryReading: (el) => retryReading(Number(el.dataset.a0), el.dataset.a1 === "1"),
+  dismissNote: (el) => dismissNote(Number(el.dataset.a0)),
+  deletePaper: (el) => deletePaper(Number(el.dataset.a0)),
+  openChapter: (el) => openChapter(Number(el.dataset.a0)),
+  padKey: (el) => padKey(el.dataset.a0),
+});
 
 let api = {};
 try {
