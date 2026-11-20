@@ -169,4 +169,27 @@ window.CASES = [
       assert("it does not claim work it did not do", !text.includes("37 checked"));
     },
   },
+  {
+    name: "the placement spans every exam, not just one",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth();
+      const items = [
+        { chapter: 1, idx: 1, exam: "olympiad", prompt: "A book question" },
+        { chapter: 160, idx: 2, exam: "aas", prompt: "An AAS question" },
+        { chapter: 175, idx: 3, exam: "edutest", prompt: "An Edutest question" },
+        { chapter: 190, idx: 4, exam: "amc", prompt: "An AMC question" },
+        { chapter: 200, idx: 5, exam: "icas", prompt: "An ICAS question" },
+        { chapter: 161, idx: 6, exam: "aas", prompt: "Another AAS question" },
+      ];
+      window.__fixtures["start_placement"] = { exam_id: "e9", minutes: 20, items };
+
+      await window.startPlacement();
+      await T.wait(150);
+
+      const where = T.text("examWhere");
+      assert("the header names the exams it covers", /OLYMPIAD/.test(where) && /AAS/.test(where) && /AMC/.test(where));
+      const list = T.$("examList")?.textContent ?? "";
+      assert("each question is tagged with its exam", /EDUTEST/.test(list) && /ICAS/.test(list));
+    },
+  },
 ];
