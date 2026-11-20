@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<link rel="stylesheet" href="./assets/app.css?v=2.98.0">
+<link rel="stylesheet" href="./assets/app.css?v=2.99.0">
 </head>
 <body>
 
@@ -81,6 +81,7 @@
       </div>
       <div class="hint" id="micTest" style="margin-top:8px"></div>
     </details>
+
   </div>
 
   <div class="authFoot">Quest Coach · Melbourne, Australia</div>
@@ -545,8 +546,6 @@
     <div id="trainUploads" style="margin-top:10px"></div>
     <div id="trainStore" style="margin-top:10px"></div>
     <div id="trainJobs"></div>
-
-    <div id="spendCard" style="margin-top:12px"></div>
     <div class="bar" style="margin-top:10px">
 
       <button class="ghost small" data-action="findSources">Find new sources</button>
@@ -561,7 +560,15 @@
       </div>
       <div class="err" id="trMsg"></div>
     </div>
-  </details></div>
+  </details>
+  <div class="card" id="spendWrap">
+    <div class="k" style="margin-bottom:2px">What the model costs</div>
+    <div class="sub">Every question she writes, every check, and every reply she sends is a paid call to the
+      model. This card counts them, in rupees, for today and the last seven days — so a runaway loop shows up
+      as money rather than as a mystery.</div>
+    <div id="spendCard" style="margin-top:10px"></div>
+  </div>
+</div>
 
   <div class="card">
     <div class="k">Help</div>
@@ -701,6 +708,6 @@
 </footer>
 
 <script src="./supabase.js"></script>
-<script type="module" src="./assets/app.js?v=2.98.0"></script>
+<script type="module" src="./assets/app.js?v=2.99.0"></script>
 </body>
 </html>
