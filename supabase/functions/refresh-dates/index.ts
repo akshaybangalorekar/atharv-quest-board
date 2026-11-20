@@ -11,7 +11,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ENDPOINT = "https://api.sarvam.ai/v2/chat/completions";
-const MODEL = "sarvam-m";
+const MODEL = "glm5.3-flash";
 
 const cors = {
   "access-control-allow-origin": "*",

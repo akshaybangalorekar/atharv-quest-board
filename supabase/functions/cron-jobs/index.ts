@@ -1,0 +1,145 @@
+// cron-jobs — the sweep the database calls on a timer. No person needed.
+//
+// verify_jwt is off because the caller is pg_cron, which has no user token. It is not open: the body
+// must carry the drain token that lives in app_config, which is readable by nobody but this function's
+// service role. It works through every student with queued work, one job each, then returns.
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { fillFromMaterial } from "./_shared/generate.ts";
+import { gateExam, gateQuestion } from "./_shared/gate.ts";
+import { alignExam } from "./_shared/authority.ts";
+
+const SUPABASE = Deno.env.get("SUPABASE_URL")!;
+const ADMIN = () => createClient(SUPABASE, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+const EXAMS = ["aas", "edutest", "amc", "icas", "olympiad"];
+
+const cors = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+
+  let body: any = {};
+  try { body = await req.json(); } catch (_) {}
+
+  const admin = ADMIN();
+
+  // the token is the only key: it is not a user token and it is not guessable
+  const { data: expected } = await admin.rpc("drain_token");
+  if (!expected || body?.token !== expected) {
+    return json({ error: "not allowed" }, 403);
+  }
+
+  // is the model answering at all? A gate that cannot reach the model must say so, not reject silently
+  if (body?.mode === "ping") {
+    const r = await fetch("https://api.sarvam.ai/v2/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json", "api-subscription-key": Deno.env.get("SARVAM_API_KEY") ?? "" },
+      body: JSON.stringify({ model: "sarvam-m", temperature: 0, max_tokens: 20,
+        messages: [{ role: "user", content: "Reply with the single word: ready" }] }),
+    });
+    const text = await r.text();
+    return json({ status: r.status, keyPresent: !!Deno.env.get("SARVAM_API_KEY"), body: text.slice(0, 300) });
+  }
+
+  // golden questions: the judgement itself, tested against the live model
+  if (body?.mode === "selftest") {
+    const cases = [
+      { q: "Tom has 3 more marbles than Sam. How many does Tom have?", expect: "failed", why: "Sam's count is never given" },
+      { q: "A rectangle is 4 cm by 6 cm. What is its area?", expect: "provisional", why: "complete and answerable" },
+      { q: "Look at the diagram below. What is the marked angle?", expect: "failed", why: "no diagram is supplied" },
+      { q: "What is 15% of 80?", expect: "provisional", why: "complete and answerable" },
+      { q: "A bag has some red and blue counters. What fraction are red?", expect: "failed", why: "no numbers at all" },
+    ];
+    const results = [];
+    for (const c of cases) {
+      const v = await gateQuestion(admin, { chapter: 0, idx: 0, prompt: c.q, options: null }, "", false);
+      results.push({ q: c.q.slice(0, 60), expected: c.expect, got: v.state, ok: v.state === c.expect, why: v.why });
+    }
+    return json({ selftest: results, passed: results.filter((r) => r.ok).length, of: results.length });
+  }
+
+  const { data: students } = await admin.rpc("students_with_queued");
+  const ran: any[] = [];
+
+  for (const student of (students ?? []).slice(0, 5)) {
+    const { data: claimed } = await admin.rpc("claim_job", { p_student: student });
+    const job = (claimed as any)?.job;
+    if (!job) continue;
+
+    const detail: Record<string, unknown> = {};
+    let failed = false;
+
+    try {
+      if (job.kind === "ingest" || job.kind === "train") {
+        detail.train = await callFn("train-coach", { mode: "all" }, student);
+        for (const ex of EXAMS) {
+          detail["gate_" + ex] = await gateExam(admin, ex, { limit: 20 });
+          const { data: hasOfficial } = await admin.rpc("exam_has_official", { p_exam: ex });
+          if (hasOfficial) detail["align_" + ex] = await alignExam(admin, ex, { limit: 10 });
+        }
+      } else if (String(job.kind).startsWith("gate:")) {
+        detail.gate = await gateExam(admin, String(job.kind).split(":")[1], { limit: 40 });
+      } else if (String(job.kind).startsWith("align:")) {
+        const ex = String(job.kind).split(":")[1];
+        detail.align = await alignExam(admin, ex, { limit: 25 });
+        detail.gate = await gateExam(admin, ex, { limit: 40 });
+      } else if (job.kind === "fill") {
+        detail.fill = await fillFromMaterial(admin, { perStrand: 3, maxStrands: 6 });
+        for (const ex of EXAMS) detail["gate_" + ex] = await gateExam(admin, ex, { limit: 15 });
+      } else if (job.kind === "parse_paper") {
+        detail.parse = await parsePaper(admin, student, job.payload?.paper_id);
+      } else if (job.kind === "verify") {
+        for (const ex of EXAMS) detail["gate_" + ex] = await gateExam(admin, ex, { limit: 25 });
+      } else {
+        detail.skipped = `unknown job kind ${job.kind}`;
+      }
+    } catch (e) {
+      failed = true;
+      detail.error = String((e as Error)?.message ?? e);
+    }
+
+    await admin.rpc("finish_job", {
+      p_id: job.id, p_ok: !failed, p_detail: detail,
+      p_error: failed ? String(detail.error ?? "") : null,
+    });
+    ran.push({ student, kind: job.kind, ok: !failed });
+  }
+
+  const { data: left } = await admin.rpc("students_with_queued");
+  return json({ ran, stillQueued: (left ?? []).length });
+});
+
+async function callFn(name: string, body: unknown, student: string) {
+  const { data: token } = await ADMIN().rpc("drain_token");
+  const r = await fetch(`${SUPABASE}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      "x-quest-student": student,
+      "x-quest-drain": token ?? "",
+    },
+    body: JSON.stringify(body),
+  });
+  try { return await r.json(); } catch { return { status: r.status }; }
+}
+
+async function parsePaper(admin: any, student: string, paperId: number | string) {
+  let pages = 0;
+  for (let i = 0; i < 40; i++) {
+    const { data: next } = await admin.rpc("next_parse_page", { p_paper: paperId });
+    const page = (next as any)?.page ?? (next as any)?.page_no ?? null;
+    if (!page) break;
+    const res = await callFn("parse-page", { paper_id: paperId, page }, student);
+    if (res?.error) throw new Error(String(res.error));
+    pages++;
+  }
+  return { pages };
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
+}

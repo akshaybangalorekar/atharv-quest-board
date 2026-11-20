@@ -54,7 +54,7 @@ export async function ask(system: string, user: string, temperature = 0, maxToke
     method: "POST",
     headers: { "content-type": "application/json", "api-subscription-key": Deno.env.get("SARVAM_API_KEY")! },
     body: JSON.stringify({
-      model: "sarvam-m",
+      model: "glm5.3-flash",
       temperature,
       max_tokens: maxTokens,
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
