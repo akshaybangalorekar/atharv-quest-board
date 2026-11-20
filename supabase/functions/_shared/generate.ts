@@ -57,12 +57,27 @@ export async function fillFromMaterial(admin: any, opts: { perStrand?: number; m
   const made: Array<{ chapter: number; idx: number; ok: boolean }> = [];
 
   for (const ch of picked) {
+    // a sibling strand is the same exam at another school: its questions must be variants, not copies
+    let sibling: string[] = [];
+    try {
+      const { data: sib } = await admin.from("strands")
+        .select("n, exam_id, title").eq("exam_id", ch.exam_id).neq("n", ch.n).limit(1).maybeSingle();
+      if (sib?.n) {
+        const { data: sibQ } = await admin.from("problems").select("prompt").eq("chapter", sib.n).limit(4);
+        sibling = (sibQ ?? []).map((x: any) => String(x.prompt));
+      }
+    } catch (_) {}
+
     const { data: passages } = await admin.rpc("search_docs", {
       p_query: ch.title ?? "mathematics", p_chapter: null, p_limit: 2,
     });
     const material = (passages ?? []).map((x: any) => String(x.body ?? "").slice(0, 400)).join("\n\n");
 
-    const raw = await ask(WRITE(String(ch.title), ch.subject ?? "maths", material, perStrand), "Write them now.", 0.8, 1400);
+    const variantNote = sibling.length
+      ? `\n\nThese questions already exist in the sibling strand of the same exam. Do NOT repeat them: write the same
+kind of thinking with different numbers, names and scenario, so a child who has done those is still asked something new:\n${sibling.join("\n")}`
+      : "";
+    const raw = await ask(WRITE(String(ch.title), ch.subject ?? "maths", material, perStrand) + variantNote, "Write them now.", 0.8, 1400);
     const parsed = jsonIn(raw);
     const rows = (parsed?.rows ?? []).filter((r: any) => r?.q && r?.a).slice(0, perStrand);
 
@@ -100,5 +115,10 @@ export async function fillFromMaterial(admin: any, opts: { perStrand?: number; m
     }
   }
 
-  return { strands: picked.length, made: made.length, rows: made };
+  const perExam: Record<string, number> = {};
+  for (const ch of picked) {
+    const key = String(ch.source ?? "other").toLowerCase();
+    perExam[key] = (perExam[key] ?? 0) + made.filter((m) => m.chapter === ch.n).length;
+  }
+  return { strands: picked.length, made: made.length, perExam, rows: made };
 }

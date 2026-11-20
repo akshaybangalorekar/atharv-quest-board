@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.85.0";
+import * as data from "./data.js?v=2.86.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.85.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.86.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2105,8 +2105,12 @@ async function loadParent() {
   try {
     const { data: st } = await sb.rpc("training_status");
     const passages = st?.chunks ?? 0, sites = st?.web_docs ?? 0;
+    const { data: jobs } = await sb.rpc("recent_jobs", { p_limit: 1 });
+    const lastWrite = (jobs?.[0]?.detail?.generated ?? jobs?.[0]?.detail?.train?.generated ?? 0);
     S.libNote = (st?.docs ?? 0)
-      ? `She has read ${passages} passages from ${sites} site${sites === 1 ? "" : "s"} — questions are written from them automatically; Generate 20 asks for twenty more.`
+      ? `She has read ${passages} passages from ${sites} site${sites === 1 ? "" : "s"}` +
+        (lastWrite ? ` and wrote ${lastWrite} question${lastWrite === 1 ? "" : "s"} on the last run` : "") +
+        ` — Generate 20 asks for twenty more for this exam.`
       : "She has not read any sources yet — Train her now in Help.";
   } catch (_) { S.libNote = ""; }
 
