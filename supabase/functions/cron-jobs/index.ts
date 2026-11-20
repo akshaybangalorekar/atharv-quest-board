@@ -9,7 +9,7 @@ import { fillFromMaterial } from "./_shared/generate.ts";
 import { gateExam, gateQuestion } from "./_shared/gate.ts";
 import { checkQuestion } from "./_shared/quality.ts";
 import { ask } from "./_shared/mod.ts";
-import { alignExam } from "./_shared/authority.ts";
+import { alignExam, scopeExam } from "./_shared/authority.ts";
 
 const SUPABASE = Deno.env.get("SUPABASE_URL")!;
 const ADMIN = () => createClient(SUPABASE, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -125,10 +125,19 @@ Deno.serve(async (req) => {
 
 
 
+  // scope first: a question off the official topic list is not verified, it is out of scope
+  if (body?.mode === "scope") {
+    const exam = String(body?.exam ?? "");
+    if (!exam) return json({ error: "no exam given" }, 400);
+    return json(await scopeExam(admin, exam, { limit: Number(body?.limit ?? 40) }));
+  }
+
   // re-judge the provisional questions of one exam against official material
   if (body?.mode === "regate") {
     const exam = String(body?.exam ?? "");
     if (!exam) return json({ error: "no exam given" }, 400);
+    // a question off the syllabus is not verified against it: drop it first
+    const scope = await scopeExam(admin, exam, { limit: Number(body?.limit ?? 40) });
     const { data: rows } = await admin.rpc("provisional_to_check", { p_exam: exam });
     const list = (rows ?? []) as any[];
     const out: any[] = [];

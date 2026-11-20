@@ -57,3 +57,35 @@ export async function alignExam(admin: any, exam: string, opts: { limit?: number
 
   return { exam, reviewed: live.length, changed };
 }
+
+/* Scope: a question must test the topic its strand is named for, and that strand must be on the
+   exam's own list. A question outside the list is not "unverified", it is out of scope. */
+const SCOPE = (topic: string, exam: string) => `You decide one thing: does this question test the topic "${topic}"
+as it is taught for ${exam}?
+
+Answer with one word: YES or NO. Then, if NO, name the topic it actually tests.
+
+Say NO when the question is about a different skill from the one named — a fraction question filed under Venn
+diagrams is NO. Say NO when the topic is not on the ${exam} syllabus at all.
+Be strict: a question the exam would never ask is NO.`;
+
+export async function scopeExam(admin: any, exam: string, opts: { limit?: number } = {}) {
+  const limit = opts.limit ?? 40;
+  const { data: rows } = await admin.rpc("exam_questions", { p_exam: exam });
+  const live = (rows ?? []).filter((r: any) => r.status === "provisional" || r.status === "cleared").slice(0, limit);
+  let moved = 0;
+  for (const r of live) {
+    const topic = String(r.strand ?? r.title ?? "").split(" · ").pop() ?? "";
+    if (!topic) continue;
+    const raw = await ask(SCOPE(topic, exam), `Question: ${r.prompt}`, 0.1, 120);
+    const verdict = String(raw ?? "").trim();
+    if (!/^no/i.test(verdict)) continue;
+    const actually = verdict.replace(/^no[.,:\s-]*/i, "").slice(0, 90) || "a different topic";
+    await admin.rpc("set_question_status", {
+      p_chapter: r.chapter, p_idx: r.idx, p_status: "failed",
+      p_note: `out of scope: this tests ${actually}, not ${topic} — not on the ${exam} list`,
+    });
+    moved++;
+  }
+  return { exam, checked: live.length, out_of_scope: moved };
+}
