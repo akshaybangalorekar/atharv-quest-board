@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.06.2";
+import * as data from "./data.js?v=3.06.3";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.06.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.06.3";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -372,6 +372,15 @@ async function openTimetable() {
       ? new Date(x.exam_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
       : "no date";
 
+    const syncedX = syncCount(String(x.family ?? x.label).toLowerCase(), "servable");
+    const examCount = syncedX >= 0 ? syncedX : (x.items ?? 0);
+    const examTone = examCount === 0 ? "orange" : examCount < 30 ? "amber" : "green";
+    const examTip = examCount === 0
+      ? "No questions for this exam yet — she writes them from what she reads, or from a file you upload."
+      : examCount < 30
+        ? `${examCount} questions. Enough to practise, not yet enough to judge readiness (30 is the line).`
+        : `${examCount} questions — enough to judge readiness for this exam.`;
+
     const mine = specFor[x.label] ?? [];
     const topics = x.rows ?? [];
 
@@ -419,8 +428,8 @@ async function openTimetable() {
     return `<div class="card ttExam">
       <div class="ttHead">
         <span class="ttName">${esc(x.label)}</span>
-        <span class="pill ${vcls}">${esc(verdict)}</span>
-        <span class="ttMeta">${examWhen}${x.days_left !== null ? ` · ${x.days_left} days` : ""}</span>
+        <span class="chip ${examTone}" title="${examTip}"><b>${examCount}</b> questions</span>
+        <span class="chip grey" title="${esc(x.label)} sits on ${esc(examWhen)}"><b>${x.days_left ?? 0}</b> days</span>
         <span class="ttMeta" style="margin-left:auto">${done} of ${all} topics</span>
       </div>
       <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
