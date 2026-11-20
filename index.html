@@ -32,11 +32,11 @@
       <div class="topProgText" id="topProgText">Reading…</div>
       <div class="topProgTrack"><span id="topProgBar"></span></div>
     </div>
-    <button class="out hidden" id="homeBtn" onclick="goHome()">Home</button>
-    <button class="out hidden" id="parentBtn" onclick="goParent()">Parent view</button>
-    <button class="out" onclick="openTimetable()">Timetable</button>
-    <button class="out" id="helpBtn" onclick="openHelp()">Help</button>
-    <button class="out" id="signOut" onclick="signOut()" style="display:none">Sign out</button>
+    <button class="out hidden" id="homeBtn" data-action="goHome">Home</button>
+    <button class="out hidden" id="parentBtn" data-action="goParent">Parent view</button>
+    <button class="out" data-action="openTimetable">Timetable</button>
+    <button class="out" id="helpBtn" data-action="openHelp">Help</button>
+    <button class="out" id="signOut" data-action="signOut" style="display:none">Sign out</button>
   </div>
 </div>
 
@@ -60,7 +60,7 @@
       <label for="pw">Password</label>
       <input id="pw" type="password" placeholder="••••••••" autocomplete="current-password"
              onkeydown="if(event.key==='Enter')signIn()">
-      <div class="forgotRow"><button class="link" onclick="forgotPassword()">Forgot password?</button></div>
+      <div class="forgotRow"><button class="link" data-action="forgotPassword">Forgot password?</button></div>
     </div>
 
     <label class="check">
@@ -68,7 +68,7 @@
       <span>Keep me signed in on this device</span>
     </label>
 
-    <button class="go wide" onclick="signIn()">Sign in</button>
+    <button class="go wide" data-action="signIn">Sign in</button>
     <div class="err" id="err"></div>
     <div class="hint" id="signHint"></div>
 
@@ -76,8 +76,8 @@
       <summary style="cursor:pointer;font-size:12.5px;color:var(--mut)">Trouble signing in?</summary>
       <div class="hint" id="diag" style="margin-top:8px;line-height:1.6">Checking…</div>
       <div class="bar" style="margin-top:8px">
-        <button class="ghost small" onclick="testMic()">Test the microphone</button>
-        <button class="ghost small" onclick="freshCopy()">Reload a fresh copy</button>
+        <button class="ghost small" data-action="testMic">Test the microphone</button>
+        <button class="ghost small" data-action="freshCopy">Reload a fresh copy</button>
       </div>
       <div class="hint" id="micTest" style="margin-top:8px"></div>
     </details>
@@ -89,7 +89,7 @@
     <div class="k">Choose a new password</div>
     <div style="display:grid;gap:10px;margin-top:8px">
       <input id="newPw" type="password" placeholder="new password" autocomplete="new-password">
-      <button class="go" onclick="saveNewPassword()">Save it</button>
+      <button class="go" data-action="saveNewPassword">Save it</button>
     </div>
     <div class="err" id="newPwErr"></div>
   </div>
@@ -106,7 +106,7 @@
   <div class="card" style="border-color:#dcd8f4;box-shadow:0 2px 18px rgba(75,63,196,.08)">
     <div class="k" id="coachLabel">Your coach says</div>
     <div class="q" id="coachSay" style="font-size:18px">Thinking about today…</div>
-    <div class="bar"><button class="go" id="coachGo" onclick="runCoachPlan()" disabled>Start →</button></div>
+    <div class="bar"><button class="go" id="coachGo" data-action="runCoachPlan" disabled>Start →</button></div>
     <div class="hint" id="coachWhy"></div>
     <div class="hint" id="weekLine" style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px"></div>
   </div>
@@ -116,9 +116,9 @@
   <div class="card" style="padding:14px 20px">
     <div class="k">Look back</div>
     <div class="row3">
-      <button class="ghost small" onclick="openDash()">Progress</button>
-      <button class="ghost small" onclick="openJournal()">Journal</button>
-      <button class="ghost small" onclick="openFormula()">Formula board</button>
+      <button class="ghost small" data-action="openDash">Progress</button>
+      <button class="ghost small" data-action="openJournal">Journal</button>
+      <button class="ghost small" data-action="openFormula">Formula board</button>
     </div>
   </div>
 </main>
@@ -140,29 +140,29 @@
   <div class="sessionTop" id="budgetBar">
     <div class="topClock"><span id="budgetLabel">Session</span><b id="budgetClock">--:--</b></div>
     <div class="topBtns">
-      <button class="ghost small" onclick="endSession()">Pause session</button>
+      <button class="ghost small" data-action="endSession">Pause session</button>
     </div>
   </div>
   <div class="actions" id="chatActions"></div>
   <div id="chatWrap"></div>
   <div class="card" id="sComposer">
     <input type="file" id="doubt" accept="image/*" capture="environment" multiple class="hidden" onchange="handlePhoto(this)">
-    <button class="roundBtn" id="micBtn" title="Talk" onclick="toggleMic()">
+    <button class="roundBtn" id="micBtn" title="Talk" data-action="toggleMic">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z"/>
         <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
     </button>
     <textarea id="say" rows="1" placeholder="Say something to Ananya…" inputmode="none" autocomplete="off"
-              readonly onclick="openPad(this,'text')"
+              readonly data-action="openPad" data-mode="text"
               oninput="growSay(this)"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMe()}"></textarea>
-    <button class="roundBtn" title="Add a photo" onclick="takePhoto()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    <button class="roundBtn" title="Add a photo" data-action="takePhoto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.3 20.2a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg></button>
-    <button class="roundBtn" title="Send" onclick="sendMe()">
+    <button class="roundBtn" title="Send" data-action="sendMe">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
     </button>
-    <button class="roundBtn" title="Add a photo" onclick="takePhoto()" style="display:none">
+    <button class="roundBtn" title="Add a photo" data-action="takePhoto" style="display:none">
     <span class="hint" id="micState" style="display:none"></span>
   </div>
 </main>
@@ -179,8 +179,8 @@
     <div class="hint" style="margin:0 0 12px">No hints, no help. Nothing is revealed until you submit.</div>
     <div id="examList" style="display:grid;gap:12px"></div>
     <div class="bar">
-      <button class="go" id="subBtn" onclick="submitTest()">Submit the test</button>
-      <button class="ghost small" onclick="leavePaper()">Leave this paper</button>
+      <button class="go" id="subBtn" data-action="submitTest">Submit the test</button>
+      <button class="ghost small" data-action="leavePaper">Leave this paper</button>
     </div>
     <div class="err" id="examErr"></div>
   </div>
@@ -194,8 +194,8 @@
   </div>
   <div class="card"><div class="k">Question by question</div><table><tbody id="resItems"></tbody></table></div>
   <div class="card"><div class="bar">
-    <button class="ghost" onclick="returnToSession()">← Back to Ananya</button>
-    <button class="ghost" onclick="goLanding()">Home</button>
+    <button class="ghost" data-action="returnToSession">← Back to Ananya</button>
+    <button class="ghost" data-action="goLanding">Home</button>
   </div></div>
 </main>
 
@@ -211,11 +211,11 @@
     <div class="big" style="font-size:22px" id="pChild">—</div>
     <div class="sub" id="pSummary"></div>
     <div class="bar">
-      <button class="go small" onclick="openParentChat()">Ask the coach →</button>
-      <button class="ghost small" onclick="openDash()">Progress</button>
-      <button class="ghost small" onclick="parentWeekly()">This week's summary</button>
-      <button class="ghost small" onclick="askForEarlyMock()">Bring the next mock forward</button>
-      <button class="ghost small" onclick="goLanding()">Go to his screen →</button>
+      <button class="go small" data-action="openParentChat">Ask the coach →</button>
+      <button class="ghost small" data-action="openDash">Progress</button>
+      <button class="ghost small" data-action="parentWeekly">This week's summary</button>
+      <button class="ghost small" data-action="askForEarlyMock">Bring the next mock forward</button>
+      <button class="ghost small" data-action="goLanding">Go to his screen →</button>
     </div>
   </div>
 
@@ -240,7 +240,7 @@
     <summary class="foldHead">Sample questions</summary>
     <div style="margin-top:10px">
       <div id="pPapers"><div class="sub">No files yet.</div></div>
-      <div class="bar" style="margin-top:10px"><button class="go small" onclick="openUpload()">＋ Add a file</button></div>
+      <div class="bar" style="margin-top:10px"><button class="go small" data-action="openUpload">＋ Add a file</button></div>
     </div>
   </details></div>
 
@@ -352,8 +352,8 @@
           <div id="alertToList" style="margin:8px 0"></div>
           <div class="bar">
             <input id="alertTo" placeholder="name@example.com" style="max-width:240px">
-            <button class="ghost small" onclick="addAlertTo()">Add</button>
-            <button class="ghost small" onclick="testAlertEmail()">Send a test email</button>
+            <button class="ghost small" data-action="addAlertTo">Add</button>
+            <button class="ghost small" data-action="testAlertEmail">Send a test email</button>
           </div>
           <div class="err" id="alertToMsg"></div>
         </div>
@@ -363,15 +363,15 @@
         <div style="margin-top:10px">
           <label class="k">The name you sign in with</label>
           <div class="bar"><input id="accName" placeholder="name" style="flex:1 1 160px">
-            <button class="ghost small" onclick="saveName()">Save name</button></div>
+            <button class="ghost small" data-action="saveName">Save name</button></div>
           <label class="k" style="margin-top:12px">A new password</label>
           <div class="bar"><input id="accPw" type="password" placeholder="at least 8 characters" style="flex:1 1 160px">
-            <button class="ghost small" onclick="savePassword()">Save password</button></div>
+            <button class="ghost small" data-action="savePassword">Save password</button></div>
           <div class="hint" id="accMsg" style="margin-top:8px"></div>
           <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
             <label class="k">Set your child’s password</label>
             <div class="bar"><input id="kidPw" type="password" placeholder="at least 8 characters" style="flex:1 1 160px">
-              <button class="ghost small" onclick="saveChildPassword()">Set it</button></div>
+              <button class="ghost small" data-action="saveChildPassword">Set it</button></div>
             <div class="hint" id="kidMsg" style="margin-top:8px">For when he has forgotten it. He signs in with his name and this password.</div>
           </div>
         </div>
@@ -387,7 +387,7 @@
           </div>
           <div class="bar" style="margin-top:8px">
             <input id="newKidPw" type="password" placeholder="Password, at least 8 characters" style="flex:1 1 200px">
-            <button class="ghost small" onclick="createChild()">Create the account</button>
+            <button class="ghost small" data-action="createChild">Create the account</button>
           </div>
           <div class="hint" id="newKidMsg" style="margin-top:8px"></div>
           <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
@@ -401,10 +401,10 @@
       <details><summary style="cursor:pointer;font-weight:600">The coach checking its own content</summary>
         <div style="margin-top:10px">
           <div class="sub">It reworks the questions most likely to be wrong — blanks, answers it wrote itself, and questions that mention a diagram — and proposes corrections. Nothing changes until you tick and apply.</div>
-          <div class="bar"><button class="ghost small" id="scanBtn" onclick="scanContent()">Check the content</button></div>
+          <div class="bar"><button class="ghost small" id="scanBtn" data-action="scanContent">Check the content</button></div>
           <div id="contentList" style="margin-top:12px"></div>
           <div class="bar" id="applyBar" style="display:none">
-            <button class="go small" onclick="applyContent()">Apply the ticked ones</button>
+            <button class="go small" data-action="applyContent">Apply the ticked ones</button>
           </div>
           <div class="err" id="contentMsg"></div>
         </div>
@@ -416,22 +416,22 @@
             <div class="sub"><b>Everything.</b> Every answer, score, streak, journal note, test and file, plus every
               question from either source, and the timetable. Back to day one.</div>
             <div class="bar"><button class="ghost small" style="border-color:#f2c9c9;color:var(--red)"
-              onclick="wipe('all')">Wipe everything…</button></div>
+              data-action="wipe" data-arg="all">Wipe everything…</button></div>
           </div>
           <div>
             <div class="sub"><b>Uploaded content only.</b> The files you added and the questions taken from them.
               Everything else stays.</div>
-            <div class="bar"><button class="ghost small" onclick="wipe('uploaded')">Delete uploaded content…</button></div>
+            <div class="bar"><button class="ghost small" data-action="wipe" data-arg="uploaded">Delete uploaded content…</button></div>
           </div>
           <div>
             <div class="sub"><b>Generated content only.</b> The questions the coach wrote. Your files and his progress
               on them stay.</div>
-            <div class="bar"><button class="ghost small" onclick="wipe('generated')">Delete generated content…</button></div>
+            <div class="bar"><button class="ghost small" data-action="wipe" data-arg="generated">Delete generated content…</button></div>
           </div>
           <div>
             <div class="sub"><b>Both conversations.</b> Everything said to the coach — his thread and yours. Nothing
               else is touched: his work, the files and the questions stay.</div>
-            <div class="bar"><button class="ghost small" onclick="wipe('chats')">Clear both conversations…</button></div>
+            <div class="bar"><button class="ghost small" data-action="wipe" data-arg="chats">Clear both conversations…</button></div>
           </div>
           <div id="wipeProg" class="hidden" style="margin-top:6px">
             <div class="rowProg" style="margin-bottom:6px"><span id="wipeBar" style="width:0%"></span></div>
@@ -449,7 +449,7 @@
 <div id="upPanel" class="card hidden" style="border-color:#d8d2ff;background:#faf9ff">
   <div class="bar" style="justify-content:space-between;align-items:center">
     <div class="k" style="margin:0">Add a file</div>
-    <button class="link" onclick="closeUpload()">Close</button>
+    <button class="link" data-action="closeUpload">Close</button>
   </div>
 
   <div class="sub" style="margin:6px 0 12px">Pick the exam, add the file. It is saved to the database first,
@@ -477,7 +477,7 @@
   <textarea id="upRows" rows="1" class="hidden"></textarea>
 
   <div class="bar">
-    <button class="go" onclick="document.getElementById('upFile').click()">Choose files</button>
+    <button class="go" data-action="pickFile">Choose files</button>
     <input type="file" id="upFile" multiple accept=".pdf,.jpg,.jpeg,.png,.html,.htm,.txt,.md,.docx"
            class="hidden" onchange="uploadAndRead(this)">
   </div>
@@ -498,15 +498,15 @@
 <main id="pchat" class="hidden">
   <div id="pchatWrap"></div>
   <div class="card" id="pComposer">
-    <button class="roundBtn" id="pMic" title="Talk" onclick="parentDictate()">
+    <button class="roundBtn" id="pMic" title="Talk" data-action="parentDictate">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z"/>
         <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
     </button>
     <input id="pSay" placeholder="Ask the coach…" onkeydown="if(event.key==='Enter')sendParent()">
-    <button class="roundBtn" title="Add a paper or a photo" onclick="addFromChat()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    <button class="roundBtn" title="Add a paper or a photo" data-action="addFromChat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.3 20.2a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg></button>
-    <button class="roundBtn" title="Send" onclick="sendParent()">
+    <button class="roundBtn" title="Send" data-action="sendParent">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
            stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
     </button>
@@ -523,7 +523,7 @@
   </div>
   <div id="ttBody"></div>
   <div class="card"><div class="bar">
-    <button class="ghost small" onclick="openTimetable()">Refresh</button>
+    <button class="ghost small" data-action="openTimetable">Refresh</button>
   </div></div>
 </main>
 
@@ -537,16 +537,16 @@
     <div id="trainUploads" style="margin-top:10px"></div>
     <div id="trainStore" style="margin-top:10px"></div>
     <div class="bar" style="margin-top:10px">
-      <button class="go small" onclick="trainNow()">Train her now</button>
-      <button class="ghost small" onclick="findSources()">Find new sources</button>
-      <button class="ghost small" onclick="verifyBank()">Check every question</button>
+      <button class="go small" data-action="trainNow">Train her now</button>
+      <button class="ghost small" data-action="findSources">Find new sources</button>
+      <button class="ghost small" data-action="verifyBank">Check every question</button>
     </div>
     <div class="err" id="trainMsg"></div>
     <div id="trainAdd" style="margin-top:12px;display:none">
       <div class="bar">
         <input id="trName" placeholder="Name, e.g. AMC 2019 paper" style="max-width:220px">
         <input id="trUrl" placeholder="https://…" style="max-width:220px">
-        <button class="ghost small" onclick="addTrainingSource()">Add a source</button>
+        <button class="ghost small" data-action="addTrainingSource">Add a source</button>
       </div>
       <div class="err" id="trMsg"></div>
     </div>
@@ -573,7 +573,7 @@
   <div class="card">
     <div class="bar" style="justify-content:space-between;align-items:center">
       <span class="sub" id="helpVer">—</span>
-      <div class="bar"><button class="ghost small" onclick="freshCopy()">Refresh the app</button>
+      <div class="bar"><button class="ghost small" data-action="freshCopy">Refresh the app</button>
     </div>
   </div>
 </main>
@@ -595,7 +595,7 @@
     <div class="sub">One note per session, newest first. Tap one to read it again.</div>
   </div>
   <div class="card"><div id="journalList"><div class="sub">Loading…</div></div></div>
-  <div class="card"><button class="ghost" onclick="returnToSession()">← Back to Ananya</button></div>
+  <div class="card"><button class="ghost" data-action="returnToSession">← Back to Ananya</button></div>
 </main>
 
 <!-- the formula board -->
@@ -606,7 +606,7 @@
     <div class="sub">The board beside your desk. Tick a card once you have written it there, in your own hand.</div>
   </div>
   <div class="card"><div id="formulaList"><div class="sub">Loading…</div></div></div>
-  <div class="card"><button class="ghost" onclick="returnToSession()">← Back to Ananya</button></div>
+  <div class="card"><button class="ghost" data-action="returnToSession">← Back to Ananya</button></div>
 </main>
 
 <!-- how it is going -->
@@ -646,11 +646,11 @@
   <div class="card">
     <div class="k">Go back to</div>
     <div class="bar">
-      <button class="ghost" onclick="openJournal()">Journal</button>
-      <button class="ghost" onclick="openFormula()">Formula board</button>
+      <button class="ghost" data-action="openJournal">Journal</button>
+      <button class="ghost" data-action="openFormula">Formula board</button>
     </div>
   </div>
-  <div class="card"><button class="ghost" onclick="returnToSession()">← Back to Ananya</button></div>
+  <div class="card"><button class="ghost" data-action="returnToSession">← Back to Ananya</button></div>
 </main>
 
 <main id="chapter" class="hidden">
@@ -664,7 +664,7 @@
       <div class="sub" id="chSummary" style="margin-top:8px"></div>
     </details>
     <div class="bar">
-      <button class="go small" onclick="startSolo()">Practise this chapter →</button>
+      <button class="go small" data-action="startSolo">Practise this chapter →</button>
     </div>
   </div>
   <div class="card">
@@ -677,8 +677,8 @@
   <div class="padTop">
     <span id="padWho">Typing</span>
     <span>
-      <button class="link" id="padKb" onclick="useSystemKeyboard()">iPad keyboard</button>
-      <button class="link" onclick="padDone()">Done</button>
+      <button class="link" id="padKb" data-action="useSystemKeyboard">iPad keyboard</button>
+      <button class="link" data-action="padDone">Done</button>
     </span>
   </div>
   <div id="padKeys"></div>
