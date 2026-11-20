@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<link rel="stylesheet" href="./assets/app.css?v=2.87.0">
+<link rel="stylesheet" href="./assets/app.css?v=2.88.0">
 </head>
 <body>
 
@@ -477,13 +477,10 @@
   <textarea id="upRows" rows="1" class="hidden"></textarea>
 
   <div class="card" style="box-shadow:none;border:1px solid var(--line);padding:10px;margin-bottom:10px">
-    <div class="sub" style="margin-bottom:6px">If this file is <b>Top Scope</b> material, say which exam it is the
-      final word for. Top Scope outranks everything else for that exam.</div>
-    <label style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin-bottom:6px">
-      <input type="checkbox" id="authEdutest"> <span><b>TOPSCOPE_EDUTEST</b> — Edutest, Kilvington and McKinnon/ELMS</span>
-    </label>
-    <label style="display:flex;gap:8px;align-items:center;font-size:13.5px">
-      <input type="checkbox" id="authAas"> <span><b>TOPSCOPE_AAS</b> — AAS, Camberwell</span>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13.5px">
+      <input type="checkbox" id="authOfficial" style="margin-top:3px">
+      <span><b>Official training material</b> — this file is the final word for the exam chosen above, and for
+        no other exam. It outranks the internet, her own questions and anything Generate produces.</span>
     </label>
   </div>
 
@@ -702,6 +699,6 @@
 </footer>
 
 <script src="./supabase.js"></script>
-<script type="module" src="./assets/app.js?v=2.87.0"></script>
+<script type="module" src="./assets/app.js?v=2.88.0"></script>
 </body>
 </html>

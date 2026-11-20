@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.87.0";
+import * as data from "./data.js?v=2.88.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.87.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.88.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2404,11 +2404,19 @@ async function uploadAndRead(input) {
   input.value = "";
   if (!files.length) return;
 
-  // Top Scope material is the final authority for the exam it is ticked for
-  const edutest = !!$("authEdutest")?.checked;
-  const aas = !!$("authAas")?.checked;
-  S.uploadAuthority = edutest ? "topscope_edutest" : aas ? "topscope_aas" : null;
-  S.uploadAuthorityExam = edutest ? "edutest" : aas ? "aas" : null;
+  // official material is the final authority for the exam selected above — and only that exam
+  const official = !!$("authOfficial")?.checked;
+  const examKey = (() => {
+    const e = String($("upBank")?.value ?? "").toLowerCase();
+    if (e.includes("edutest") || e.includes("elms")) return "edutest";
+    if (e.includes("aas")) return "aas";
+    if (e.includes("olympiad") || e.includes("apsmo") || e.includes("book")) return "olympiad";
+    if (e.includes("icas")) return "icas";
+    if (e.includes("amc")) return "amc";
+    return null;
+  })();
+  S.uploadAuthority = official && examKey ? `official_${examKey}` : null;
+  S.uploadAuthorityExam = official ? examKey : null;
 
   const { data: { user } } = await sb.auth.getUser();
   const exam = $("upBank")?.value || "ELMS";
