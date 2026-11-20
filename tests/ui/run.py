@@ -18,8 +18,8 @@ RUNNER = """
 <script>
 window.__results = [];
 // every generated scenario becomes a case, with the same assertion interface
-if (window.__diagrams) {
-  window.CASES = (window.CASES || []).concat(window.__diagrams.map((sc) => ({
+if (Array.isArray(window.__diagrams)) {
+  window.CASES = (Array.isArray(window.CASES) ? window.CASES : []).concat(window.__diagrams.map((sc) => ({
     name: sc.name,
     run: async ({ assert, T }) => {
       window.__fixtures["truth"] = T.baseTruth();
@@ -48,8 +48,8 @@ if (window.__diagrams) {
   })));
 }
 
-if (window.__uploads) {
-  window.CASES = (window.CASES || []).concat(window.__uploads.map((sc) => ({
+if (Array.isArray(window.__uploads)) {
+  window.CASES = (Array.isArray(window.CASES) ? window.CASES : []).concat(window.__uploads.map((sc) => ({
     name: sc.name,
     run: async ({ assert, T }) => {
       const up = sc.upload || {};
@@ -85,8 +85,8 @@ if (window.__uploads) {
   })));
 }
 
-if (window.__scenarios) {
-  window.CASES = (window.CASES || []).concat(window.__scenarios.map((sc) => ({
+if (Array.isArray(window.__scenarios)) {
+  window.CASES = (Array.isArray(window.CASES) ? window.CASES : []).concat(window.__scenarios.map((sc) => ({
     name: sc.name,
     run: async ({ assert, T }) => {
       const d = sc.data || {};
@@ -181,10 +181,11 @@ def run_case(page: str) -> list:
         "--allow-file-access-from-files", "--window-size=1100,800",
         "--virtual-time-budget=60000", "--dump-dom", "file://" + page,
     ]
-    out = subprocess.run(cmd, capture_output=True, text=True, timeout=120).stdout
+    out = subprocess.run(cmd, capture_output=True, text=True, timeout=280).stdout
     m = re.search(r'id="testout">(.*?)</div>', out, re.S)
     if not m:
-        return [{"name": "the page never finished", "checks": [{"what": "no result marker", "ok": False}]}]
+        return [{"name": "the page never finished (too many cases for one run — use BATCH=i/n)",
+                 "checks": [{"what": "no result marker: the browser was killed before the run ended", "ok": False}]}]
     return json.loads(m.group(1))
 
 
