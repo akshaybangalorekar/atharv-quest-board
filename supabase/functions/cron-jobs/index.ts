@@ -124,6 +124,31 @@ Deno.serve(async (req) => {
   }
 
 
+
+  // re-judge the provisional questions of one exam against official material
+  if (body?.mode === "regate") {
+    const exam = String(body?.exam ?? "");
+    if (!exam) return json({ error: "no exam given" }, 400);
+    const { data: rows } = await admin.rpc("provisional_to_check", { p_exam: exam });
+    const list = (rows ?? []) as any[];
+    const out: any[] = [];
+    for (const q of list) {
+      const v = await gateQuestion(admin, { chapter: q.chapter, idx: q.idx, prompt: q.prompt }, "", true);
+      // verified when it holds up against the official material; held back when it does not
+      const state = v.state === "failed" ? "failed" : "cleared";
+      await admin.from("problems").update({
+        status: state,
+        status_note: v.why.slice(0, 400),
+        verified_at: new Date().toISOString(),
+        verified_against: "official_" + exam,
+      }).eq("chapter", q.chapter).eq("idx", q.idx);
+      out.push({ chapter: q.chapter, idx: q.idx, state });
+    }
+    return json({ exam, checked: out.length,
+                  verified: out.filter((r) => r.state === "cleared").length,
+                  held: out.filter((r) => r.state === "failed").length, rows: out });
+  }
+
   // the golden set: 25 questions from real papers whose answers were verified by hand
   if (body?.mode === "golden") {
     const golden: Array<[string, string, "pass" | "failed"]> = [

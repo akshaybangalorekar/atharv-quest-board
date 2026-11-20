@@ -121,4 +121,12 @@ export const print_rows = (args) => call((a) => sb.rpc("print_rows", a), args);
 
 export const question_sources = (args) => call((a) => sb.rpc("question_sources", a), args);
 
+export const log_skip = (args) => call((a) => sb.rpc("log_skip", a), args);
+
+export const next_verified = (args) => call((a) => sb.rpc("next_verified", a), args);
+
+export const regate_exam = (args) => call((a) => sb.rpc("regate_exam", a), args);
+
+export const provisional_to_check = (args) => call((a) => sb.rpc("provisional_to_check", a), args);
+
 export const table = (name) => sb.from(name);

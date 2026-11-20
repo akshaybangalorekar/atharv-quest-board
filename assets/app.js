@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.20.0";
+import * as data from "./data.js?v=3.21.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -181,7 +181,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.20.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.21.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -1874,6 +1874,7 @@ async function printQuestions(fam) {
         border-bottom:1px solid #ddd;padding-bottom:4px}
       .q{margin:0 0 10px;page-break-inside:avoid}
       .n{color:#777;font-size:12px}
+      .tag{font-size:10px;color:#7a5405;background:#fdf3dc;border:1px solid #f0dfae;border-radius:999px;padding:1px 6px;margin-left:4px}
       .src{font-size:10.5px;color:#666;margin:2px 0 6px}
       .fig{margin:8px 0 4px;page-break-inside:avoid}
       .fig svg{max-width:320px;height:auto}
@@ -1888,6 +1889,7 @@ async function printQuestions(fam) {
       <h2>${esc((rows.find((r) => r.chapter === n)?.strand) ?? ("Chapter " + n))}</h2>
       ${rows.filter((r) => r.chapter === n).map((r, i) => `
         <div class="q"><span class="n">${i + 1}.</span> ${esc(r.prompt)}
+          <span class="tag">${r.status === "cleared" ? "verified" : r.status === "provisional" ? "provisional" : "unchecked"}</span>
           ${r.diagram_svg ? `<div class="fig">${r.diagram_svg}</div>` : ""}
           <div class="src">${r.derived_from
             ? `${esc(r.source_ref ?? "variation")} — original: “${esc(String(r.derived_from).slice(0, 70))}”`
@@ -4171,12 +4173,20 @@ function sittingLine(f, fallbackWhen) {
 
 /* a question that has not been cleared against official material is labelled as such */
 function gateLabel(q) {
-  const provisional = (q?.status === "provisional" || q?.gate_state === "provisional");
+  const st = String(q?.status ?? q?.gate_state ?? "");
   const src = String(q?.source_ref ?? "").trim();
-  const where = src ? ` · from ${src}` : "";
-  // the source is shown whether or not the question is provisional
-  if (provisional) return ` (provisional${where})`;
-  return src ? ` (from ${src})` : "";
+  const where = src ? `from ${src}` : "source not recorded";
+  const tag = st === "cleared" ? "verified" : st === "provisional" ? "provisional" : st === "failed" ? "held back" : "unchecked";
+  return ` (${tag} · ${where})`;
+}
+
+/* a provisional question can be skipped: he should not be drilled on something unverified
+   when something verified is available */
+function skipButtonFor(q) {
+  const st = String(q?.status ?? "");
+  if (st !== "provisional") return "";
+  return `<button class="ghost small" data-action="skipProvisional" data-a0="${q.chapter}" data-a1="${q.idx}"
+    title="This one is not verified against official material yet. Skipping it swaps in a verified question if there is one.">Skip this one</button>`;
 }
 
 
@@ -4187,6 +4197,7 @@ function showQuestion(q) {
   el.innerHTML = `
     <div class="n">CHAPTER ${q.chapter} · QUESTION ${q.idx} · ${S.si + 1} of ${S.script.length}</div>
     <div class="q">${esc(q.prompt)}${gateLabel(q)}</div>
+    <div class="bar">${skipButtonFor(q)}</div>
     <div id="qFig"></div>
     <div id="qOpts" class="opts"></div>
     <div style="display:flex;gap:8px">
@@ -5043,6 +5054,22 @@ registerActions({
   deletePaper: (el) => deletePaper(Number(el.dataset.a0)),
   openChapter: (el) => openChapter(Number(el.dataset.a0)),
   padKey: (el) => padKey(el.dataset.a0),
+
+  skipProvisional: async (el) => {
+    const chapter = Number(el.dataset.a0), idx = Number(el.dataset.a1);
+    // remember it, so she knows he passed over it rather than failed it
+    try { await sb.rpc("log_skip", { p_chapter: chapter, p_idx: idx }); }
+    catch (e) { console.error("skip log failed", e); }
+
+    // a verified question first; otherwise carry on with what is there
+    const { data: better } = await sb.rpc("next_verified", { p_chapter: chapter, p_exclude_idx: idx });
+    if (Array.isArray(better) && better.length) {
+      S.script.splice(S.si + 1, 0, { type: "question", data: better[0] });
+    }
+    S.si += 1;
+    saveSession();
+    nextStep();
+  },
 });
 
 window.__state = S;           // read-only view for the tests

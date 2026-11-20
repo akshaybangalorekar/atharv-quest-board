@@ -193,6 +193,13 @@ Two things to check before you start:
         .eq("paper_id", paper_id).is("source_ref", null);
     } catch (e) { console.error("provenance failed:", String((e as Error)?.message ?? e)); }
 
+    // official material changes what is true for this exam: re-judge what is already provisional
+    try {
+      const { data: paper } = await admin.from("papers").select("authority, exam").eq("id", paper_id).maybeSingle();
+      const key = String(paper?.authority ?? "").startsWith("official_") ? String(paper.authority).replace("official_", "") : "";
+      if (key) await admin.rpc("regate_exam", { p_exam: key });
+    } catch (e) { console.error("regate enqueue failed:", String((e as Error)?.message ?? e)); }
+
     const checked = await checkRows(asUser, paper_id, rows);
 
     const unanswered = rows.filter((x: any) => !x.a).length;
