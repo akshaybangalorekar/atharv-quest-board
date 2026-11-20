@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.83.0";
+import * as data from "./data.js?v=2.84.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.83.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.84.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -424,7 +424,8 @@ async function trainNow() {
 
   const f = data?.fetched ?? 0, u = data?.uploads ?? 0, v = data?.checked ?? 0;
   const bad = (data?.failed ?? []).length;
-  $("trainMsg").textContent = `Done — kept ${u} upload${u === 1 ? "" : "s"}, read ${f} source${f === 1 ? "" : "s"}` +
+  const made = data?.generated ?? 0;
+  $("trainMsg").textContent = `Done — kept ${u} upload${u === 1 ? "" : "s"}, read ${f} source${f === 1 ? "" : "s"}, wrote ${made} question${made === 1 ? "" : "s"}` +
     (v ? `, checked ${v} question${v === 1 ? "" : "s"}${bad ? `, held back ${bad}` : ""}.`
        : ", and there were no questions in the bank to check.");
   loadTraining();
@@ -2094,7 +2095,7 @@ async function loadParent() {
     const { data: st } = await sb.rpc("training_status");
     const passages = st?.chunks ?? 0, sites = st?.web_docs ?? 0;
     S.libNote = (st?.docs ?? 0)
-      ? `She has read ${passages} passages from ${sites} site${sites === 1 ? "" : "s"} — Generate 20 turns them into questions for this exam.`
+      ? `She has read ${passages} passages from ${sites} site${sites === 1 ? "" : "s"} — questions are written from them automatically; Generate 20 asks for twenty more.`
       : "She has not read any sources yet — Train her now in Help.";
   } catch (_) { S.libNote = ""; }
 

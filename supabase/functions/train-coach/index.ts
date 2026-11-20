@@ -280,11 +280,18 @@ async function handle(req: Request) {
     }
   }
 
+  // reading the sources fills the bank: this is not the parent pressing Generate
+  let filled = { strands: 0, made: 0 };
+  if (mode === "fetch" || mode === "all") {
+    try { filled = await fillFromMaterial(supa, { perStrand: 3, maxStrands: 6 }); }
+    catch (e) { console.error("fill failed:", String((e as Error)?.message ?? e)); }
+  }
+
   const failed = done.filter((d) => !d.ok);
   await supa.rpc("finish_job", {
     p_id: jobId, p_ok: failed.length === 0,
-    p_detail: { fetched: done.length - failed.length, failed: failed.length, sources: done },
+    p_detail: { fetched: done.length - failed.length, failed: failed.length, generated: filled.made, sources: done },
     p_error: failed.length ? `${failed.length} source(s) could not be read` : null,
   });
-  return json({ mode, fetched: done.filter((d) => d.ok).length, sources: done });
+  return json({ mode, fetched: done.filter((d) => d.ok).length, generated: filled.made, sources: done });
 }
