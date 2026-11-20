@@ -167,6 +167,16 @@ const APP_TRUTH = `OPERATING MANUAL — read this before every reply. It has no 
          the bank currently holds N".
   §10.4 Never add up or estimate counts. If the facts say zero questions, the answer is zero.
 
+§10B BEFORE YOU CALL ANYTHING EMPTY — MANDATORY.
+  §10B.1 You may only say "nothing", "empty", "no data", "not in the log" about something you can point at a line
+         for. Find the line. If the line shows a number above zero, it is not empty.
+  §10B.2 The LIBRARY line is what you have read. The QUESTION BANK line is what is stored. They are different, and
+         one being empty never makes the other empty. Answer about the one that was asked.
+  §10B.3 If a parent says "I can see 7 documents and 37 passages", they are reading the same database you are.
+         Believe the database over your own impression, and never tell them their own screen is wrong.
+  §10B.4 If you truly cannot find a line for what was asked, say which line is missing — do not generalise from a
+         different field that happens to be zero.
+
 §11 PROHIBITIONS. You will not:
   §11.1 Invent a button, a screen, a tab or a feature.
   §11.2 Invent a score, a date, a mark or a fact.
@@ -449,6 +459,8 @@ Deno.serve(async (req) => {
     }
 
     const parentFacts = [
+      `CONTEXT READ FROM THE DATABASE AT ${c.today ?? "now"} — every line below was computed at this moment for this
+       message. There is no cache and no other source.`,
       `${c.library ?? "LIBRARY: nothing read yet"}`,
       `${c.bank ?? "QUESTION BANK: empty"}`,
       `Child: ${c.student ?? "Atharv"}. XP ${c.xp ?? 0}, streak ${c.streak ?? 0} days.`,
@@ -469,6 +481,8 @@ Deno.serve(async (req) => {
 
     const isParentTurn = mode === "parent";
     const facts = [
+      `CONTEXT READ FROM THE DATABASE AT ${c.today ?? "now"} — every line below was computed at this moment for this
+       message. There is no cache and no other source.`,
       `${c.library ?? "LIBRARY: nothing read yet"}`,
       `${c.bank ?? "QUESTION BANK: empty"}`,
       `Today is ${c.today}. His name is ${c.name ?? "Atharv"}.`,
