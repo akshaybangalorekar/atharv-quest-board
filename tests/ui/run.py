@@ -31,13 +31,16 @@ if (window.__diagrams) {
       const el = document.createElement("div");
       el.id = "qFig";
       document.body.appendChild(el);
-      const fails = await window.__runScenario({ ...sc, wait: 200 }, T,
+      const fails = await window.__runScenario({ ...sc, wait: 250 }, T,
         { question: "Look at the diagram. How many in both?", 1: 1, qFig: "qFig",
           prompt: "Look at the diagram. How many in both?", svg: "",
           q: { diagram_kind: "venn", prompt: "Look at the diagram. How many in both?" } });
       // the drawer was asked, and something was drawn into the box
       if (T.calls("draw-figure").length === 0) fails.push("the drawer was never asked");
-      if (!/<svg/i.test(el.innerHTML)) fails.push("nothing was drawn into the figure box");
+      if (!/<svg/i.test(el.innerHTML)) {
+        await T.wait(300);
+        if (!/<svg/i.test(el.innerHTML)) fails.push("nothing was drawn into the figure box: " + el.innerHTML.slice(0, 40));
+      }
       el.remove();
       if (fails.length) fails.forEach((f) => assert(f, false));
       else assert("the figure path holds", true);

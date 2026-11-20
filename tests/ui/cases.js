@@ -746,4 +746,22 @@ window.CASES = [
       assert("errors: " + JSON.stringify((window.__errors ?? []).slice(0, 3)), (window.__errors ?? []).length === 0);
     },
   },
+  {
+    name: "DEBUG the figure box",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth();
+      window.__fixtures["fn:draw-figure"] = { svg: "<svg viewBox='0 0 320 200'><circle cx='60' cy='60' r='40'/></svg>" };
+      window.__fixtures["fn:check-figure"] = { ok: true };
+      T.show("session");
+      const box = document.createElement("div");
+      box.id = "dbgFig";
+      document.body.appendChild(box);
+      await window.autoFigure("question", 1, "dbgFig", "Look at the diagram. How many?", "", { diagram_kind: "venn" });
+      await T.wait(100);
+      assert("draw-figure called", T.calls("draw-figure").length > 0);
+      assert("box has: " + box.innerHTML.slice(0, 60), /<svg/i.test(box.innerHTML));
+      assert("errors: " + JSON.stringify((window.__errors ?? []).slice(0, 2)), (window.__errors ?? []).length === 0);
+      box.remove();
+    },
+  },
 ];
