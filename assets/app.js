@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.05.0";
+import * as data from "./data.js?v=3.06.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.05.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.06.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -532,8 +532,8 @@ async function loadTraining() {
   $("trainJobs").innerHTML = jobLine ? `<div class="k" style="margin-top:8px;margin-bottom:4px">Last runs</div>${jobLine}` : "";
 
   // the same shape of card everywhere: a heading, then chips, then one bar
-  const chip = (n, label, tone) =>
-    `<span class="pill ${tone}">${n} ${label}</span>`;
+  const chip = (n, label, tone, tip) =>
+    `<span class="chip ${tone}" title="${esc(tip ?? `${n} ${label}`)}"><b>${n}</b> ${esc(label)}</span>`;
   const servable = Number(S.sync?.totals?.questions ?? k.servable ?? 0);
   const cleared = Number(k.cleared ?? 0), prov = Number(k.provisional ?? 0);
   const draft = Number(k.draft ?? 0), failed = Number(k.failed ?? 0);
@@ -542,11 +542,16 @@ async function loadTraining() {
 
   $("trainStore").innerHTML = `
     <div class="k" style="margin-bottom:6px">What she has read</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${chip(k.docs ?? 0, (k.docs === 1 ? "document" : "documents"), "grey")}
-      ${chip(k.chunks ?? 0, "passages", "grey")}
-      ${chip(k.web_docs ?? 0, "from the web", "ok")}
-      ${chip(k.upload_docs ?? 0, "from your files", (k.upload_docs ? "ok" : "grey"))}
+    <div class="chipRow">
+      ${chip(k.upload_docs ?? 0, "your uploads", (k.upload_docs ? "green" : "orange"),
+        (k.upload_docs ? "Files you have uploaded. Their questions are tagged with the file name."
+                       : "No file uploaded yet. Add one from the Question bank in the parent view."))}
+      ${chip(k.web_docs ?? 0, "web sources", (k.web_docs ? "green" : "orange"),
+        "Sites she reads on her own. Their questions say which site they came from.")}
+      ${chip(k.docs ?? 0, "documents", "blue", "Everything she has kept: web pages and your files together.")}
+      ${chip(k.chunks ?? 0, "passages", "blue", "The pieces of text she can quote when she writes or explains.")}
+    </div>
+    <div class="chipRow" style="display:none">
     </div>
 
     <div class="k" style="margin:12px 0 6px">Questions he can be given — ${servable}</div>
@@ -556,11 +561,13 @@ async function loadTraining() {
       <div style="width:${pct(draft)}%;background:#9aa7b4" title="awaiting a check"></div>
       <div style="width:${pct(failed)}%;background:#d64545" title="held back"></div>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-      ${chip(cleared, "cleared", cleared ? "ok" : "grey")}
-      ${chip(prov, "provisional", prov ? "amber" : "grey")}
-      ${chip(draft, "awaiting a check", draft ? "amber" : "grey")}
-      ${chip(failed, "held back", failed ? "red" : "grey")}
+    <div class="chipRow" style="margin-top:8px">
+      ${chip(cleared, "cleared", cleared ? "green" : "grey",
+        "Checked against official material for its exam. The strongest state a question can be in.")}
+      ${chip(prov, "provisional", prov ? "amber" : "grey",
+        "Checked and answerable, but no official material exists for its exam yet. He sees it marked provisional.")}
+      ${chip(draft, "awaiting a check", draft ? "amber" : "grey", "Written but not yet checked. Never shown.")}
+      ${chip(failed, "held back", failed ? "red" : "grey", "Checked and rejected. Never shown to him.")}
     </div>
     <div class="sub" style="margin-top:6px">${(k.official_exams ?? []).length
       ? `Official material loaded for ${(k.official_exams ?? []).join(", ")}. Those questions are checked against it and can be cleared.`

@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<link rel="stylesheet" href="./assets/app.css?v=3.05.0">
+<link rel="stylesheet" href="./assets/app.css?v=3.06.0">
 </head>
 <body>
 
@@ -543,7 +543,11 @@
     <summary class="foldHead">Where the coach learns from</summary>
     <div class="sub" style="margin-top:6px">She is not trained on the open internet. She works from these sources and
       from whatever has been uploaded — nothing else.</div>
-    <div id="trainList" style="margin-top:10px"></div>
+    <details style="margin-top:10px"><summary style="list-style:none;cursor:pointer">
+      <span class="chip blue" title="Every site she reads. Open to see them, add one, or check when each was last read.">
+        Sources — open the list</span></summary>
+      <div id="trainList" style="margin-top:8px"></div>
+    </details>
     <div id="trainUploads" style="margin-top:10px"></div>
     <div id="trainStore" style="margin-top:10px"></div>
     <div id="trainJobs"></div>
@@ -711,6 +715,6 @@
 </footer>
 
 <script src="./supabase.js"></script>
-<script type="module" src="./assets/app.js?v=3.05.0"></script>
+<script type="module" src="./assets/app.js?v=3.06.0"></script>
 </body>
 </html>
