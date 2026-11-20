@@ -89,4 +89,7 @@ export const recent_jobs = (args) => call((a) => sb.rpc("recent_jobs", a), args)
 export const start_job = (args) => call((a) => sb.rpc("start_job", a), args);
 export const finish_job = (args) => call((a) => sb.rpc("finish_job", a), args);
 
+export const enqueue_job = (args) => call((a) => sb.rpc("enqueue_job", a), args);
+export const claim_job = (args) => call((a) => sb.rpc("claim_job", a), args);
+
 export const table = (name) => sb.from(name);
