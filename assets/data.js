@@ -109,4 +109,6 @@ export const sync_view = (args) => call((a) => sb.rpc("sync_view", a), args);
 
 export const held_back_reasons = (args) => call((a) => sb.rpc("held_back_reasons", a), args);
 
+export const exam_pipeline = (args) => call((a) => sb.rpc("exam_pipeline", a), args);
+
 export const table = (name) => sb.from(name);

@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.06.3";
+import * as data from "./data.js?v=3.07.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.06.3";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.07.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -372,14 +372,20 @@ async function openTimetable() {
       ? new Date(x.exam_on).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
       : "no date";
 
-    const syncedX = syncCount(String(x.family ?? x.label).toLowerCase(), "servable");
+    const key = String(x.family ?? x.label).toLowerCase();
+    const syncedX = syncCount(key, "servable");
     const examCount = syncedX >= 0 ? syncedX : (x.items ?? 0);
-    const examTone = examCount === 0 ? "orange" : examCount < 30 ? "amber" : "green";
-    const examTip = examCount === 0
-      ? "No questions for this exam yet — she writes them from what she reads, or from a file you upload."
-      : examCount < 30
-        ? `${examCount} questions. Enough to practise, not yet enough to judge readiness (30 is the line).`
-        : `${examCount} questions — enough to judge readiness for this exam.`;
+    const pipe = (S.pipeline ?? []).find((p) => String(p.key).toLowerCase() === key) ?? {};
+    const left = Number(pipe.left_to_solve ?? examCount);
+    const solved = Number(pipe.solved ?? 0);
+
+    // green: a healthy queue of unsolved questions. amber: thinning. orange: nothing left to practise on.
+    const examTone = left === 0 ? "orange" : left < 30 ? "amber" : "green";
+    const examTip = left === 0
+      ? `${examCount} in the pipeline, all ${solved} solved — nothing left to practise on. She writes more from what she reads, or you upload a paper.`
+      : left < 30
+        ? `${examCount} in the pipeline · ${solved} solved · ${left} left to solve. Enough for now; it thins as he works through them.`
+        : `${examCount} in the pipeline · ${solved} solved · ${left} left to solve. A healthy queue.`;
 
     const mine = specFor[x.label] ?? [];
     const topics = x.rows ?? [];
@@ -428,7 +434,7 @@ async function openTimetable() {
     return `<div class="card ttExam">
       <div class="ttHead">
         <span class="ttName">${esc(x.label)}</span>
-        <span class="chip ${examTone}" title="${examTip}"><b>${examCount}</b> questions</span>
+        <span class="chip ${examTone}" title="${examTip}"><b>${left}</b> left</span>
         <span class="chip grey" title="${esc(x.label)} sits on ${esc(examWhen)}"><b>${x.days_left ?? 0}</b> days</span>
         <span class="ttMeta" style="margin-left:auto">${done} of ${all} topics</span>
       </div>
@@ -2307,6 +2313,8 @@ async function loadSync() {
   try {
     const { data } = await sb.rpc("sync_view");
     S.sync = data ?? null;
+    const { data: pipe } = await sb.rpc("exam_pipeline");
+    S.pipeline = pipe ?? [];
   } catch (e) { console.error("sync_view failed:", e); S.sync = null; }
   return S.sync;
 }
