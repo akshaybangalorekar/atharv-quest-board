@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.11.2";
+import * as data from "./data.js?v=3.12.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -29,6 +29,23 @@ async function checkExamDates() {
     if (due) sb.functions.invoke("exam-watch", { body: {} }).catch(() => {});
     await paintDateBanner();
   } catch (_) {}
+}
+
+/* an empty wallet stops every model call: say so at the top, in orange */
+async function paintWalletBanner() {
+  const el = $("walletBanner");
+  if (!el) return;
+  try {
+    const { data } = await sb.rpc("credits_state");
+    if (data?.empty) {
+      el.className = "";
+      el.innerHTML = `<span><b>Sarvam wallet is empty</b> — no credits available, so she cannot read, write or
+        answer until it is topped up. Re-fill at sarvam.ai → Settings → Billing, then press the button.</span>
+        <button class="mini" data-action="walletRefilled">I have re-filled it</button>`;
+      return;
+    }
+    el.className = "hidden";
+  } catch (e) { console.error("wallet check failed:", e); }
 }
 
 /* what the scan is doing right now, at the top of the screen for both of them */
@@ -171,7 +188,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.11.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.12.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -308,6 +325,7 @@ async function paintNote() {
   // a parent keeps it until they say so; a child's screen lets it go after three minutes
   if (!S.isParent) setTimeout(() => { if ($("noteBar")?.textContent) dismissNote(data.id); }, 180000);
   checkExamDates();
+  paintWalletBanner();
   paintScanBanner();
   paintJobBanner();
   autoTrain();
@@ -4974,6 +4992,12 @@ const CALL = (el, fn) => {
 };
 
 registerActions({
+  walletRefilled: async () => {
+    await sb.rpc("clear_credits_flag");
+    const el = $("walletBanner");
+    if (el) el.className = "hidden";
+    paintWalletBanner();
+  },
   wipeHistory: async () => {
     const v = $("wipeFrom")?.value ?? "all";
     const days = v === "all" ? null : Number(v);
@@ -5107,7 +5131,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, toneForCount, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, toneForCount, paintWalletBanner, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
