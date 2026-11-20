@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.07.0";
+import * as data from "./data.js?v=3.07.1";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.07.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.07.1";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2403,6 +2403,13 @@ async function goParent() {
     const syncKey = String(f.family ?? fam).toLowerCase();
     const synced = syncCount(syncKey, "servable");
     const examCount = synced >= 0 ? synced : (f.items ?? 0);
+    const pipeRow = (S.pipeline ?? []).find((p) => String(p.key).toLowerCase() === syncKey) ?? {};
+    const pipeLeft = Number(pipeRow.left_to_solve ?? examCount);
+    const pipeSolved = Number(pipeRow.solved ?? 0);
+    const pipeTone = pipeLeft === 0 ? "orange" : pipeLeft < 30 ? "amber" : "green";
+    const pipeTip = pipeLeft === 0
+      ? `${examCount} in the pipeline, all ${pipeSolved} solved — nothing left to practise on.`
+      : `${examCount} in the pipeline · ${pipeSolved} solved · ${pipeLeft} left to solve.`;
     const mine = specs.filter((x) => x.family === fam);
     const topics = topicMap[f.family] ?? [];
     const myBanks = banks.filter((b) => (BANK_FAMILY[b.exam] ?? b.exam) === fam);
@@ -2471,12 +2478,9 @@ async function goParent() {
     return `<div class="card ttExam">
       <div class="ttHead">
         <span class="ttName">${esc(fam)}</span>
-        <span class="pill ${cls(f.verdict)}">${esc(
-          f.verdict === "no_content" ? "no questions"
-          : f.verdict === "thin" ? `thin · ${totalQ} questions`
-          : f.verdict)}</span>
-        <span class="ttMeta">${esc(when)}${f.days_left !== null ? ` · ${f.days_left} days` : ""}</span>
-        <span class="ttMeta" style="margin-left:auto">${coveredMin} of ${sitsMin} min testable · ${totalQ} questions</span>
+        <span class="chip ${pipeTone}" title="${pipeTip}"><b>${pipeLeft}</b> left</span>
+        <span class="chip grey" title="${esc(fam)} sits on ${esc(when)}"><b>${f.days_left ?? 0}</b> days</span>
+        <span class="ttMeta" style="margin-left:auto">${coveredMin} of ${sitsMin} min testable</span>
       </div>
       <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
       ${schools}
