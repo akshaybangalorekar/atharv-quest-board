@@ -1,0 +1,2 @@
+-- 134_placement_all_exams.sql — the placement samples every exam, not just the book.
+-- (see supabase/migrations for the full function; kept here for the record)

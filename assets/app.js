@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.90.0";
+import * as data from "./data.js?v=2.91.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.90.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.91.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -4435,7 +4435,7 @@ async function startPlacement() {
     show("session");
     $("chatWrap").innerHTML = "";
     bubble("coach", items.length
-      ? `I can only find ${items.length} question${items.length === 1 ? "" : "s"} to check you with, and that is too few to tell me anything true about where you are.\n\nLet us skip the check-in for now. Ask me for some questions — say “can I have more questions” — and once there are a few more I will place you properly.`
+      ? `I can only find ${items.length} question${items.length === 1 ? "" : "s"} across your five exams to check you with, and that is too few to tell me anything true about where you are.\n\nLet us skip the check-in for now. Ask me for some questions — say “can I have more questions” — and once there are a few more I will place you properly.`
       : `There are no questions in the bank yet, so a check-in would tell me nothing.\n\nAsk me for some questions — say “can I have more questions” — and then we will start properly.`);
     keepChat("coach", "Not enough questions to place him — the check-in was skipped.", "child");
     const card = document.createElement("div");
@@ -4453,11 +4453,13 @@ async function startPlacement() {
   show("exam");
   $("examKind").textContent = "Placement check";
   $("examName").textContent = testName();
-  $("examWhere").textContent = `${items.length} question${items.length === 1 ? "" : "s"}, ${data.minutes || 20} minutes · from across the topics, easiest first`;
+  const examsSeen = [...new Set(items.map((x) => x.exam).filter(Boolean))];
+  $("examWhere").textContent = `${items.length} question${items.length === 1 ? "" : "s"}, ${data.minutes || 20} minutes · ` +
+    `across ${examsSeen.length ? examsSeen.map((e) => String(e).toUpperCase()).join(", ") : "the topics"}, easiest first`;
   $("examList").innerHTML = items.map((q, n) => `
     <div class="qcard" style="border-width:1px;border-color:var(--line)">
-      <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
-      <div class="q" style="font-size:17px">${esc(q.prompt)}</div>
+      <div class="n">Q${n + 1}${q.exam ? " · " + esc(String(q.exam).toUpperCase()) : ""} · chapter ${q.chapter}</div>
+      <div class="q" style="font-size:17px">${esc(q.prompt)}${gateLabel(q)}</div>
       ${q.diagram_svg ? `<div class="diagram">${q.diagram_svg}</div>` : ""}
       <input data-chapter="${q.chapter}" data-idx="${q.idx}" placeholder="Your answer" autocomplete="off">
     </div>`).join("");
@@ -4494,8 +4496,8 @@ async function runExam(body, label) {
   $("examWhere").textContent = `${data.items.length} questions`;
   $("examList").innerHTML = data.items.map((q, n) => `
     <div class="qcard" style="border-width:1px;border-color:var(--line)">
-      <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
-      <div class="q" style="font-size:17px">${esc(q.prompt)}</div>
+      <div class="n">Q${n + 1}${q.exam ? " · " + esc(String(q.exam).toUpperCase()) : ""} · chapter ${q.chapter}</div>
+      <div class="q" style="font-size:17px">${esc(q.prompt)}${gateLabel(q)}</div>
       ${q.diagram_svg ? `<div class="diagram">${q.diagram_svg}</div>` : ""}
       <input data-chapter="${q.chapter}" data-idx="${q.idx}" placeholder="Your answer" autocomplete="off">
     </div>`).join("");
@@ -4524,8 +4526,8 @@ async function resumePaper() {
   $("examWhere").textContent = `${data.items.length} question${data.items.length === 1 ? "" : "s"} · you stopped partway, this is where you left off`;
   $("examList").innerHTML = data.items.map((q, n) => `
     <div class="qcard" style="border-width:1px;border-color:var(--line)">
-      <div class="n">Q${n + 1} · chapter ${q.chapter}</div>
-      <div class="q" style="font-size:17px">${esc(q.prompt)}</div>
+      <div class="n">Q${n + 1}${q.exam ? " · " + esc(String(q.exam).toUpperCase()) : ""} · chapter ${q.chapter}</div>
+      <div class="q" style="font-size:17px">${esc(q.prompt)}${gateLabel(q)}</div>
       ${q.diagram_svg ? `<div class="diagram">${q.diagram_svg}</div>` : ""}
       <input data-chapter="${q.chapter}" data-idx="${q.idx}" placeholder="Your answer" autocomplete="off">
     </div>`).join("");
