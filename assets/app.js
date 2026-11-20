@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.01.0";
+import * as data from "./data.js?v=3.01.1";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.01.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.01.1";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2244,8 +2244,9 @@ async function goParent() {
     `${a.accuracy_7 ?? 0}% right this week · ${se.last_7 ?? 0} sessions logged · ` +
     `${(st.xp ?? 0).toLocaleString()} XP · streak ${st.streak ?? 0} days`;
 
-  const words = { ready: "Enough", too_early: "Too early", in_progress: "Keep going",
-                  thin: "Need more data", no_content: "Nothing yet" };
+  const words = { ready: "Enough to judge", too_early: "Just started",
+                  in_progress: "Building up", thin: "Too few to judge",
+                  no_content: "No questions yet" };
 
   // one source of truth: every number below comes from a single read of the truth function
   const TR = S.TR ?? {};
@@ -3201,8 +3202,8 @@ function goLanding() {
     const hit = S.readiness.find((r) => (r.exam || "").toLowerCase().startsWith(want.slice(0, 4)));
     return hit ? hit.verdict : "no_content";
   };
-  const words = { ready: "Content is enough", too_early: "Just started", in_progress: "Keep going",
-                  thin: "Need more data", no_content: "No questions uploaded yet" };
+  const words = { ready: "Enough to judge", too_early: "Just started", in_progress: "Building up",
+                  thin: "Too few to judge", no_content: "No questions yet" };
 
   const fresh = {};
   (S.freshness ?? []).forEach((x) => { fresh[x.family] = x; });
@@ -3359,10 +3360,11 @@ async function openDash() {
     barRow("Cleared", `${cleared}`, Math.round(cleared / 24 * 100), "#7fc3a3") +
     barRow("Started", `${started}`, Math.round(started / 24 * 100), "var(--acc)");
 
-  const words = { ready: "enough", too_early: "too early", in_progress: "going", thin: "need more data", no_content: "no questions" };
+  const words = { ready: "enough to judge", too_early: "just started", in_progress: "building up",
+                  thin: "too few to judge", no_content: "no questions yet" };
   $("examBars").innerHTML = (d.exams || []).map((e) => {
     const p = Math.min(100, e.items ? Math.round(100 * e.practised / e.items) : 0);
-    return barRow(`${esc(e.exam)} · ${e.items} loaded`, `${e.practised} practised · ${e.mastered} mastered · ${words[e.verdict] ?? e.verdict}`, p,
+    return barRow(`${esc(e.exam)} · ${e.items} loaded`, `${e.practised} practised · ${e.mastered} mastered · ${words[e.verdict] ?? e.verdict}${e.verdict === "thin" ? ` (${e.items} of 30)` : ""}`, p,
       e.verdict === "ready" ? "var(--ok)" : e.verdict === "in_progress" ? "var(--acc)" : "var(--amber)");
   }).join("") || `<div class="sub">No exams registered.</div>`;
 
