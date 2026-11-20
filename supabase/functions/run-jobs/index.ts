@@ -7,7 +7,7 @@
 import { serve, ok, context, studentFor } from "./_shared/mod.ts";
 import { fillFromMaterial } from "./_shared/generate.ts";
 import { alignExam } from "./_shared/authority.ts";
-import { gateExam } from "./_shared/gate.ts";
+import { gateExam, gateQuestion } from "./_shared/gate.ts";
 
 const SUPABASE = Deno.env.get("SUPABASE_URL")!;
 
@@ -16,6 +16,33 @@ serve(async (req) => {
   if ("error" in ctx) return ctx.error;
   const { admin, user } = ctx;
   const student = await studentFor(admin, user.id);
+
+  // a single question, checked right before it is presented
+  let body: any = {};
+  try { body = await req.json(); } catch (_) {}
+  if (body?.mode === "one") {
+    const { data: q } = await admin.from("problems")
+      .select("chapter, idx, prompt, options, gate_at").eq("chapter", body.chapter).eq("idx", body.idx).maybeSingle();
+    if (!q) return ok({ error: "no such question" }, 404);
+
+    const { data: se } = await admin.rpc("strand_exam", { p_chapter: q.chapter });
+    const exam = (se as any)?.exam ?? "olympiad";
+    const fresh = q.gate_at && (Date.now() - new Date(q.gate_at).getTime() < 7 * 86400000);
+    if (fresh && body.force !== true) return ok({ cached: true, gate_state: (se as any)?.gate_state ?? null });
+
+    const { data: ans } = await admin.from("problem_answers")
+      .select("answer_key").eq("chapter", q.chapter).eq("idx", q.idx).maybeSingle();
+    const { data: material } = await admin.rpc("authority_material", { p_exam: exam, p_limit: 5 });
+    const official = (material ?? []).map((x: any) => String(x.body ?? "")).join("\n\n").slice(0, 3000);
+    const hasOfficial = !!(await admin.rpc("exam_has_official", { p_exam: exam }))?.data;
+
+    const verdict = await gateQuestion(admin, { ...q, answer: ans?.answer_key }, official, hasOfficial);
+    await admin.from("problems").update({
+      gate_state: verdict.state, gate_at: new Date().toISOString(), gate_note: verdict.why || null,
+    }).eq("chapter", q.chapter).eq("idx", q.idx);
+
+    return ok({ gate_state: verdict.state, why: verdict.why, exam, official: hasOfficial });
+  }
 
   // claim one queued job: queued -> running, atomically
   const { data: claimed } = await admin.rpc("claim_job", { p_student: student });

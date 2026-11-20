@@ -21,9 +21,12 @@ For the question you are shown, check all of these:
 2. Does it give every number and fact needed to answer it? Nothing unnamed, nothing missing.
 3. Do its multiple-choice options make sense — exactly one correct, the rest believable?
 4. Solve it yourself. Is there exactly one answer, and is the stored answer that answer?
+5. If a drawing is shown to you, check it against the question: every label, length, angle and value the question
+   names must appear, nothing may be false, and bars or shapes must be in proportion. A drawing that misleads is
+   as bad as no drawing.
 
 Reply with JSON only:
-{"cleared":"YES","why":"","answer":"the answer you get","options_ok":"YES"}`;
+{"cleared":"YES","why":"","answer":"the answer you get","options_ok":"YES","figure_ok":"YES"}`;
 
 export type GateVerdict = { state: "cleared" | "provisional" | "failed"; why: string };
 
@@ -43,11 +46,15 @@ export async function gateQuestion(
 
   if (pointsAtFigure && !hasFigure) return { state: "failed", why: "it refers to a drawing that is not there" };
 
-  const shown = `${text}${Array.isArray(q.options) && q.options.length ? `\nOptions: ${q.options.join(" / ")}` : ""}`;
+  const figure = row?.diagram_svg ? String(row.diagram_svg).slice(0, 2500) : "";
+  const shown = `${text}` +
+    `${Array.isArray(q.options) && q.options.length ? `\nOptions: ${q.options.join(" / ")}` : ""}` +
+    `${figure ? `\n\nThe drawing that will be shown with it (SVG):\n${figure}` : ""}`;
   const v = jsonIn(await ask(GATE(official), `Question: ${shown}\nStored answer: ${q.answer ?? "(none)"}`, 0, 500));
   if (!v) return { state: "failed", why: "it could not be checked" };
 
-  const cleared = String(v.cleared).toUpperCase() === "YES" && String(v.options_ok ?? "YES").toUpperCase() === "YES";
+  const cleared = String(v.cleared).toUpperCase() === "YES" && String(v.options_ok ?? "YES").toUpperCase() === "YES"
+    && String(v.figure_ok ?? "YES").toUpperCase() === "YES";
   if (!cleared) return { state: "failed", why: String(v.why ?? "it did not pass the check") };
 
   // no official material: served, but honestly labelled provisional

@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.89.0";
+import * as data from "./data.js?v=2.90.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.89.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.90.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -3845,10 +3845,20 @@ function clearBoard() {
   document.querySelectorAll(".qcard").forEach((n) => n.remove());
 }
 
-function nextStep() {
+async function nextStep() {
   clearBoard();
   saveSession();
   paintActions();
+  // a question that fails the gate is skipped, not shown
+  if (step?.type === "question" && step.data) {
+    const okToShow = await gateBefore(step.data);
+    if (!okToShow) {
+      bubble("coach", "That one did not hold up when I checked it, so I have set it aside. Next one.");
+      S.si += 1;
+      return nextStep();
+    }
+  }
+
   if (S.si >= S.script.length) {
     bubble("coach", "That is the whole set done — well worked. Close the session below, or ask me anything about what we just did.");
     if (!S.boardShown) { S.boardShown = true; showBoardReminder(S.chapter).catch(() => {}); }
@@ -3865,7 +3875,6 @@ function nextStep() {
     saveSession();
     return;
   }
-  const step = S.script[S.si];
   if (step.type === "example") showExample(step.data);
   else showQuestion(step.data);
 }
@@ -3924,6 +3933,18 @@ function pickOption(btn) {
 /* a question that has not been cleared against official material is labelled as such */
 function gateLabel(q) {
   return (q?.gate_state === "provisional") ? " (provisional)" : "";
+}
+
+/* the gate runs again, for this question, before he sees it */
+async function gateBefore(q) {
+  try {
+    const { data } = await sb.functions.invoke("run-jobs", {
+      body: { mode: "one", chapter: q.chapter, idx: q.idx },
+    });
+    if (data?.gate_state === "failed") return false;
+    if (data?.gate_state) q.gate_state = data.gate_state;
+  } catch (_) { /* if the check cannot run, the question is shown labelled provisional */ }
+  return true;
 }
 
 function showQuestion(q) {
