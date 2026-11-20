@@ -69,7 +69,17 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: { user } } = await asUser.auth.getUser();
+    let user: any = null;
+    const drain = req.headers.get("x-quest-drain") ?? "";
+    const whose = req.headers.get("x-quest-student") ?? "";
+    if (drain) {
+      const { data: expected } = await admin.rpc("drain_token");
+      if (!expected || drain !== expected || !whose) return json({ error: "not allowed" }, 403);
+      user = { id: whose };
+    } else {
+      const got = await asUser.auth.getUser();
+      user = got.data?.user ?? null;
+    }
     if (!user) return json({ error: "not signed in" }, 401);
 
     const { chapter, kind = "question", n = null, idx = null, question = null } = await req.json();

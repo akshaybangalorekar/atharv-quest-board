@@ -46,6 +46,36 @@ Deno.serve(async (req) => {
     return json({ status: r.status, keyPresent: !!Deno.env.get("SARVAM_API_KEY"), body: text.slice(0, 300) });
   }
 
+  // draw the figures: questions that name a drawing get one, and it is checked before it is kept
+  if (body?.mode === "draw") {
+    const limit = Number(body?.limit ?? 5);
+    // the drawer needs to know whose work this is
+    const { data: owner } = await admin.from("profiles").select("student_id").limit(1).maybeSingle();
+    const ownerId = body?.student ?? owner?.student_id ?? "";
+    const FIG = /venn|angle|perimeter|area|net\b|graph|chart|shape|symmetr|coordinate|triangle|rectangle|circle|number line/i;
+    const { data: all } = await admin.from("problems")
+      .select("chapter, idx, prompt, diagram_svg, status")
+      .is("diagram_svg", null)
+      .in("status", ["cleared", "provisional"])
+      .limit(60);
+    const { data: strands } = await admin.from("strands").select("n, title");
+    const titleOf = new Map((strands ?? []).map((x: any) => [x.n, String(x.title)]));
+
+    // a drawing belongs only to a topic that needs one, or to a question that names one
+    const rows = (all ?? []).filter((q: any) =>
+      FIG.test(String(titleOf.get(q.chapter) ?? "")) ||
+      /\b(diagram|figure|shown below|the picture|the table)\b/i.test(String(q.prompt))
+    ).slice(0, limit);
+
+    const drawn: any[] = [];
+    for (const q of rows ?? []) {
+      const res = await callFn("draw-figure", { chapter: q.chapter, kind: "question", idx: q.idx, question: q.prompt }, ownerId);
+      drawn.push({ chapter: q.chapter, idx: q.idx, ok: !!res?.svg, checked: res?.checked ?? false,
+                   note: res?.error ?? "", head: String(q.prompt).slice(0, 60) });
+    }
+    return json({ attempted: (rows ?? []).length, drawn });
+  }
+
   // the online-question checker: is each question in the strand it belongs to, and is it sound?
   if (body?.mode === "audit") {
     const limit = Number(body?.limit ?? 30);
@@ -109,6 +139,9 @@ Deno.serve(async (req) => {
     }
     return json({ selftest: results, passed: results.filter((r) => r.ok).length, of: results.length });
   }
+
+  // a run whose request died is not work in progress
+  try { await admin.rpc("reap_stuck_jobs"); } catch (e) { console.error("reap failed:", String((e as Error)?.message ?? e)); }
 
   const { data: students } = await admin.rpc("students_with_queued");
   const ran: any[] = [];

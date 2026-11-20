@@ -20,6 +20,13 @@ detail, inference, vocabulary in context or author's purpose. Four options, exac
 saying the form and roughly the length. The answer is what a good response must contain.`,
 };
 
+const FIGURE_STRAND = /venn|angle|perimeter|area|net\b|graph|chart|shape|symmetr|coordinate|triangle|rectangle|circle|fraction bar|number line/i;
+
+const FIGURE_RULE = `This topic needs a DRAWING. Every question must include one as an inline SVG in "fig":
+- width 320, height 200, viewBox "0 0 320 200", plain shapes, black strokes, no external images, no scripts.
+- Label every value the question names (sides, angles, counts), so the drawing and the words agree exactly.
+- The drawing must not contradict the question and must not add anything the question does not use.`;
+
 const WRITE = (topic: string, subject: string, material: string, n: number) => `You write practice questions for
 an 11-year-old in Melbourne preparing for Australian competitions and scholarship tests.
 
@@ -30,9 +37,11 @@ THE QUESTION MUST BE ANSWERABLE FROM ITS OWN WORDS. Every quantity anchored to a
 "the picture", "the table" or "shown below" unless you also give "fig". If two answers are possible it is wrong.
 
 ${material ? `Here is material from the sources she has read. Follow its content and style; never copy it word for word:\n${material}\n` : ""}
+${FIGURE_STRAND.test(topic) ? FIGURE_RULE : "This topic needs no drawing; do not include one."}
+
 Write ${n} questions. Reply with JSON only:
 {"rows":[{"q":"the question","a":"the answer","m":"one line of method","d":1,
-          "options":["a","b","c","d"]}]}
+          "options":["a","b","c","d"],"fig":"<svg …>…</svg> or omit"}]}
 Options are optional; when given there must be exactly one correct, equal to "a".`;
 
 /** fill the thinnest strand of each exam from what she has read */
@@ -96,7 +105,8 @@ kind of thinking with different numbers, names and scenario, so a child who has 
       const q = String(row.q).trim();
 
       // the gate: it must be answerable on its own
-      const verdict = await checkQuestion(q, false);
+      const fig = typeof row.fig === "string" && row.fig.trim().startsWith("<svg") ? row.fig.trim() : "";
+      const verdict = await checkQuestion(q, !!fig);
       if (!verdict.ok) continue;
 
       const { data: dup } = await admin.from("problems").select("idx").eq("chapter", ch.n).eq("prompt", q).maybeSingle();
@@ -109,6 +119,7 @@ kind of thinking with different numbers, names and scenario, so a child who has 
         difficulty: Number(row.d) || 2,
         technique_tags: [String(ch.title).split("·").pop()?.trim() ?? String(ch.title)],
         source: ch.source ?? "book",
+        ...(fig ? { diagram_svg: fig } : {}),
         ...verdictColumns(verdict, false),
       });
       if (error) { idx -= 1; continue; }
