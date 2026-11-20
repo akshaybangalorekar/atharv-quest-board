@@ -115,7 +115,8 @@ window.CASES = [
       await T.wait(200);
 
       const card = T.$("pExams")?.textContent ?? "";
-      assert("the card says nothing is loaded", /nothing loaded/i.test(card));
+      assert("the card says there are no questions", /no questions/i.test(card));
+      assert("it does not claim the whole account is empty", !/nothing loaded/i.test(card));
       assert("it does not print section rows", !/min in the exam/i.test(card));
     },
   },
