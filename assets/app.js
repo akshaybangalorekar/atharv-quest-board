@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.19.0";
+import * as data from "./data.js?v=3.20.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -181,7 +181,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.19.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.20.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2503,7 +2503,7 @@ async function goParent() {
 }
 
 function strandMode() {
-  return document.querySelector('input[name="strandMode"]:checked')?.value ?? "auto";
+  return document.querySelector('input[name="strandMode"]:checked')?.value ?? "";
 }
 
 async function strandModeChanged() {
@@ -2539,8 +2539,10 @@ function openUpload() {
     { exam: "AMC Upper Primary", label: "AMC Upper Primary" },
   ];
   const sel = $("upBank");
-  if (sel && !sel.options.length) {
-    sel.innerHTML = FAMILIES.map((f) => `<option value="${esc(f.exam)}">${esc(f.label)}</option>`).join("");
+  if (sel && sel.options.length <= 1) {
+    sel.innerHTML = `<option value="">Choose an exam…</option>` +
+      FAMILIES.map((f) => `<option value="${esc(f.exam)}">${esc(f.label)}</option>`).join("");
+    sel.value = "";
   }
   strandModeChanged();
   updateDest();
@@ -2945,19 +2947,20 @@ document.addEventListener("change", (e) => {
 
 function updateDest() {
   const exam = $("upBank")?.value ?? "";
-  const mode = document.querySelector('input[name="strandMode"]:checked')?.value ?? "auto";
+  const mode = document.querySelector('input[name="strandMode"]:checked')?.value ?? "";
   const picked = mode === "existing" ? ($("upStrandPick")?.value ?? "") : "";
   const typed = mode === "new" ? ($("upStrand")?.value.trim() ?? "") : "";
   const auth = document.querySelector('input[name="authMode"]:checked')?.value ?? "";
 
   // three questions must be answered before a file can go in
-  const strandOk = mode === "auto" ? true : mode === "existing" ? !!picked : !!typed;
+  const strandOk = mode === "existing" ? !!picked : mode === "new" ? !!typed : false;
   const ready = !!exam && strandOk && !!auth;
 
   const btn = $("pickBtn");
   if (btn) {
     btn.disabled = !ready;
     btn.title = !exam ? "Choose an exam first."
+      : !mode ? "Say whether these questions join a tab or start a new one."
       : !strandOk ? (mode === "existing" ? "Choose which tab these questions go into."
                                          : "Name the new tab.")
       : !auth ? "Say whether the file is official or unofficial."
@@ -2966,8 +2969,7 @@ function updateDest() {
 
   const dest = $("upDest");
   if (dest) {
-    const where = mode === "auto" ? "the strand the reader finds"
-      : mode === "existing" ? (picked || "a tab not chosen yet")
+    const where = mode === "existing" ? (picked || "a tab not chosen yet")
       : (typed || "a tab not named yet");
     dest.textContent = `Going into: ${BANK_LABEL[exam] ?? (exam || "no exam chosen")} · ${where}` +
       (auth ? ` · ${auth}` : "");

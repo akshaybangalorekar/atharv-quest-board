@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<link rel="stylesheet" href="./assets/app.css?v=3.19.0">
+<link rel="stylesheet" href="./assets/app.css?v=3.20.0">
 </head>
 <body>
 
@@ -478,12 +478,10 @@
 
   <label class="k">Exam</label>
   <select id="upBank" style="width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px"
-          onchange="updateDest()"></select>
+          onchange="updateDest()"><option value="">Choose an exam…</option></select>
 
   <label class="k">Where should these questions go?</label>
-  <div class="bar" style="margin-bottom:8px">
-    <label class="radio"><input type="radio" name="strandMode" value="auto" checked onchange="strandModeChanged()">
-      Let the reader name the strand</label>
+  <div class="bar" style="margin-bottom:8px;flex-wrap:wrap">
     <label class="radio"><input type="radio" name="strandMode" value="existing" onchange="strandModeChanged()">
       Add to an existing tab</label>
     <label class="radio"><input type="radio" name="strandMode" value="new" onchange="strandModeChanged()">
@@ -737,6 +735,6 @@
 </footer>
 
 <script src="./supabase.js"></script>
-<script type="module" src="./assets/app.js?v=3.19.0"></script>
+<script type="module" src="./assets/app.js?v=3.20.0"></script>
 </body>
 </html>
