@@ -2701,9 +2701,7 @@ async function callExtractRows(blobOrFile, exam) {
   if (up.error) return [];
   // retired: reading a page is ingest's job now, so this hands over instead of duplicating it
   await sb.rpc("enqueue_job", { p_kind: "ingest", p_payload: {} }).catch((e) => console.error("queue failed", e));
-  const { data, error } = { data: { retired: true }, error: null } as any; void (
-    body: { path, exam, strand: $("upStrand")?.value?.trim() || "" },
-  });
+  const data = { retired: true }, error = null;
   if (error || data?.error) return { rows: [], strand: "" };
   return { rows: data?.rows ?? [], strand: data?.strand ?? "" };
 }
@@ -2868,9 +2866,7 @@ async function extractText(text, onStrand) {
 async function callExtract(body, onStrand) {
   // retired: reading a page is ingest's job now, so this hands over instead of duplicating it
   await sb.rpc("enqueue_job", { p_kind: "ingest", p_payload: {} }).catch((e) => console.error("queue failed", e));
-  const { data, error } = { data: { retired: true }, error: null } as any; void (
-    body: { ...body, exam: $("upBank").value, strand: $("upStrand").value.trim() },
-  });
+  const data = { retired: true }, error = null;
   if (error) throw new Error(error.message);
   if (data?.error) throw new Error(data.error);
   const rows = data?.rows ?? [];
@@ -2918,7 +2914,7 @@ async function solveBlanks() {
   // retired: the gate owns this now
   await sb.rpc("enqueue_job", { p_kind: `gate:${String(exam).toLowerCase()}`, p_payload: {} })
     .catch((e) => console.error("queue failed", e));
-  const { data, error } = { data: { retired: true }, error: null } as any;
+  const data = { retired: true }, error = null;
   if (error || data?.error) {
     $("upErr").textContent = "The solver could not run: " + (error?.message || data?.error);
     return;
@@ -3084,7 +3080,7 @@ async function scanContent() {
   $("contentList").innerHTML = ""; $("applyBar").style.display = "none";
 
   // retired: checking and correcting belong to the gate and the aligner
-  const { data, error } = { data: { items: [] }, error: null } as any;
+  const data = { items: [] }, error = null;
   btn.disabled = false;
   if (error || data?.error) { $("contentMsg").textContent = "Could not check: " + (error?.message || data?.error); return; }
 
@@ -3115,7 +3111,7 @@ async function applyContent() {
   if (!picked.length) { $("contentMsg").textContent = "Nothing ticked."; return; }
 
   $("contentMsg").textContent = "Applying…";
-  const { data, error } = { data: { applied: 0 }, error: null } as any;
+  const data = { applied: 0 }, error = null;
   if (error || data?.error) { $("contentMsg").textContent = "Could not apply: " + (error?.message || data?.error); return; }
   $("contentMsg").textContent = `${data.applied} corrected, and logged in content_changes.`;
   $("contentList").innerHTML = ""; $("applyBar").style.display = "none";
