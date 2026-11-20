@@ -31,11 +31,25 @@ function countsOf(c: any) {
   };
 }
 
+/** how many passages she is holding, read from the library line when the context has no count */
+function passagesOf(c: any) {
+  const m = String(c?.library ?? "").match(/(\d+)\s+passages?/);
+  return m ? Number(m[1]) : (Array.isArray(c?.material) ? c.material.length : 0);
+}
+
 /** the envelope: named sections, in a fixed order, every one present even when empty */
 export function buildEnvelope(c: any, opts: { parent: boolean; note?: string }): Envelope {
   const n = countsOf(c);
 
   const sections: Section[] = [
+    {
+      key: "headline",
+      title: "THE SHORT ANSWER, IF YOU ARE ASKED WHAT YOU HAVE",
+      body: `You have read ${n.library} documents (${n.sources} from the web) holding ${passagesOf(c)} passages, ` +
+            `and ${n.questions} question${n.questions === 1 ? "" : "s"} are stored in the bank` +
+            `${n.uploads ? `, plus ${n.uploads} file${n.uploads === 1 ? "" : "s"} a parent uploaded` : ""}. ` +
+            `Say these numbers when you are asked. Never say "nothing" while any of them is above zero.`,
+    },
     {
       key: "live",
       title: "WHEN THIS WAS READ",
@@ -139,9 +153,15 @@ export function checkReply(reply: string, env: Envelope) {
   const says = (re: RegExp) => re.test(text);
 
   const clashes: string[] = [];
-  if (c.library > 0 && says(/\b(read nothing|no sources|nothing from the web|cannot see any source)\b/i))
+  const deniedReading = /\b(read nothing|no sources|nothing from the web|cannot see any source|nothing has come through|nothing has been (uploaded|read|logged)|no reading logged|not read anything|nothing from any online source)\b/i;
+  const deniedBank = /\b(bank is empty|question bank is empty|no questions|nothing stored|empty bank|no question pool)\b/i;
+  const deniedExams = /\b(no exams registered|no exams|no strands|no exam set)\b/i;
+
+  if (c.library > 0 && says(deniedReading))
     clashes.push(`the LIBRARY line shows ${c.library} documents and ${c.sources} web sources`);
-  if (c.questions > 0 && says(/\b(no questions|nothing stored|empty bank)\b/i))
+  if (c.bank > 0 && says(deniedExams))
+    clashes.push(`the QUESTION BANK line names ${c.bank} strands across the exams`);
+  if (c.questions > 0 && says(deniedBank))
     clashes.push(`the QUESTION BANK line shows ${c.questions} questions`);
   if (c.uploads > 0 && says(/\b(nothing uploaded|no uploads|no files)\b/i))
     clashes.push(`the UPLOADS line shows ${c.uploads} papers`);
