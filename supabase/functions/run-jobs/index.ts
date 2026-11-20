@@ -57,6 +57,12 @@ serve(async (req) => {
       detail.train = await callFn("train-coach", { mode: "all" }, req);
     } else if (job.kind === "parse_paper") {
       detail.parse = await parsePaper(admin, student, job.payload?.paper_id, req);
+      const { data: paper } = await admin.from("papers").select("exam").eq("id", job.payload?.paper_id).maybeSingle();
+      const key = String(paper?.exam ?? "").toLowerCase();
+      const ex = key.includes("edutest") || key.includes("elms") ? "edutest"
+        : key.includes("aas") ? "aas" : key.includes("icas") ? "icas"
+        : key.includes("amc") ? "amc" : "olympiad";
+      detail.gate = await gateExam(admin, ex, { limit: 25 });
     } else if (job.kind === "verify") {
       detail.verify = await callFn("train-coach", { mode: "verify" }, req);
       for (const ex of ["aas", "edutest", "amc", "icas", "olympiad"]) {
@@ -74,6 +80,9 @@ serve(async (req) => {
       detail.gate = await gateExam(admin, exam, { limit: 40 });
     } else if (job.kind === "fill") {
       detail.fill = await fillFromMaterial(admin, { perStrand: 3, maxStrands: 6 });
+      for (const ex of ["aas", "edutest", "amc", "icas", "olympiad"]) {
+        detail["gate_" + ex] = await gateExam(admin, ex, { limit: 15 });
+      }
     } else {
       detail.skipped = `unknown job kind ${job.kind}`;
     }
