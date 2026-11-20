@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.09.3";
+import * as data from "./data.js?v=3.10.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.09.3";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.10.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -492,33 +492,44 @@ async function loadTraining() {
       const perFn = Object.entries(bal.calls_by_function ?? {})
         .map(([k, v]) => `${esc(k)} ${v}`).join(" · ") || "no calls today";
       $("spendCard").innerHTML = `
-        <div class="sub"><b>Balance ${rupee(bal.balance_inr)}</b> — the figure you last entered from the Sarvam
-          dashboard. Today she has spent ${rupee(bal.today?.inr)} over ${bal.today?.calls ?? 0} calls; the last
-          seven days come to ${rupee(bal.week?.inr)}.</div>
-        <div class="sub" style="margin-top:4px">Today by task: ${perFn}</div>
-        <div class="sub" style="margin-top:4px">Charged at Sarvam's published rate for ${esc(bal.model)}:
-          ₹13.50 per million tokens sent, ₹45 per million received. Token counts come from the API itself, not
-          from an estimate.</div>
-        <div class="bar" style="margin-top:8px">
-          <input id="balIn" type="number" step="1" min="0" placeholder="Balance ₹ from your Sarvam dashboard"
-                 style="width:200px">
-          <button class="mini" data-action="saveBalance">Update balance</button>
+        <div class="chipRow">
+          <span class="chip ${Number(bal.balance_inr) > 0 ? "green" : "orange"}"
+                title="Your Sarvam balance as you last entered it. Sarvam has no balance API, so this figure is yours to set.">
+            <b>${rupee(bal.balance_inr)}</b> balance</span>
+          <span class="chip blue" title="What the model has cost today, from the token counts the API returns.">
+            <b>${rupee(bal.today?.inr)}</b> today</span>
+          <span class="chip grey" title="The last seven days."><b>${rupee(bal.week?.inr)}</b> this week</span>
+          <span class="chip grey" title="Calls made today."><b>${bal.today?.calls ?? 0}</b> calls</span>
         </div>
-        <div class="k" style="margin-top:10px;margin-bottom:4px">Your limits</div>
-        <div class="bar" style="gap:8px;flex-wrap:wrap">
-          <label class="sub">Calls a day <input id="capCalls" type="number" min="0" step="10"
-            value="${esc(String(S.limits?.daily_call_cap ?? 400))}" style="width:90px"></label>
-          <label class="sub">₹ a day <input id="capSpend" type="number" min="0" step="1"
-            value="${esc(String(S.limits?.daily_spend_cap_inr ?? 20))}" style="width:80px"></label>
-          <label class="sub">Alert at % of a day <input id="capPct" type="number" min="1" max="100" step="5"
-            value="${esc(String(S.limits?.alert_at_percent ?? 80))}" style="width:80px"></label>
-          <label class="sub">Alert below ₹ <input id="capBelow" type="number" min="0" step="1"
-            value="${esc(String(S.limits?.alert_below_inr ?? 10))}" style="width:80px"></label>
-          <button class="mini" data-action="saveLimits">Save limits</button>
-        </div>
-        <div class="sub" style="margin-top:6px">Used today: ${bal.today?.calls ?? 0} of
-          ${esc(String(S.limits?.daily_call_cap ?? 400))} calls · ${rupee(bal.today?.inr)} of
-          ${rupee(S.limits?.daily_spend_cap_inr ?? 20)}. Calls stop when either cap is reached.</div>`;
+        <details style="margin-top:8px"><summary style="list-style:none;cursor:pointer">
+          <span class="chip grey">how this is worked out</span></summary>
+          <div class="sub" style="margin-top:8px">Sarvam publishes no balance endpoint, so this app cannot read your
+            wallet — only your dashboard can. What it can do is count: every call records the tokens the API reports,
+            and the cost is those tokens at Sarvam's published rate for ${esc(bal.model)} — ₹13.50 per million sent,
+            ₹45 per million received. Today by task: ${perFn}.</div>
+          <div class="sub" style="margin-top:6px">If Sarvam answers a call with "no credits available", that is recorded
+            and shown as an alert, because it is the one balance signal the API gives.</div>
+          <div class="sub" style="margin-top:6px">Enter the balance from your dashboard so the low-balance alert can work.</div>
+          <div class="bar" style="margin-top:8px">
+            <input id="balIn" type="number" step="1" min="0" placeholder="Balance ₹ from your dashboard" style="width:200px">
+            <button class="mini" data-action="saveBalance">Update balance</button>
+          </div>
+          <div class="k" style="margin-top:12px;margin-bottom:4px">Limits</div>
+          <div class="bar" style="gap:8px;flex-wrap:wrap">
+            <label class="sub">Calls a day <input id="capCalls" type="number" min="0" step="10"
+              value="${esc(String(S.limits?.daily_call_cap ?? 400))}" style="width:90px"></label>
+            <label class="sub">₹ a day <input id="capSpend" type="number" min="0" step="1"
+              value="${esc(String(S.limits?.daily_spend_cap_inr ?? 20))}" style="width:80px"></label>
+            <label class="sub">Alert at % of a day <input id="capPct" type="number" min="1" max="100" step="5"
+              value="${esc(String(S.limits?.alert_at_percent ?? 80))}" style="width:80px"></label>
+            <label class="sub">Alert below ₹ <input id="capBelow" type="number" min="0" step="1"
+              value="${esc(String(S.limits?.alert_below_inr ?? 10))}" style="width:80px"></label>
+            <button class="mini" data-action="saveLimits">Save limits</button>
+          </div>
+          <div class="sub" style="margin-top:6px">Used today: ${bal.today?.calls ?? 0} of
+            ${esc(String(S.limits?.daily_call_cap ?? 400))} calls · ${rupee(bal.today?.inr)} of
+            ${rupee(S.limits?.daily_spend_cap_inr ?? 20)}. Calls stop when either cap is reached.</div>
+        </details>`;
     }
     if (bal?.low) {
       const el = $("dateBanner");
