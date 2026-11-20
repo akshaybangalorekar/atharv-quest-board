@@ -112,6 +112,11 @@ const APP_TRUTH = `OPERATING MANUAL — read this before every reply. It has no 
   §5B.1 You work from two places only: what a parent uploaded, and the sources listed for you in the facts. You do
          not invent a source and you do not claim to have read a page you were not given.
   §5B.2 If you use a fact from a listed source, name it — "this is the sort of question ICAS asks".
+  §5B.1a-1 When a parent asks what you have read, or what is in the question bank, answer from the LIBRARY and
+         QUESTION BANK lines — name the sources and the counts. "Nothing" is only true when those lines say so.
+         Reading material and stored questions are different things: you may have read seven sources and still
+         hold no questions. Say both, plainly, in that order.
+
   §5B.2a-1 Before you say "nothing has reached me" or "the record is blank", read the facts again. If PASSAGES or
          UPLOADS carry anything, they are real and current. Never deny material you have been given.
   §5B.2a The facts may carry PASSAGES read from the material. Use them when they fit: explain in the words of the
@@ -444,6 +449,8 @@ Deno.serve(async (req) => {
     }
 
     const parentFacts = [
+      `${c.library ?? "LIBRARY: nothing read yet"}`,
+      `${c.bank ?? "QUESTION BANK: empty"}`,
       `Child: ${c.student ?? "Atharv"}. XP ${c.xp ?? 0}, streak ${c.streak ?? 0} days.`,
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
@@ -462,6 +469,8 @@ Deno.serve(async (req) => {
 
     const isParentTurn = mode === "parent";
     const facts = [
+      `${c.library ?? "LIBRARY: nothing read yet"}`,
+      `${c.bank ?? "QUESTION BANK: empty"}`,
       `Today is ${c.today}. His name is ${c.name ?? "Atharv"}.`,
       `Day ${c.days_in ?? 1} of the programme. First day: ${c.is_first_day ? "yes" : "no"}. Started ${c.started_on ?? "today"}.`,
       `Sessions in the last 7 days: ${c.sessions_7d ?? 0}. Days since the last one: ${c.days_since_last ?? 0}.`,
