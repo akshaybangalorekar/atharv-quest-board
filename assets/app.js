@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.07.1";
+import * as data from "./data.js?v=3.07.2";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.07.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.07.2";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -469,11 +469,16 @@ async function loadTraining() {
     </div>`).join("") : `<div class="sub">No sources yet.</div>`;
 
   const uploads = v.uploaded ?? [];
-  ups.innerHTML = `<div class="k" style="margin-bottom:4px">Your uploads</div>` + (uploads.length
-    ? uploads.map((u) => `<div class="upRow"><span class="upName">${esc(u.title ?? "a paper")}
+  // the chips above already carry the counts, so this block only lists the files themselves
+  ups.innerHTML = uploads.length
+    ? `<div class="chipRow" style="margin-bottom:8px">
+         <span class="chip green" title="Files you have uploaded, and the questions taken from them."><b>${uploads.length}</b> file${uploads.length === 1 ? "" : "s"}</span>
+       </div>` + uploads.map((u) => `<div class="upRow"><span class="upName">${esc(u.title ?? "a paper")}
         <span class="sub" style="display:block">${u.questions ?? 0} questions · ${u.pages ?? 0} pages</span></span></div>`).join("")
-    : `<div class="sub">Nothing uploaded yet. Add a file from the Question bank in the parent view.</div>`)
-    + `<div class="sub" style="margin-top:6px">In the bank: <b>${v.generated ?? 0}</b> written by her, <b>${v.from_files ?? 0}</b> from your files.</div>`;
+    : `<div class="chipRow">
+         <span class="chip orange" title="No file uploaded yet. Everything he practises on so far was written from the web sources."><b>0</b> files</span>
+         <span class="sub" style="margin-left:6px">add one from the Question bank below</span>
+       </div>`;
 
   $("trainAdd").style.display = S.isParent ? "" : "none";
 
@@ -676,7 +681,7 @@ async function verifyBank() {
   if (n === 0) {
     const { data: st } = await sb.rpc("training_status");
     $("trainMsg").textContent =
-      `There are no questions in the bank to check — 0 from your files, 0 written by her. ` +
+      `There are no questions in the bank to check yet. ` +
       `She has read ${st?.chunks ?? 0} passages from ${st?.web_docs ?? 0} sites, but reading material is not questions: ` +
       `questions arrive when you add a file or press Generate 20.`;
   } else {
