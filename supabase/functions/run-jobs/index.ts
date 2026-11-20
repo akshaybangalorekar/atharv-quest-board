@@ -6,7 +6,7 @@
 
 import { serve, ok, context, studentFor } from "./_shared/mod.ts";
 import { fillFromMaterial } from "./_shared/generate.ts";
-import { alignExam } from "./_shared/authority.ts";
+import { alignExam, scopeExam } from "./_shared/authority.ts";
 import { gateExam, gateQuestion } from "./_shared/gate.ts";
 
 const SUPABASE = Deno.env.get("SUPABASE_URL")!;
@@ -76,6 +76,9 @@ serve(async (req) => {
       for (const ex of ["aas", "edutest", "amc", "icas", "olympiad"]) {
         detail["gate_" + ex] = await gateExam(admin, ex, { limit: 25 });
       }
+    } else if (String(job.kind).startsWith("scope:")) {
+      // a question written from the web must still be on the exam's topic list
+      detail.scope = await scopeExam(admin, String(job.kind).split(":")[1], { limit: 40 });
     } else if (String(job.kind).startsWith("align:")) {
       // Top Scope material arrived: every question for that exam is reviewed against it
       const exam = String(job.kind).split(":")[1];

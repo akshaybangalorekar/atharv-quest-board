@@ -72,7 +72,8 @@ Be strict: a question the exam would never ask is NO.`;
 export async function scopeExam(admin: any, exam: string, opts: { limit?: number } = {}) {
   const limit = opts.limit ?? 40;
   const { data: rows } = await admin.rpc("exam_scope_rows", { p_exam: exam, p_limit: limit });
-  const live = (rows ?? []) as any[];
+  // a question taken from official material defines the scope, so it is never checked against it
+  const live = ((rows ?? []) as any[]).filter((r) => !r.from_official);
   let moved = 0;
   for (const r of live) {
     const topic = String(r.strand ?? "").split(" · ").pop() ?? "";
