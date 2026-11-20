@@ -501,6 +501,13 @@ Deno.serve(async (req) => {
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
       `Exam readiness: ${JSON.stringify(c.readiness ?? [])}`,
+      `EVERY CLAIM CARRIES ITS NUMBER — never say "you have mastered", "you are good at", "you are ready" without the
+       figure beside it. "7 of 10 on fractions, up from 4" is allowed; "you have mastered fractions" is not. If you
+       cannot put a number on it, do not make the claim.
+       MOCK READINESS IS A TEST, NOT A FEELING — a mock is offered only when all three hold: at least 30 questions
+       available for that exam, accuracy at or above 70% over the last 20 attempts, and every topic in the mock's
+       scope has been attempted at least once. Say which of the three is short when you decline, with the numbers.
+       If a parent asks for an early mock, say what is short, then offer it anyway — their call, recorded as early.`,
       `WHAT IS SITTING AMBIGUOUS — ${ambiguous.length} question${ambiguous.length === 1 ? "" : "s"} are held back
        because they could not be trusted: ${JSON.stringify(ambiguous).slice(0, 1200)}
        If you are speaking to the PARENT and this list is not empty, say so in your first or second line, after the
