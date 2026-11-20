@@ -92,6 +92,13 @@ export async function fillFromMaterial(admin: any, opts: { perStrand?: number; m
 kind of thinking with different numbers, names and scenario, so a child who has done those is still asked something new:\n${sibling.join("\n")}`
       : "";
     const raw = await ask(WRITE(String(ch.title), ch.subject ?? "maths", material, perStrand) + variantNote, "Write them now.", 0.8, 1400);
+    const baseSource = String((passages ?? [])[0]?.title ?? "").trim() || "the web sources";
+    const sourceUrl = String((passages ?? [])[0]?.url ?? "").trim() || null;
+    const isVariant = sibling.length > 0;
+    const sourceRef = isVariant
+      ? `variation of a question from ${baseSource} — written by the coach`
+      : baseSource;
+
     const parsed = jsonIn(raw);
     const rows = (parsed?.rows ?? []).filter((r: any) => r?.q && r?.a).slice(0, perStrand);
     trace.push({ chapter: ch.n, title: String(ch.title).slice(0, 40), material: material.length,
@@ -120,6 +127,7 @@ kind of thinking with different numbers, names and scenario, so a child who has 
         technique_tags: [String(ch.title).split("·").pop()?.trim() ?? String(ch.title)],
         source: ch.source ?? "book",
         source_kind: "web", source_ref: sourceRef, source_url: sourceUrl,
+        ...(isVariant ? { derived_from: sibling[0].slice(0, 200) } : {}),
         ...(fig ? { diagram_svg: fig } : {}),
         ...verdictColumns(verdict, false),
       });

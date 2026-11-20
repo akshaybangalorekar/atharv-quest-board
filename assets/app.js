@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.14.0";
+import * as data from "./data.js?v=3.15.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -188,7 +188,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.14.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.15.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -1902,8 +1902,9 @@ async function printQuestions(fam) {
       ${rows.filter((r) => r.chapter === n).map((r, i) => `
         <div class="q"><span class="n">${i + 1}.</span> ${esc(r.prompt)}
           ${r.diagram_svg ? `<div class="fig">${r.diagram_svg}</div>` : ""}
-          <div class="src">${r.source_kind === "upload" ? "From your file" : "From the web"}:
-            ${esc(r.source_ref ?? "source not recorded")}${r.source_url ? ` — ${esc(r.source_url)}` : ""}</div>
+          <div class="src">${r.derived_from
+            ? `${esc(r.source_ref ?? "variation")} — original: “${esc(String(r.derived_from).slice(0, 70))}”`
+            : `${r.source_kind === "upload" ? "From your file" : "From the web"}: ${esc(r.source_ref ?? "written by the coach, no source recorded")}`}${r.source_url && !r.derived_from ? ` — ${esc(r.source_url)}` : ""}</div>
           ${Array.isArray(r.options) ? r.options.map((o) => `<div class="opt">${esc(o)}</div>`).join("") : ""}
           ${r.paper_id ? `<div class="src">from an uploaded paper</div>` : `<div class="src">written by the coach</div>`}
         </div>`).join("")}`).join("")}

@@ -596,4 +596,32 @@ window.CASES = [
       assert("and is not called provisional", !/provisional/i.test(l2));
     },
   },
+  {
+    name: "a variation says whose question it is a variation of",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth();
+      window.__fixtures["sync_view"] = { totals: {}, library: {}, exams: [] };
+      window.__fixtures["exam_pipeline"] = [];
+      window.__fixtures["print_rows"] = [
+        { chapter: 2, idx: 1, prompt: "A pen and a notebook cost $13.", options: null, diagram_svg: null,
+          strand: "Comparison", answer: "$8", method: "compare",
+          source_ref: "variation of a question from NRICH (Cambridge) — written by the coach",
+          source_kind: "web", source_url: "https://nrich.maths.org", derived_from: "A pen and a notebook cost $12." },
+        { chapter: 2, idx: 2, prompt: "No provenance at all.", options: null, diagram_svg: null,
+          strand: "Comparison", answer: "1", method: "x",
+          source_ref: null, source_kind: "written", source_url: null, derived_from: null },
+      ];
+      let printed = null;
+      const realOpen = window.open;
+      window.open = () => ({ document: { write: (h) => { printed = h; }, close() {} }, focus() {}, print() {} });
+      await window.printQuestions("Olympiad");
+      await T.wait(80);
+      window.open = realOpen;
+
+      assert("the variation names its origin", /variation of a question from NRICH/i.test(printed ?? ""));
+      assert("and says she wrote it", /written by the coach/i.test(printed ?? ""));
+      assert("the original is quoted", /A pen and a notebook cost \$12/.test(printed ?? ""));
+      assert("a question with no source still says something", /written by the coach, no source recorded/.test(printed ?? ""));
+    },
+  },
 ];
