@@ -71,11 +71,11 @@ Be strict: a question the exam would never ask is NO.`;
 
 export async function scopeExam(admin: any, exam: string, opts: { limit?: number } = {}) {
   const limit = opts.limit ?? 40;
-  const { data: rows } = await admin.rpc("exam_questions", { p_exam: exam });
-  const live = (rows ?? []).filter((r: any) => r.status === "provisional" || r.status === "cleared").slice(0, limit);
+  const { data: rows } = await admin.rpc("exam_scope_rows", { p_exam: exam, p_limit: limit });
+  const live = (rows ?? []) as any[];
   let moved = 0;
   for (const r of live) {
-    const topic = String(r.strand ?? r.title ?? "").split(" · ").pop() ?? "";
+    const topic = String(r.strand ?? "").split(" · ").pop() ?? "";
     if (!topic) continue;
     const raw = await ask(SCOPE(topic, exam), `Question: ${r.prompt}`, 0.1, 120);
     const verdict = String(raw ?? "").trim();
