@@ -556,7 +556,8 @@ window.CASES = [
       window.__fixtures["print_rows"] = [
         { chapter: 1, idx: 1, prompt: "A bookshop sold 345 books on Saturday and 268 on Sunday. How many in all?",
           options: null, diagram_svg: "<svg viewBox=\"0 0 320 200\"></svg>", strand: "Whole Numbers",
-          answer: "613", method: "add" },
+          answer: "613", method: "add",
+          source_ref: "ICAS Assessments", source_kind: "web", source_url: "https://www.icasassessments.com" },
       ];
       let printed = null;
       const realOpen = window.open;
@@ -575,6 +576,24 @@ window.CASES = [
       assert("it carries the figure as vector", /<svg/.test(printed ?? ""));
       assert("the figure has room on the page", /class="fig"/.test(printed ?? ""));
       assert("it does not claim there is nothing to print", !/nothing to print/i.test(printed ?? ""));
+      assert("the source is printed under the question", /ICAS Assessments/.test(printed ?? ""));
+      assert("it says the source is from the web", /From the web/.test(printed ?? ""));
+      assert("the page is printed too", /icasassessments\.com/.test(printed ?? ""));
+    },
+  },
+  {
+    name: "a question shown to the child names its source",
+    async run({ assert, T }) {
+      const q = { chapter: 1, idx: 1, prompt: "A shop sold 345 books.", status: "provisional",
+                  source_ref: "NRICH (Cambridge)", options: null };
+      const label = window.gateLabel(q);
+      assert("the source is on the question", /NRICH/.test(label));
+      assert("provisional is still said", /provisional/i.test(label));
+
+      const cleared = { ...q, status: "cleared", source_ref: "TopScope_Edutest.pdf" };
+      const l2 = window.gateLabel(cleared);
+      assert("a cleared question still names its source", /TopScope_Edutest\.pdf/.test(l2));
+      assert("and is not called provisional", !/provisional/i.test(l2));
     },
   },
 ];

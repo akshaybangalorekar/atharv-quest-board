@@ -478,6 +478,13 @@ Deno.serve(async (req) => {
       pack = p ?? {};
     }
 
+    // where the questions came from, so she can say it when she presents one
+    let sources: any = [];
+    try {
+      const { data: qs } = await asUser.rpc("question_sources", { p_chapter: toParent ? null : effChapter });
+      sources = qs ?? [];
+    } catch (e) { console.error("question sources failed:", e); }
+
     const envelope = buildEnvelope(c, { parent: true, note });
     const childEnvelope = buildEnvelope(c, { parent: false, note });
 
@@ -487,6 +494,9 @@ Deno.serve(async (req) => {
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
       `Exam readiness: ${JSON.stringify(c.readiness ?? [])}`,
+      `WHERE EACH QUESTION CAME FROM — when you present a question, or when a parent asks about one, say the source
+       in the same breath: "this one is from NRICH" or "this one came from your Top Scope paper". Never present a
+       question without being able to say where it came from: ${JSON.stringify(sources)}`,
       `PASSAGES FROM THE MATERIAL she has read — quote the source when you use one. This is live, read at this
        moment; if it is empty then nothing has been read yet: ${JSON.stringify(c.material ?? [])}`,
       `WHAT A PARENT HAS UPLOADED — use it, and never say there is nothing when there is: ${JSON.stringify(c.uploads ?? {})}`,

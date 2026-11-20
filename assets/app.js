@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.13.1";
+import * as data from "./data.js?v=3.14.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -188,7 +188,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.13.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.14.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -1887,6 +1887,7 @@ async function printQuestions(fam) {
         border-bottom:1px solid #ddd;padding-bottom:4px}
       .q{margin:0 0 10px;page-break-inside:avoid}
       .n{color:#777;font-size:12px}
+      .src{font-size:10.5px;color:#666;margin:2px 0 6px}
       .fig{margin:8px 0 4px;page-break-inside:avoid}
       .fig svg{max-width:320px;height:auto}
       @media print{.fig svg{max-width:260px}}
@@ -1901,6 +1902,8 @@ async function printQuestions(fam) {
       ${rows.filter((r) => r.chapter === n).map((r, i) => `
         <div class="q"><span class="n">${i + 1}.</span> ${esc(r.prompt)}
           ${r.diagram_svg ? `<div class="fig">${r.diagram_svg}</div>` : ""}
+          <div class="src">${r.source_kind === "upload" ? "From your file" : "From the web"}:
+            ${esc(r.source_ref ?? "source not recorded")}${r.source_url ? ` — ${esc(r.source_url)}` : ""}</div>
           ${Array.isArray(r.options) ? r.options.map((o) => `<div class="opt">${esc(o)}</div>`).join("") : ""}
           ${r.paper_id ? `<div class="src">from an uploaded paper</div>` : `<div class="src">written by the coach</div>`}
         </div>`).join("")}`).join("")}
@@ -4184,7 +4187,9 @@ function gateLabel(q) {
   const provisional = (q?.status === "provisional" || q?.gate_state === "provisional");
   const src = String(q?.source_ref ?? "").trim();
   const where = src ? ` · from ${src}` : "";
-  return (provisional ? " (provisional" + where + ")" : where ? ` (${where.replace(" · from ", "from ")})` : "");
+  // the source is shown whether or not the question is provisional
+  if (provisional) return ` (provisional${where})`;
+  return src ? ` (from ${src})` : "";
 }
 
 /* the gate runs again, for this question, before he sees it */
@@ -5075,7 +5080,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, toneForCount, paintWalletBanner, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, toneForCount, paintWalletBanner, gateLabel, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
