@@ -718,4 +718,32 @@ window.CASES = [
       assert("no chapter button without a plan", !/Chapter \d+ →/.test(bar));
     },
   },
+  {
+    name: "DEBUG the answer path",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth({ plan: { chapter: 1, title: "Whole Numbers" } });
+      window.__fixtures["sync_view"] = { totals: {}, library: {}, exams: [] };
+      window.__fixtures["exam_pipeline"] = [];
+      window.__fixtures["plan_sitting"] = { minutes: 60, questions: 2, chapter: 1 };
+      window.__fixtures["next_in_chapter"] = [
+        { chapter: 1, idx: 1, prompt: "What is 5 + 7?", options: null, answer: "12", status: "provisional" },
+      ];
+      window.__fixtures["question_budget"] = { seconds: 90 };
+      window.__fixtures["log_visit"] = {};
+      window.__fixtures["submit_answer"] = { correct: true, answer: "12" };
+      T.show("session");
+      await window.startChapter(1);
+      await T.wait(250);
+      assert("script length " + (window.__state.script || []).length, (window.__state.script || []).length > 0);
+      assert("first step is " + (window.__state.script?.[0]?.type ?? "none"), window.__state.script?.[0]?.type === "question");
+      assert("ans field exists", !!T.$("ans"));
+      assert("chatWrap has cards", (T.$("chatWrap")?.children.length ?? 0) > 0);
+      const ans = T.$("ans");
+      if (ans) { ans.value = "12"; }
+      await window.check();
+      await T.wait(200);
+      assert("submit_answer called", T.calls("submit_answer").length > 0);
+      assert("errors: " + JSON.stringify((window.__errors ?? []).slice(0, 3)), (window.__errors ?? []).length === 0);
+    },
+  },
 ];

@@ -1,7 +1,10 @@
 /* tests/ui/harness.js — what every screen test is built on.
    Loaded into a copy of index.html, after a stub of the database, before the app's own script. */
 
-window.__calls = [];          // every rpc and function call the page makes
+window.__calls = [];
+window.__errors = [];
+window.addEventListener('error', (e) => window.__errors.push(String(e.message)));
+window.addEventListener('unhandledrejection', (e) => window.__errors.push('rejection: ' + String(e.reason && e.reason.message || e.reason)));          // every rpc and function call the page makes
 window.__fixtures = {};       // per-test answers for rpc calls
 
 function rpc(name) {
