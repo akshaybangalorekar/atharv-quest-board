@@ -307,8 +307,8 @@ window.CASES = [
       await window.loadTraining();
       await T.wait(150);
       const text = T.$("trainStore")?.textContent ?? "";
-      assert("cleared is shown", /12\s*cleared/.test(text));
-      assert("provisional is shown", /26\s*provisional/.test(text));
+      assert("verified is shown", /12\s*verified/.test(text));
+      assert("not verified is shown", /26\s*not verified/.test(text));
       assert("held back is shown", /3\s*held back/.test(text));
       assert("uploads chip is present", /1\s*your uploads/.test(text));
     },
@@ -387,7 +387,7 @@ window.CASES = [
       assert("the line is there", /Written so far/.test(flat));
       assert("it names what he can be given", /62 he can be given/.test(flat));
       assert("it names what was held back", /3 held back/.test(flat));
-      assert("it names what awaits a check", /4 awaiting/.test(flat));
+      assert("it names what awaits a check", /4 to be verified/.test(flat));
       assert("and the total is the sum of the three", /69/.test(flat));
       assert("62 + 3 + 4 really is 69", 62 + 3 + 4 === 69);
     },
@@ -588,12 +588,12 @@ window.CASES = [
                   source_ref: "NRICH (Cambridge)", options: null };
       const label = window.gateLabel(q);
       assert("the source is on the question", /NRICH/.test(label));
-      assert("provisional is still said", /provisional/i.test(label));
+      assert("not verified is still said", /not verified/i.test(label));
 
       const cleared = { ...q, status: "cleared", source_ref: "TopScope_Edutest.pdf" };
       const l2 = window.gateLabel(cleared);
       assert("a cleared question still names its source", /TopScope_Edutest\.pdf/.test(l2));
-      assert("and is not called provisional", !/provisional/i.test(l2));
+      assert("and is not called unverified", !/not verified/i.test(l2));
     },
   },
   {

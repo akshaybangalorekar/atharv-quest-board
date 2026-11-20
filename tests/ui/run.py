@@ -20,7 +20,7 @@ window.__results = [];
 // every generated scenario becomes a case, with the same assertion interface
 if (Array.isArray(window.__diagrams)) {
   window.CASES = (Array.isArray(window.CASES) ? window.CASES : []).concat(window.__diagrams.map((sc) => ({
-    name: sc.name,
+    name: sc.name, generated: true,
     run: async ({ assert, T }) => {
       window.__fixtures["truth"] = T.baseTruth();
       window.__fixtures["sync_view"] = { totals: { questions: 1 }, library: {}, exams: [] };
@@ -46,7 +46,7 @@ if (Array.isArray(window.__diagrams)) {
 
 if (Array.isArray(window.__uploads)) {
   window.CASES = (Array.isArray(window.CASES) ? window.CASES : []).concat(window.__uploads.map((sc) => ({
-    name: sc.name,
+    name: sc.name, generated: true,
     run: async ({ assert, T }) => {
       const up = sc.upload || {};
       window.__fixtures["truth"] = T.baseTruth();
@@ -83,7 +83,7 @@ if (Array.isArray(window.__uploads)) {
 
 if (Array.isArray(window.__scenarios)) {
   window.CASES = (Array.isArray(window.CASES) ? window.CASES : []).concat(window.__scenarios.map((sc) => ({
-    name: sc.name,
+    name: sc.name, generated: true,
     run: async ({ assert, T }) => {
       const d = sc.data || {};
       window.__fixtures["truth"] = T.baseTruth(d.dayone ? { student: { id: "kid", name: "A", xp: 0, streak: 0, days_in: 1 } } : {});
@@ -126,10 +126,12 @@ window.__done = false;
   await wait(1200);
   const only = %FILTER%;
   const batch = %BATCH%;
+  const suites = %SUITES%;
   let cases = (window.CASES || []);
   if (batch) { const [i, of] = batch.split("/").map(Number);
     const size = Math.ceil(cases.length / of); cases = cases.slice(i * size, (i + 1) * size); }
   for (const c of cases) {
+    if (!suites && !batch && c.generated) continue;   // generated suites only run when asked for
     if (only && !c.name.toLowerCase().includes(only)) continue;
     const checks = [];
     const assert = (what, ok) => checks.push({ what, ok: !!ok });
@@ -150,7 +152,8 @@ window.__done = false;
 """
 
 
-BATCH = os.environ.get("BATCH", "")   # "0/5" means the first fifth of the scenarios
+BATCH = os.environ.get("BATCH", "")
+SUITES = os.environ.get("SUITES", "")   # SUITES=all includes the 2,040 generated cases   # "0/5" means the first fifth of the scenarios
 
 
 def build(filter_name: str, out_path: str) -> None:
@@ -165,7 +168,7 @@ def build(filter_name: str, out_path: str) -> None:
     # the stub has to exist before the app creates its client
     html = html.replace('<script src="./supabase.js"></script>',
                         '<script src="./supabase.js"></script>' + inject, 1)
-    runner = RUNNER.replace("%FILTER%", json.dumps(filter_name)).replace("%BATCH%", json.dumps(BATCH))
+    runner = RUNNER.replace("%FILTER%", json.dumps(filter_name)).replace("%BATCH%", json.dumps(BATCH)).replace("%SUITES%", json.dumps(SUITES))
     head, sep, tail = html.rpartition("</body>")
     html = head + runner + sep + tail
     open(out_path, "w", encoding="utf-8").write(html)
