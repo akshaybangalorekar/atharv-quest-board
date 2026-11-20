@@ -115,9 +115,14 @@ async function handle(req: Request) {
     if (guardian?.student_id) student = guardian.student_id;
   }
 
+  // one row per run, so "it ran" is a fact and not a claim
+  const { data: jobId } = await supa.rpc("start_job", { p_kind: "train" });
+
+
   let body: any = {};
   try { body = await req.json(); } catch (_) {}
   let mode = body?.mode ?? "all";
+  await supa.from("jobs").update({ kind: `train:${mode}` }).eq("id", jobId);
 
   // "all" is the single path: uploads first, then the sources, then the check
   if (mode === "all") {
@@ -171,7 +176,12 @@ async function handle(req: Request) {
 
       checked.push({ chapter: r.chapter, idx: r.idx, ok, why });
     }
-    return json({ mode, checked: checked.length, failed: checked.filter((c) => !c.ok) });
+    await supa.rpc("finish_job", {
+    p_id: jobId, p_ok: true,
+    p_detail: { checked: checked.length, held_back: checked.filter((c) => !c.ok).length },
+    p_error: null,
+  });
+  return json({ mode, checked: checked.length, failed: checked.filter((c) => !c.ok) });
   }
 
   // --------------------------------------------------------------- uploads --
@@ -197,6 +207,7 @@ async function handle(req: Request) {
       });
       if (!upErr) { kept++; if ((upRes as any)?.stored === false) skipped++; }
     }
+    await supa.rpc("finish_job", { p_id: jobId, p_ok: true, p_detail: { kept, unchanged: skipped }, p_error: null });
     return json({ mode, papers: kept, unchanged: skipped });
   }
 
@@ -269,5 +280,11 @@ async function handle(req: Request) {
     }
   }
 
+  const failed = done.filter((d) => !d.ok);
+  await supa.rpc("finish_job", {
+    p_id: jobId, p_ok: failed.length === 0,
+    p_detail: { fetched: done.length - failed.length, failed: failed.length, sources: done },
+    p_error: failed.length ? `${failed.length} source(s) could not be read` : null,
+  });
   return json({ mode, fetched: done.filter((d) => d.ok).length, sources: done });
 }
