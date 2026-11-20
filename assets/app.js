@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.00.1";
+import * as data from "./data.js?v=3.00.2";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.00.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.00.2";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2197,18 +2197,6 @@ async function setExamDate(exam, value) {
 }
 
 async function loadParent() {
-  try {
-    const { data: st } = await sb.rpc("training_status");
-    const passages = st?.chunks ?? 0, sites = st?.web_docs ?? 0;
-    const { data: jobs } = await sb.rpc("recent_jobs", { p_limit: 1 });
-    const lastWrite = (jobs?.[0]?.detail?.generated ?? jobs?.[0]?.detail?.train?.generated ?? 0);
-    S.libNote = (st?.docs ?? 0)
-      ? `She has read ${passages} passages from ${sites} site${sites === 1 ? "" : "s"}` +
-        (lastWrite ? ` and wrote ${lastWrite} question${lastWrite === 1 ? "" : "s"} on the last run` : "") +
-        ` — Generate 20 asks for twenty more for this exam.`
-      : "She has not read any sources yet — she reads them automatically on the next run; see Help for the log.";
-  } catch (_) { S.libNote = ""; }
-
   const { data } = await sb.rpc("truth");
   S.TR = data ?? {};
   S.studentId = data?.student?.id ?? S.studentId ?? null;
@@ -2304,7 +2292,7 @@ async function goParent() {
         </div>
         <div class="sub" style="margin:8px 0 0">No questions in this exam's bank yet — none uploaded, none written.
           ${(f.schools_list ?? []).map((r) => esc(r.school)).join(", ") || esc(String(f.schools ?? "the school").replace(" + ", ", "))} sits it on ${esc(when)}.</div>
-        ${(S.libNote ?? "") ? `<div class="sub" style="margin:4px 0 0">${esc(S.libNote)}</div>` : ""}
+
         <div class="bar" style="margin-top:10px">
           <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
           <button class="mini" data-print="${esc(fam)}">Print</button>
