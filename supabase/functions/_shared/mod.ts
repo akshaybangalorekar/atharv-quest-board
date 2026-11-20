@@ -53,9 +53,10 @@ export async function ask(system: string, user: string, temperature = 0, maxToke
   // every call is counted, and a hard daily cap stops a runaway loop before it costs anything
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   try {
-    const { data: left } = await admin.rpc("daily_budget_left", { p_cap: 400 });
-    if (typeof left === "number" && left <= 0) {
-      console.warn("daily model budget reached; refusing the call");
+    // both caps the parent sets are enforced here, before the call is made
+    const { data: may } = await admin.rpc("may_call_model");
+    if (may && may.allowed === false) {
+      console.warn("model call refused:", may.reason);
       return "";
     }
   } catch (_) {}

@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.96.0";
+import * as data from "./data.js?v=2.97.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.96.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.97.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -431,6 +431,8 @@ async function loadTraining() {
   // what the model has cost, in rupees, and what is left
   try {
     const { data: bal } = await sb.rpc("model_balance");
+    const { data: limits } = await sb.rpc("usage_limits");
+    S.limits = limits ?? {};
     if (bal && $("spendCard")) {
       const rupee = (n) => "₹" + Number(n ?? 0).toFixed(2);
       const perFn = Object.entries(bal.calls_by_function ?? {})
@@ -443,9 +445,24 @@ async function loadTraining() {
         <div class="sub" style="margin-top:4px">Rate used: ${esc(bal.model)} — ₹13.50 per million in, ₹45 per million out.</div>
         <div class="bar" style="margin-top:8px">
           <input id="balIn" type="number" step="1" min="0" placeholder="Balance ₹ from your Sarvam dashboard"
-                 style="width:220px">
+                 style="width:200px">
           <button class="mini" data-action="saveBalance">Update balance</button>
-        </div>`;
+        </div>
+        <div class="k" style="margin-top:10px;margin-bottom:4px">Your limits</div>
+        <div class="bar" style="gap:8px;flex-wrap:wrap">
+          <label class="sub">Calls a day <input id="capCalls" type="number" min="0" step="10"
+            value="${esc(String(S.limits?.daily_call_cap ?? 400))}" style="width:90px"></label>
+          <label class="sub">₹ a day <input id="capSpend" type="number" min="0" step="1"
+            value="${esc(String(S.limits?.daily_spend_cap_inr ?? 20))}" style="width:80px"></label>
+          <label class="sub">Alert at % of a day <input id="capPct" type="number" min="1" max="100" step="5"
+            value="${esc(String(S.limits?.alert_at_percent ?? 80))}" style="width:80px"></label>
+          <label class="sub">Alert below ₹ <input id="capBelow" type="number" min="0" step="1"
+            value="${esc(String(S.limits?.alert_below_inr ?? 10))}" style="width:80px"></label>
+          <button class="mini" data-action="saveLimits">Save limits</button>
+        </div>
+        <div class="sub" style="margin-top:6px">Used today: ${bal.today?.calls ?? 0} of
+          ${esc(String(S.limits?.daily_call_cap ?? 400))} calls · ${rupee(bal.today?.inr)} of
+          ${rupee(S.limits?.daily_spend_cap_inr ?? 20)}. Calls stop when either cap is reached.</div>`;
     }
     if (bal?.low) {
       const el = $("dateBanner");
@@ -4751,6 +4768,15 @@ const CALL = (el, fn) => {
 };
 
 registerActions({
+  saveLimits: async () => {
+    await sb.rpc("set_usage_limits", {
+      p_calls: Number($("capCalls")?.value ?? 400),
+      p_spend: Number($("capSpend")?.value ?? 20),
+      p_alert_pct: Number($("capPct")?.value ?? 80),
+      p_alert_below: Number($("capBelow")?.value ?? 10),
+    });
+    loadTraining();
+  },
   saveBalance: async () => {
     const v = Number($("balIn")?.value ?? 0);
     if (!Number.isFinite(v) || v < 0) return;
