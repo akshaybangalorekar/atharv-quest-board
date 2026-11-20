@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.12.0";
+import * as data from "./data.js?v=3.12.1";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -188,7 +188,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.12.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.12.1";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -1922,67 +1922,13 @@ async function printQuestions(fam) {
 
 /* three wipes: everything, the files, or the coach's own questions */
 async function wipe(kind) {
-  const what = kind === "all" ? "EVERYTHING — his work, every file, every question, the timetable, both conversations"
-    : kind === "uploaded" ? "every uploaded file and the questions taken from them"
-    : kind === "chats" ? "both conversations with the coach — his thread and yours"
-    : "every question the coach wrote";
-  if (!confirm(`Delete ${what}?\n\nThis cannot be undone.`)) return;
-
-  // a visible bar, so the wipe is not a silent wait
-  const wrap = $("wipeProg"), bar = $("wipeBar"), txt = $("wipeText");
-  wrap.classList.remove("hidden");
-  $("resetMsg").textContent = "";
-  const step = (pct, said) => { bar.style.width = pct + "%"; txt.textContent = said; };
-  step(8, kind === "all" ? "Clearing his work…"
-    : kind === "chats" ? "Clearing the conversations…" : "Removing questions…");
-
-  let files = [];
-  if (kind === "uploaded" || kind === "all") {
-    const { data: paths } = await sb.from("papers").select("path");
-    files = (paths ?? []).map((p) => p.path).filter(Boolean);
-  }
-
-  const rpc = kind === "all" ? "reset_all"
-    : kind === "uploaded" ? "clear_uploaded"
-    : kind === "chats" ? "clear_chats" : "clear_generated";
-  step(35, "Deleting from the database…");
-  const { data, error } = await sb.rpc(rpc);
-  if (error) {
-    wrap.classList.add("hidden");
-    $("resetMsg").textContent = error.message;
-    return;
-  }
-  step(70, "Tidying the stored files…");
-
-  for (let i = 0; i < files.length; i += 100) {
-    await sb.storage.from("papers").remove(files.slice(i, i + 100)).then(() => {}, () => {});
-  }
-
-  step(90, "Checking what is left…");
-  const { data: left } = await sb.from("problems").select("chapter").limit(1000);
-  const remaining = (left ?? []).length;
-
-  if (kind === "chats") {
-    step(100, "Done.");
-    const cm = data?.child_messages ?? 0, pm = data?.parent_messages ?? 0;
-    $("resetMsg").textContent = `Done — ${cm} messages cleared from his thread and ${pm} from yours. Both are empty now.`;
-    S.TR = null;
-    setTimeout(() => wrap.classList.add("hidden"), 4000);
-    return;
-  }
-
-  step(100, "Done.");
-  const n = data?.questions_removed ?? data?.questions ?? 0;
-  const f = data?.files_removed ?? data?.files ?? 0;
-  $("resetMsg").textContent = kind === "all"
-    ? `Done — back to day one. ${remaining} questions left in the bank.`
-    : `Done — ${n} questions and ${f} files removed. ${remaining} questions left.`;
-
-  await loadPapersToRead().catch(() => {});
-  loadTough();
-  await goParent();
-  setTimeout(() => wrap.classList.add("hidden"), 4000);
+  // the two wipes in Start again replaced every old path; this stays only as a guard
+  console.warn("the old wipe path was called with:", kind);
+  const msg = $("resetMsg");
+  if (msg) msg.textContent = "Use Start again: wipe his history, or wipe the questions.";
 }
+
+
 
 /* a parent can ask for the mock early; printing questions never sets one */
 async function askForEarlyMock() {
