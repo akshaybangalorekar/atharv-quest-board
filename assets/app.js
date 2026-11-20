@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.25.0";
+import * as data from "./data.js?v=3.26.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -210,7 +210,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.25.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.26.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2448,22 +2448,8 @@ async function goParent() {
     const pipeLeft = Number(pipeRowE.left_to_solve ?? examCount);
     const pipeSolved = Number(pipeRowE.solved ?? 0);
 
-    if (!totalQ) {
-      return `<div class="card ttExam">
-        <div class="ttHead">
-          <span class="ttName">${esc(fam)}</span>
-          <span class="chip ${toneForCount(pipeLeft)}" title="${examCount} questions · ${pipeSolved} solved · ${pipeLeft} left to solve. ${pipeLeft === 0 ? "Nothing left to practise on." : pipeLeft < 30 ? "Thinning: under 30 unsolved." : "A healthy queue."}"><b>${examCount}</b> questions · <b>${pipeSolved}</b> solved</span>
-          <span class="chip grey" title="${esc(fam)} sits on ${esc(when)}"><b>${f.days_left ?? 0}</b> days</span>
-          <span class="ttMeta" style="margin-left:auto">${coveredMin} of ${sitsMin} min testable</span>
-        </div>
-        <div class="sub" style="margin:8px 0 0">${examCount ? "" : "No questions in this exam's bank yet — none uploaded, none written. "}${sittingLine(f, esc(when))}.</div>
-
-        <div class="bar" style="margin-top:10px">
-          <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
-          <button class="mini" data-print="${esc(fam)}">Print</button>
-        </div>
-      </div>`;
-    }
+    // empty is a flag on the one card, not a second copy of it
+    const isEmpty = !totalQ;
 
     const schools = (f.schools_list ?? []).map((r, i) => {
       const d = r.sits_on
@@ -2508,7 +2494,8 @@ async function goParent() {
         <span class="ttMeta" style="margin-left:auto">${coveredMin} of ${sitsMin} min testable</span>
       </div>
       <div class="bar2" style="margin:8px 0 4px"><i style="width:${pct}%"></i></div>
-      ${schools}
+      ${isEmpty ? `<div class="sub" style="margin:8px 0 0">No questions in this exam's bank yet — none uploaded,
+        none written. ${sittingLine(f, esc(when))}.</div>` : schools}
       <div class="bar" style="margin-top:10px">
         <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
         <button class="mini" data-print="${esc(fam)}">Print</button>
