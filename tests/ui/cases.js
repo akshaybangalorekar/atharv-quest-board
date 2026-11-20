@@ -547,4 +547,34 @@ window.CASES = [
       assert("they add up to 62", chips.reduce((a, b) => a + b, 0) === 62);
     },
   },
+  {
+    name: "print finds the questions an exam actually holds",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth();
+      window.__fixtures["sync_view"] = { totals: {}, library: {}, exams: [] };
+      window.__fixtures["exam_pipeline"] = [];
+      window.__fixtures["print_rows"] = [
+        { chapter: 1, idx: 1, prompt: "A bookshop sold 345 books on Saturday and 268 on Sunday. How many in all?",
+          options: null, diagram_svg: "<svg viewBox=\"0 0 320 200\"></svg>", strand: "Whole Numbers",
+          answer: "613", method: "add" },
+      ];
+      let printed = null;
+      const realOpen = window.open;
+      // the sheet is written into a new window: capture what would be written
+      window.open = () => ({
+        document: { write: (html) => { printed = html; }, close() {} },
+        focus() {}, print() {},
+      });
+
+      await window.printQuestions("Olympiad");
+      await T.wait(80);
+      window.open = realOpen;
+
+      assert("a sheet was produced", !!printed);
+      assert("it carries the question", /bookshop sold 345/.test(printed ?? ""));
+      assert("it carries the figure as vector", /<svg/.test(printed ?? ""));
+      assert("the figure has room on the page", /class="fig"/.test(printed ?? ""));
+      assert("it does not claim there is nothing to print", !/nothing to print/i.test(printed ?? ""));
+    },
+  },
 ];

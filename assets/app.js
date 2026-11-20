@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.12.3";
+import * as data from "./data.js?v=3.13.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -188,7 +188,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.12.3";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.13.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -1870,23 +1870,16 @@ async function generateFor(fam, count, btn) {
 
 /* a printable sheet of what is in an exam, so a parent can see what he is doing */
 async function printQuestions(fam) {
-  const kinds = Object.entries(BANK_FAMILY).filter(([, f]) => f === fam).map(([e]) => e);
-  const { data: banks } = await sb.from("exam_banks").select("exam, kind").in("exam", kinds);
-  const sourceKinds = (banks ?? []).map((b) => b.kind);
+  // the questions for this exam, read the same way every other count is read
+  const key = String(fam ?? "").toLowerCase().replace(/[^a-z]/g, "") === "olympiad" ? "olympiad"
+    : String(fam ?? "").toLowerCase().includes("edutest") ? "edutest"
+    : String(fam ?? "").toLowerCase().includes("aas") ? "aas"
+    : String(fam ?? "").toLowerCase().includes("icas") ? "icas"
+    : String(fam ?? "").toLowerCase().includes("amc") ? "amc" : String(fam ?? "").toLowerCase();
 
-  const { data: rows } = await sb.from("problems")
-    .select("chapter, idx, prompt, options, paper_id, diagram_url")
-    .in("source", sourceKinds).order("chapter").order("idx").limit(300);
-  if (!rows?.length) { alert("There is nothing to print for this exam yet."); return; }
-
-  const chapters = [...new Set(rows.map((r) => r.chapter))];
-  const { data: chs } = await sb.from("chapters").select("n, title").in("n", chapters);
-  const titleOf = {};
-  (chs ?? []).forEach((c) => { titleOf[c.n] = c.title; });
-
-  const { data: ans } = await sb.from("problem_answers").select("chapter, idx, answer").in("chapter", chapters);
-  const keyOf = {};
-  (ans ?? []).forEach((a) => { keyOf[a.chapter + ":" + a.idx] = a.answer; });
+  const { data: rows, error } = await sb.rpc("print_rows", { p_exam: key });
+  if (error) { alert("Could not read the questions: " + error.message); return; }
+  if (!rows?.length) { alert(`There is nothing to print for ${fam} yet — the bank holds no questions for it.`); return; }
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(fam)} — questions</title>
     <style>
@@ -1895,21 +1888,25 @@ async function printQuestions(fam) {
         border-bottom:1px solid #ddd;padding-bottom:4px}
       .q{margin:0 0 10px;page-break-inside:avoid}
       .n{color:#777;font-size:12px}
+      .fig{margin:8px 0 4px;page-break-inside:avoid}
+      .fig svg{max-width:320px;height:auto}
+      @media print{.fig svg{max-width:260px}}
       .opt{color:#333;font-size:13px;margin-left:14px}
       .src{font-size:11px;color:#888}
       .key{margin-top:26px;border-top:1px solid #ccc;padding-top:10px;font-size:12px;color:#333}
 </style></head><body>
     <h1>${esc(fam)} — the questions in the bank</h1>
     <div class="src">Printed ${new Date().toLocaleDateString("en-AU")} · ${rows.length} questions</div>
-    ${chapters.map((n) => `
-      <h2>${esc(titleOf[n] ?? ("Chapter " + n))}</h2>
+    ${[...new Set(rows.map((r) => r.chapter))].map((n) => `
+      <h2>${esc((rows.find((r) => r.chapter === n)?.strand) ?? ("Chapter " + n))}</h2>
       ${rows.filter((r) => r.chapter === n).map((r, i) => `
         <div class="q"><span class="n">${i + 1}.</span> ${esc(r.prompt)}
+          ${r.diagram_svg ? `<div class="fig">${r.diagram_svg}</div>` : ""}
           ${Array.isArray(r.options) ? r.options.map((o) => `<div class="opt">${esc(o)}</div>`).join("") : ""}
           ${r.paper_id ? `<div class="src">from an uploaded paper</div>` : `<div class="src">written by the coach</div>`}
         </div>`).join("")}`).join("")}
     <div class="key"><b>Answers</b><br>${rows.map((r, i) =>
-      `${i + 1}. ${esc(keyOf[r.chapter + ":" + r.idx] ?? "—")}`).join(" · ")}</div>
+      `${i + 1}. ${esc(r.answer ?? "—")}`).join(" · ")}</div>
     </body></html>`;
 
   const w = window.open("", "_blank");
