@@ -188,11 +188,14 @@ Deno.serve(async (req) => {
       ["CH-5", "Maggie has 3 square-number scores. The first two have the same three digits. The total is 590. What are the scores?", "pass"],
     ];
     const out: any[] = [];
-    for (const [id, q, expect] of golden) {
+    for (const [id, q, expect0] of golden) {
+      // these fixtures carry no drawing, so a question that names one must be refused
+      const namesAFigure = /\b(diagram|figure|region|shaded|shown below|the picture)\b/i.test(q);
+      const expect = namesAFigure ? "failed" : expect0;
       const v = await gateQuestion(admin, { chapter: 0, idx: 0, prompt: q }, "", false);
       const noAnswer = /stored answer is missing/i.test(v.why);
       const ok = expect === "failed" ? v.state === "failed" : (v.state !== "failed" || noAnswer);
-      out.push({ id, expect, got: v.state, ok, why: v.why.slice(0, 100) });
+      out.push({ id, expect, got: v.state, ok, namesAFigure, why: v.why.slice(0, 100) });
     }
     const bad = out.filter((r) => !r.ok);
     return json({ cases: out.length, passed: out.length - bad.length, failed: bad.length, misses: bad });
