@@ -221,4 +221,38 @@ window.CASES = [
       assert("no banner for a good run", T.$("dateBanner")?.classList.contains("hidden"));
     },
   },
+  {
+    name: "the exam counts add up to the Help total",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth({
+        families: [
+          { label: "AAS", family: "aas", items: 0, verdict: "no_content", exam_on: "2027-02-06", days_left: 78, topics_all: 10, topics_done: 0, schools_list: [], schools: "Camberwell Grammar", rows: [], topics: [] },
+          { label: "Olympiad", family: "olympiad", items: 0, verdict: "no_content", exam_on: "2027-05-05", days_left: 166, topics_all: 24, topics_done: 0, schools_list: [], schools: "APSIO", rows: [], topics: [] },
+        ],
+      });
+      window.__fixtures["sync_view"] = {
+        totals: { questions: 12, cleared: 0, provisional: 12, draft: 0, failed: 0, from_web: 12, from_upload: 0 },
+        library: { documents: 3, passages: 18, from_web: 3, from_upload: 0, official: 0 },
+        exams: [
+          { key: "aas", label: "AAS", servable: 5, cleared: 0, provisional: 5, draft: 0, failed: 0 },
+          { key: "olympiad", label: "Olympiad", servable: 7, cleared: 0, provisional: 7, draft: 0, failed: 0 },
+        ],
+      };
+      window.__fixtures["exam_pipeline"] = [
+        { key: "aas", pipeline: 5, solved: 0, left_to_solve: 5 },
+        { key: "olympiad", pipeline: 7, solved: 0, left_to_solve: 7 },
+      ];
+      window.__fixtures["topic_readiness"] = [];
+      window.__fixtures["exam_specs"] = [];
+
+      await window.goParent();
+      await T.wait(200);
+
+      const sum = T.$("pExamSum")?.textContent ?? "";
+      assert("the fold states the total", /12 questions across the five exams/.test(sum));
+      const cards = T.$("pExams")?.textContent ?? "";
+      assert("no verdict word on a card", !/\bthin\b/i.test(cards));
+      assert("each card carries a count", /5 questions|7 questions/.test(cards));
+    },
+  },
 ];
