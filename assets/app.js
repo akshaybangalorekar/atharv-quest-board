@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.12.1";
+import * as data from "./data.js?v=3.12.2";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -188,7 +188,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.12.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.12.2";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2417,16 +2417,21 @@ async function goParent() {
     const coveredMin = Math.max(0, ...(f.schools_list ?? []).map((x) => x.measured_minutes ?? 0));
     const pct = sitsMin ? Math.round((coveredMin / sitsMin) * 100) : 0;
 
+    const pipeRowE = (S.pipeline ?? []).find((p) => String(p.key).toLowerCase() === syncKey) ?? {};
+    const pipeLeft = Number(pipeRowE.left_to_solve ?? examCount);
+    const pipeSolved = Number(pipeRowE.solved ?? 0);
+
     if (!totalQ) {
       return `<div class="card ttExam">
         <div class="ttHead">
           <span class="ttName">${esc(fam)}</span>
-          <span class="pill grey">no questions</span>
-          <span class="ttMeta">${esc(when)}${f.days_left !== null ? ` · ${f.days_left} days` : ""}</span>
-          <span class="ttMeta" style="margin-left:auto">${examCount} question${examCount === 1 ? "" : "s"}</span>
+          <span class="chip ${toneForCount(examCount)}" title="${examCount} questions for this exam."><b>${examCount}</b> questions</span>
+          <span class="chip ${Number(pipeLeft) === 0 ? "grey" : "amber"}"
+                title="${examCount} questions · ${pipeSolved} solved · ${pipeLeft} left to solve."><b>${pipeLeft}</b> left</span>
+          <span class="chip grey" title="${esc(fam)} sits on ${esc(when)}"><b>${f.days_left ?? 0}</b> days</span>
+          <span class="ttMeta" style="margin-left:auto">${coveredMin} of ${sitsMin} min testable</span>
         </div>
-        <div class="sub" style="margin:8px 0 0">No questions in this exam's bank yet — none uploaded, none written.
-          ${sittingLine(f, esc(when))}.</div>
+        <div class="sub" style="margin:8px 0 0">${examCount ? "" : "No questions in this exam's bank yet — none uploaded, none written. "}${sittingLine(f, esc(when))}.</div>
 
         <div class="bar" style="margin-top:10px">
           <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
