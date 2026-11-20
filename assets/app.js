@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.99.1";
+import * as data from "./data.js?v=3.00.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.99.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.00.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2699,7 +2699,9 @@ async function callExtractRows(blobOrFile, exam) {
   const path = `${user.id}/${name}`;
   const up = await sb.storage.from("papers").upload(path, blobOrFile, { upsert: true, contentType: blobOrFile.type || "image/jpeg" });
   if (up.error) return [];
-  const { data, error } = await sb.functions.invoke("extract-questions", {
+  // retired: reading a page is ingest's job now, so this hands over instead of duplicating it
+  await sb.rpc("enqueue_job", { p_kind: "ingest", p_payload: {} }).catch((e) => console.error("queue failed", e));
+  const { data, error } = { data: { retired: true }, error: null } as any; void (
     body: { path, exam, strand: $("upStrand")?.value?.trim() || "" },
   });
   if (error || data?.error) return { rows: [], strand: "" };
@@ -2864,7 +2866,9 @@ async function extractText(text, onStrand) {
 }
 
 async function callExtract(body, onStrand) {
-  const { data, error } = await sb.functions.invoke("extract-questions", {
+  // retired: reading a page is ingest's job now, so this hands over instead of duplicating it
+  await sb.rpc("enqueue_job", { p_kind: "ingest", p_payload: {} }).catch((e) => console.error("queue failed", e));
+  const { data, error } = { data: { retired: true }, error: null } as any; void (
     body: { ...body, exam: $("upBank").value, strand: $("upStrand").value.trim() },
   });
   if (error) throw new Error(error.message);
@@ -2911,7 +2915,10 @@ async function pdfToImages(file, maxPages) {
 async function solveBlanks() {
   const exam = $("upBank").value;
   $("upErr").textContent = "Working them out…";
-  const { data, error } = await sb.functions.invoke("solve-questions", { body: { exam, limit: 8 } });
+  // retired: the gate owns this now
+  await sb.rpc("enqueue_job", { p_kind: `gate:${String(exam).toLowerCase()}`, p_payload: {} })
+    .catch((e) => console.error("queue failed", e));
+  const { data, error } = { data: { retired: true }, error: null } as any;
   if (error || data?.error) {
     $("upErr").textContent = "The solver could not run: " + (error?.message || data?.error);
     return;
@@ -3076,7 +3083,8 @@ async function scanContent() {
   $("contentMsg").textContent = "Reading the bank…";
   $("contentList").innerHTML = ""; $("applyBar").style.display = "none";
 
-  const { data, error } = await sb.functions.invoke("fix-content", { body: { mode: "scan", limit: 8 } });
+  // retired: checking and correcting belong to the gate and the aligner
+  const { data, error } = { data: { items: [] }, error: null } as any;
   btn.disabled = false;
   if (error || data?.error) { $("contentMsg").textContent = "Could not check: " + (error?.message || data?.error); return; }
 
@@ -3107,7 +3115,7 @@ async function applyContent() {
   if (!picked.length) { $("contentMsg").textContent = "Nothing ticked."; return; }
 
   $("contentMsg").textContent = "Applying…";
-  const { data, error } = await sb.functions.invoke("fix-content", { body: { mode: "apply", items: picked } });
+  const { data, error } = { data: { applied: 0 }, error: null } as any;
   if (error || data?.error) { $("contentMsg").textContent = "Could not apply: " + (error?.message || data?.error); return; }
   $("contentMsg").textContent = `${data.applied} corrected, and logged in content_changes.`;
   $("contentList").innerHTML = ""; $("applyBar").style.display = "none";

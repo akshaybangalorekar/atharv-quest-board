@@ -123,7 +123,7 @@ async function handle(req: Request) {
 
 
   let body: any = {};
-  try { body = await req.json(); } catch (_) {}
+  try { body = await req.json(); } catch (e) { console.error("train-coach step failed:", String((e as Error)?.message ?? e)); }
   let mode = body?.mode ?? "all";
   await supa.from("jobs").update({ kind: `train:${mode}` }).eq("id", jobId);
 
@@ -220,7 +220,7 @@ async function handle(req: Request) {
     const raw = await ask(FIND, `Already on the list:\n${known || "(nothing yet)"}\n\nSuggest up to six more.`);
     const m = raw.match(/\{[\s\S]*\}/);
     let sites: Array<{ name: string; url: string; why: string }> = [];
-    try { sites = JSON.parse(m ? m[0] : "{}").sites ?? []; } catch (_) {}
+    try { sites = JSON.parse(m ? m[0] : "{}").sites ?? []; } catch (e) { console.error("train-coach step failed:", String((e as Error)?.message ?? e)); }
 
     const added: Array<Record<string, unknown>> = [];
     const knownHosts = new Set((have ?? []).map((x: any) => {
@@ -251,7 +251,7 @@ async function handle(req: Request) {
         if (error) continue;
         knownHosts.add(host);
         added.push({ name: site.name, url, why: site.why });
-      } catch (_) { /* a site that does not answer is not added */ }
+      } catch (e) { console.error("train-coach discovery failed:", String((e as Error)?.message ?? e)); }
     }
     return json({ mode, proposed: sites.length, added });
   }

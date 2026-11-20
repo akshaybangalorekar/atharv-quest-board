@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
       const body = (passages ?? []).map((x: any) =>
         `From ${x.title}${x.url ? ` (${x.url})` : ""}: ${String(x.body ?? "").slice(0, 400)}`).join("\n\n");
       if (body) materialNote = `\n\nMaterial she has read on this topic — base the questions on its content and style, never copy it word for word:\n${body}`;
-    } catch (_) {}
+    } catch (e) { console.error("make-questions step failed:", String((e as Error)?.message ?? e)); }
 
     const r = await fetch(ENDPOINT, {
       method: "POST",

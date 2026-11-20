@@ -131,7 +131,7 @@ Reply with JSON only:
       const m = raw.match(/\{[\s\S]*\}/);
       if (m) dates = JSON.parse(m[0]).dates ?? [];
     }
-  } catch (_) { /* a failed check is not a change */ }
+  } catch (e) { console.error("refresh-dates check failed:", String((e as Error)?.message ?? e)); }
 
   const changes: Array<Record<string, unknown>> = [];
 

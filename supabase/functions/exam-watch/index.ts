@@ -74,7 +74,7 @@ async function handle(req: Request) {
 
   // a test email, so the parent can prove delivery without waiting for news
   let mode = "check";
-  try { mode = (await req.json())?.mode ?? "check"; } catch (_) {}
+  try { mode = (await req.json())?.mode ?? "check"; } catch (e) { console.error("exam-watch step failed:", String((e as Error)?.message ?? e)); }
 
   // whose calendar: this account, or the child this account looks after
   const student = await studentFor(supa, user.id);
@@ -155,7 +155,7 @@ If nothing has changed, reply {"findings":[]}.`;
       const m = raw.match(/\{[\s\S]*\}/);
       if (m) findings = (JSON.parse(m[0]).findings ?? []) as Finding[];
     }
-  } catch (_) { /* a failed check reports nothing */ }
+  } catch (e) { console.error("exam-watch check failed:", String((e as Error)?.message ?? e)); }
 
   const kept: Finding[] = [];
   for (const f of findings) {

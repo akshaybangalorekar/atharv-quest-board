@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   let body: any = {};
-  try { body = await req.json(); } catch (_) {}
+  try { body = await req.json(); } catch (e) { console.error("cron-jobs step failed:", String((e as Error)?.message ?? e)); }
 
   const admin = ADMIN();
 
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
             const parsed = JSON.parse(m[0]);
             best = String(parsed.topic ?? own);
             belongs = best.trim().toLowerCase() === own.trim().toLowerCase();
-          } catch (_) {}
+          } catch (e) { console.error("cron-jobs step failed:", String((e as Error)?.message ?? e)); }
         }
       }
 

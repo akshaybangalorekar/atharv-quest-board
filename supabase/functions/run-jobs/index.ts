@@ -19,7 +19,7 @@ serve(async (req) => {
 
   // a single question, checked right before it is presented
   let body: any = {};
-  try { body = await req.json(); } catch (_) {}
+  try { body = await req.json(); } catch (e) { console.error("run-jobs step failed:", String((e as Error)?.message ?? e)); }
   if (body?.mode === "one") {
     const { data: q } = await admin.from("problems")
       .select("chapter, idx, prompt, options, gate_at").eq("chapter", body.chapter).eq("idx", body.idx).maybeSingle();

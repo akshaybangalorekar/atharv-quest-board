@@ -600,7 +600,7 @@ Deno.serve(async (req) => {
           const again = second ? checkReply(second, env) : { ok: false };
           if (second && again.ok) { reply = second; verdict = again; }
         }
-      } catch (_) { /* fall through to the plain correction */ }
+      } catch (e) { console.error("coach-chat correction pass failed:", String((e as Error)?.message ?? e)); }
 
       if (!verdict.ok) {
         // still wrong: say the truth in her voice rather than send the denial
