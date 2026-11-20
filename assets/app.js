@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.24.1";
+import * as data from "./data.js?v=3.25.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -210,7 +210,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.24.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.25.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2490,7 +2490,7 @@ async function goParent() {
       return `<details class="ttMore"><summary>${esc(r.school)} — ${r.sits_minutes ?? 0} min in the exam</summary>
         <div class="ttPaperHead" style="display:none">${esc(r.school)}
           <span class="exDate" id="dl${fam}${i}" style="font-weight:400">${esc(d)}${dd !== null ? ` · ${dd}d` : ""}</span>
-          <button class="pencil" title="Change the date" data-action="editDate" data-a0="${fam}${i}" data-a1="${this.dataset.exam}" data-a2="${this.dataset.on}"
+          <button class="pencil" title="Change the date" data-action="editDate" data-a0="${fam}${i}" data-a1="${esc(r.school ?? "")}" data-a2="${esc(r.sits_on ?? "")}"
                   data-exam="${esc(r.calendar_name ?? "")}" data-on="${r.sits_on ?? ""}">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>
