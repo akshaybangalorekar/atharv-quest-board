@@ -11,6 +11,7 @@
 // Secrets: SARVAM_API_KEY
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { fillFromMaterial } from "./_shared/generate.ts";
 
 const ENDPOINT = "https://api.sarvam.ai/v2/chat/completions";
 const MODEL = "glm5.3-flash";
@@ -93,9 +94,19 @@ async function handle(req: Request) {
   if (!auth.startsWith("Bearer ")) return json({ error: "not signed in" }, 401);
 
   const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { data: who } = await supa.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
-  const user = who?.user;
-  if (!user) return json({ error: "not signed in" }, 401);
+  let userId = "";
+  const drain = req.headers.get("x-quest-drain") ?? "";
+  const whose = req.headers.get("x-quest-student") ?? "";
+  if (drain) {
+    const { data: expected } = await supa.rpc("drain_token");
+    if (!expected || drain !== expected || !whose) return json({ error: "not allowed" }, 403);
+    userId = whose;
+  } else {
+    const { data: who } = await supa.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
+    if (!who?.user) return json({ error: "not signed in" }, 401);
+    userId = who.user.id;
+  }
+  const user = { id: userId };
 
   const { data: ownProfile } = await supa.from("profiles").select("student_id").eq("student_id", user.id).maybeSingle();
   let student = user.id;
@@ -126,11 +137,21 @@ async function handle(req: Request) {
     };
     const up = await inner("upload");
     const fe = await inner("fetch");
+
+    let filled: any = { made: 0, strands: 0, perExam: {}, trace: [] };
+    let fillError = "";
+    try { filled = await fillFromMaterial(supa, { perStrand: 3, maxStrands: 6 }); }
+    catch (e) { fillError = String((e as Error)?.message ?? e); console.error("fill failed:", fillError); }
+
     const ve = await inner("verify");
     return json({
       mode: "all",
       uploads: up?.papers ?? 0,
       fetched: fe?.fetched ?? 0,
+      generated: filled.made ?? 0,
+      per_exam: filled.perExam ?? {},
+      fill_error: fillError || null,
+      fill_trace: filled.trace ?? [],
       checked: ve?.checked ?? 0,
       failed: ve?.failed ?? [],
     });

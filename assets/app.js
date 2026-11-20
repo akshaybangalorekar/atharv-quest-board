@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.97.0";
+import * as data from "./data.js?v=2.98.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.97.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.98.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -421,7 +421,7 @@ async function loadTraining() {
   ups.innerHTML = `<div class="k" style="margin-bottom:4px">Your uploads</div>` + (uploads.length
     ? uploads.map((u) => `<div class="upRow"><span class="upName">${esc(u.title ?? "a paper")}
         <span class="sub" style="display:block">${u.questions ?? 0} questions · ${u.pages ?? 0} pages</span></span></div>`).join("")
-    : `<div class="sub">Nothing uploaded yet. Add a file from Sample questions in the parent view.</div>`)
+    : `<div class="sub">Nothing uploaded yet. Add a file from the Question bank in the parent view.</div>`)
     + `<div class="sub" style="margin-top:6px">In the bank: <b>${v.generated ?? 0}</b> written by her, <b>${v.from_files ?? 0}</b> from your files.</div>`;
 
   $("trainAdd").style.display = S.isParent ? "" : "none";
@@ -1481,10 +1481,10 @@ async function signIn() {
   }
   if (!error && !typed) error = { message: "Type your name first." };
   clearTimeout(waitNote);
-  if (btn) { btn.disabled = false; btn.textContent = "Sign in"; }
   if ($("err").textContent.startsWith("Still working")) $("err").textContent = "";
 
   if (error) {
+    if (btn) { btn.disabled = false; btn.textContent = "Sign in"; }
     $("err").textContent = /invalid|credentials|do not match/i.test(error.message)
       ? "That name and password do not match. Check the password, or use “Forgot the password?”."
       : error.message;
@@ -2199,7 +2199,7 @@ async function loadParent() {
       ? `She has read ${passages} passages from ${sites} site${sites === 1 ? "" : "s"}` +
         (lastWrite ? ` and wrote ${lastWrite} question${lastWrite === 1 ? "" : "s"} on the last run` : "") +
         ` — Generate 20 asks for twenty more for this exam.`
-      : "She has not read any sources yet — Train her now in Help.";
+      : "She has not read any sources yet — she reads them automatically on the next run; see Help for the log.";
   } catch (_) { S.libNote = ""; }
 
   const { data } = await sb.rpc("truth");
@@ -4836,9 +4836,9 @@ registerActions({
   testAlertEmail: (el) => testAlertEmail(el),
   testMic: (el) => testMic(el),
   toggleMic: (el) => toggleMic(el),
-  trainNow: (el) => trainNow(el),
+
   useSystemKeyboard: (el) => useSystemKeyboard(el),
-  verifyBank: (el) => verifyBank(el),
+
   writeMoreQuestions: (el) => writeMoreQuestions(el),
 
   pickFile: () => { const f = $("upFile"); if (f) f.click(); },

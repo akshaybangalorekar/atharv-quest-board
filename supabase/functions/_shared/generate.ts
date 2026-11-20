@@ -40,19 +40,24 @@ export async function fillFromMaterial(admin: any, opts: { perStrand?: number; m
   const perStrand = opts.perStrand ?? 3;
   const maxStrands = opts.maxStrands ?? 6;
 
-  const { data: chapters } = await admin
-    .from("chapters").select("n, title, source, subject, practice")
-    .order("practice", { ascending: true }).limit(60);
-
+  const trace: any[] = [];
   const picked: any[] = [];
   const seen = new Set<string>();
-  for (const ch of chapters ?? []) {
-    const key = String(ch.source ?? "").toLowerCase();
-    if (seen.has(key)) continue;             // one strand per exam per run, so it spreads
-    seen.add(key);
-    picked.push(ch);
-    if (picked.length >= maxStrands) break;
+
+  try {
+    const { data, error } = await admin.rpc("strands_to_fill", { p_limit: maxStrands * 3 });
+    if (error) trace.push({ pick_error: String(error.message ?? error).slice(0, 200) });
+    for (const ch of (data ?? []) as any[]) {
+      const key = String(ch.exam_id ?? ch.source ?? "");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      picked.push(ch);
+      if (picked.length >= maxStrands) break;
+    }
+  } catch (e) {
+    trace.push({ pick_threw: String((e as Error)?.message ?? e).slice(0, 200) });
   }
+  trace.push({ picked: picked.length });
 
   const made: Array<{ chapter: number; idx: number; ok: boolean }> = [];
 
@@ -80,6 +85,8 @@ kind of thinking with different numbers, names and scenario, so a child who has 
     const raw = await ask(WRITE(String(ch.title), ch.subject ?? "maths", material, perStrand) + variantNote, "Write them now.", 0.8, 1400);
     const parsed = jsonIn(raw);
     const rows = (parsed?.rows ?? []).filter((r: any) => r?.q && r?.a).slice(0, perStrand);
+    trace.push({ chapter: ch.n, title: String(ch.title).slice(0, 40), material: material.length,
+                 reply_chars: raw.length, parsed: rows.length, head: String(raw).slice(0, 100) });
 
     const { data: maxRow } = await admin.from("problems")
       .select("idx").eq("chapter", ch.n).order("idx", { ascending: false }).limit(1).maybeSingle();
@@ -120,5 +127,5 @@ kind of thinking with different numbers, names and scenario, so a child who has 
     const key = String(ch.source ?? "other").toLowerCase();
     perExam[key] = (perExam[key] ?? 0) + made.filter((m) => m.chapter === ch.n).length;
   }
-  return { strands: picked.length, made: made.length, perExam, rows: made };
+  return { strands: picked.length, made: made.length, perExam, rows: made, trace };
 }
