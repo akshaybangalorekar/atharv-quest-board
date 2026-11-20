@@ -478,6 +478,13 @@ Deno.serve(async (req) => {
       pack = p ?? {};
     }
 
+    // what is sitting ambiguous, so a parent is told about it rather than discovering it
+    let ambiguous: any = [];
+    try {
+      const { data: aq } = await asUser.rpc("ambiguous_questions", { p_limit: 20 });
+      ambiguous = aq ?? [];
+    } catch (e) { console.error("ambiguous list failed:", e); }
+
     // where the questions came from, so she can say it when she presents one
     let sources: any = [];
     try {
@@ -494,6 +501,13 @@ Deno.serve(async (req) => {
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
       `Exam readiness: ${JSON.stringify(c.readiness ?? [])}`,
+      `WHAT IS SITTING AMBIGUOUS — ${ambiguous.length} question${ambiguous.length === 1 ? "" : "s"} are held back
+       because they could not be trusted: ${JSON.stringify(ambiguous).slice(0, 1200)}
+       If you are speaking to the PARENT and this list is not empty, say so in your first or second line, after the
+       status of the child: "There are N questions I set aside because I could not trust them — would you like to
+       review them?" Never hide it, and never call them practice. If the parent says yes, take them one at a time:
+       show the question, say exactly why it was held back, and offer three choices — fix it (you rewrite it and it
+       is checked again), drop it, or leave it for now. Do not drop anything until the parent says so.`,
       `WHERE EACH QUESTION CAME FROM — when you present a question, or when a parent asks about one, say the source
        in the same breath: "this one is from NRICH" or "this one came from your Top Scope paper". For a question
        she wrote as a variation, say both parts: "the original is from NRICH; this one is my own variation of it."
