@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.09.2";
+import * as data from "./data.js?v=3.09.3";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.09.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.09.3";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -449,6 +449,8 @@ async function openTimetable() {
 }
 
 async function loadTraining() {
+  // Help shows counts, so it re-reads the shared view rather than trusting an older copy
+  await loadSync();
   const { data } = await sb.rpc("training_view");
   const v = data ?? {};
   const list = $("trainList"), ups = $("trainUploads");
