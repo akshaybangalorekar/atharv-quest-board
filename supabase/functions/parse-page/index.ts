@@ -79,7 +79,16 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: { user } } = await asUser.auth.getUser();
+    let { data: { user } } = await asUser.auth.getUser();
+
+    // the scheduler has no login of its own: a drain token lets it read a page it owns
+    if (!user && body?.token) {
+      const { data: tok } = await admin.from("app_config").select("value").eq("key", "drain_token").maybeSingle();
+      if (tok?.value && tok.value === body.token) {
+        const { data: paper } = await admin.from("papers").select("student_id").eq("id", body.paper_id).maybeSingle();
+        if (paper?.student_id) user = { id: paper.student_id } as any;
+      }
+    }
     if (!user) return json({ error: "not signed in" }, 401);
 
     const { paper_id, page } = await req.json();
