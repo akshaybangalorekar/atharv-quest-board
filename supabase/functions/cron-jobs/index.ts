@@ -138,11 +138,18 @@ Deno.serve(async (req) => {
     if (!exam) return json({ error: "no exam given" }, 400);
     // a question off the syllabus is not verified against it: drop it first
     const scope = await scopeExam(admin, exam, { limit: Number(body?.limit ?? 40) });
+    // the official material itself, so "verified" means it agrees with the paper — not just that it is answerable
+    const { data: mat } = await admin.rpc("authority_material", { p_exam: exam, p_limit: 8 });
+    const material = (mat ?? []).map((x: any) => String(x.body ?? "")).join("\n\n").slice(0, 4000);
+    if (!material) {
+      return json({ exam, refused: "no official material text for this exam — nothing was marked verified" });
+    }
+
     const { data: rows } = await admin.rpc("provisional_to_check", { p_exam: exam });
     const list = (rows ?? []) as any[];
     const out: any[] = [];
     for (const q of list) {
-      const v = await gateQuestion(admin, { chapter: q.chapter, idx: q.idx, prompt: q.prompt }, "", true);
+      const v = await gateQuestion(admin, { chapter: q.chapter, idx: q.idx, prompt: q.prompt }, material, true);
       // verified when it holds up against the official material; held back when it does not
       const state = v.state === "failed" ? "failed" : "cleared";
       await admin.from("problems").update({
