@@ -119,6 +119,7 @@ kind of thinking with different numbers, names and scenario, so a child who has 
         difficulty: Number(row.d) || 2,
         technique_tags: [String(ch.title).split("·").pop()?.trim() ?? String(ch.title)],
         source: ch.source ?? "book",
+        source_kind: "web", source_ref: sourceRef, source_url: sourceUrl,
         ...(fig ? { diagram_svg: fig } : {}),
         ...verdictColumns(verdict, false),
       });

@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.03.1";
+import * as data from "./data.js?v=3.04.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.03.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.04.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -4090,7 +4090,10 @@ function sittingLine(f, fallbackWhen) {
 
 /* a question that has not been cleared against official material is labelled as such */
 function gateLabel(q) {
-  return (q?.status === "provisional" || q?.gate_state === "provisional") ? " (provisional)" : "";
+  const provisional = (q?.status === "provisional" || q?.gate_state === "provisional");
+  const src = String(q?.source_ref ?? "").trim();
+  const where = src ? ` · from ${src}` : "";
+  return (provisional ? " (provisional" + where + ")" : where ? ` (${where.replace(" · from ", "from ")})` : "");
 }
 
 /* the gate runs again, for this question, before he sees it */

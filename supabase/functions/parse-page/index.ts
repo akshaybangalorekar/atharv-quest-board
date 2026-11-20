@@ -167,6 +167,13 @@ Deno.serve(async (req) => {
     await admin.from("paper_pages").update({ done: true })
       .eq("paper_id", paper_id).eq("page_no", page);
 
+    // the question says which file it came from
+    try {
+      await asUser.from("problems")
+        .update({ source_kind: "upload", source_ref: paper.title })
+        .eq("paper_id", paper_id).is("source_ref", null);
+    } catch (e) { console.error("provenance failed:", String((e as Error)?.message ?? e)); }
+
     const checked = await checkRows(asUser, paper_id, rows);
 
     const unanswered = rows.filter((x: any) => !x.a).length;
