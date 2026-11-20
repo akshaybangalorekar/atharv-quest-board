@@ -47,6 +47,50 @@ Reply with JSON only:
  "rows":[{"q":"...","a":"...","options":["A 12","B 18"],
           "diagram":{"x":0.1,"y":0.3,"w":0.6,"h":0.25,"kind":"complex"}}]}`;
 
+
+const SOLVE = `You check whether a question can be answered at all, before it is given to a child.
+Read it on its own. Answer "solvable": YES only if it states everything needed and leads to exactly one answer.
+NO if a quantity is named without saying which object it belongs to, if a drawing or table is referred to but not
+shown, if two answers are possible, or if the numbers contradict each other.
+Reply with JSON only: {"solvable":"YES","why":""}`;
+
+/* uploaded questions are held to the same rule as the ones she writes */
+async function checkRows(asUser: any, paper_id: string, rows: any[]) {
+  let ok = 0, held = 0;
+  for (const row of rows.slice(0, 12)) {
+    const q = String(row.q ?? "").trim();
+    if (!q) continue;
+    const pointsAtFigure = /\b(picture|diagram|figure|table|chart|graph|shown|below)\b/i.test(q);
+    const hasFigure = !!row.diagram;
+
+    let solvable = false, why = "";
+    if (pointsAtFigure && !hasFigure) { why = "it refers to a drawing that is not there"; }
+    else {
+      try {
+        const r = await fetch(ENDPOINT, {
+          method: "POST",
+          headers: { "content-type": "application/json", "api-subscription-key": Deno.env.get("SARVAM_API_KEY")! },
+          body: JSON.stringify({ model: "sarvam-m", temperature: 0,
+            messages: [{ role: "system", content: SOLVE }, { role: "user", content: `Question: ${q}` }] }),
+        });
+        const b = await r.json();
+        const raw = String(b?.choices?.[0]?.message?.content ?? "");
+        const m = raw.match(/\{[\s\S]*\}/);
+        const v = m ? JSON.parse(m[0]) : null;
+        solvable = String(v?.solvable).toUpperCase() === "YES";
+        why = solvable ? "" : String(v?.why ?? "it cannot be answered as written");
+      } catch (_) { why = "it could not be checked"; }
+    }
+
+    await asUser.from("problems").update({
+      verified: solvable, verified_at: new Date().toISOString(), verify_note: solvable ? null : why,
+    }).eq("paper_id", paper_id).eq("prompt", q);
+
+    solvable ? ok++ : held++;
+  }
+  return { ok, held };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -150,8 +194,11 @@ Deno.serve(async (req) => {
     await admin.from("paper_pages").update({ done: true })
       .eq("paper_id", paper_id).eq("page_no", page);
 
+    const checked = await checkRows(asUser, paper_id, rows);
+
     const unanswered = rows.filter((x: any) => !x.a).length;
-    return json({ ok: true, added: added?.added ?? 0, improved: added?.improved ?? 0, unanswered, strand, page });
+    return json({ ok: true, added: added?.added ?? 0, improved: added?.improved ?? 0, unanswered,
+                  checked_ok: checked.ok, held_back: checked.held, strand, page });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
