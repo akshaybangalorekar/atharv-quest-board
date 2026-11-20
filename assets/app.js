@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.06.1";
+import * as data from "./data.js?v=3.06.2";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.06.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.06.2";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -573,11 +573,24 @@ async function loadTraining() {
         "Checked and answerable, but no official material exists for its exam yet. He sees it marked provisional.")}
       ${chip(draft, "awaiting a check", draft ? "amber" : "grey", "Written but not yet checked. Never shown.")}
       ${chip(failed, "held back", failed ? "red" : "grey",
-        failed ? (S.heldBack?.length
-          ? `Why: ${S.heldBack.map((x) => `${x.n} — ${x.reason}`).join(" | ").slice(0, 300)}. What to do: nothing — she rewrites or discards them herself. They never reach him.`
-          : "Checked and rejected, so never shown to him. She rewrites or discards them herself.")
-        : "Nothing has been rejected. Every question written so far passed its check.")}
+        failed
+          ? `${failed} rejected by the check, in ${(S.heldBack ?? []).length} kind${(S.heldBack ?? []).length === 1 ? "" : "s"}. Open "Why questions are held back" below for each reason and an example. Nothing reaches him.`
+          : "Nothing has been rejected. Every question written so far passed its check.")}
     </div>
+    ${failed ? `<details style="margin-top:10px"><summary style="list-style:none;cursor:pointer">
+      <span class="chip red" title="Each reason, with how many questions it affected and one example.">
+        <b>${failed}</b> held back — see why</span></summary>
+      <div style="margin-top:8px">
+        ${(S.heldBack ?? []).map((x) => `
+          <div style="padding:6px 0;border-bottom:1px solid var(--line)">
+            <div class="chipRow"><span class="chip red"><b>${x.n}</b> question${x.n === 1 ? "" : "s"}</span></div>
+            <div class="sub" style="margin-top:4px">${esc(String(x.reason).slice(0, 220))}</div>
+            <div class="sub" style="margin-top:2px;opacity:.75">for example: “${esc(String(x.example ?? "").slice(0, 90))}”</div>
+          </div>`).join("") || `<div class="sub">No reason was recorded.</div>`}
+        <div class="sub" style="margin-top:8px">Nothing here is shown to him. She rewrites a question that can be
+          saved and discards the rest; the count falls on the next run.</div>
+      </div></details>` : ""}
+
     <div class="sub" style="margin-top:6px">${(k.official_exams ?? []).length
       ? `Official material loaded for ${(k.official_exams ?? []).join(", ")}. Those questions are checked against it and can be cleared.`
       : "No official material yet, so every question is provisional until you upload some."}</div>`;
