@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.93.0";
+import * as data from "./data.js?v=2.94.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.93.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.94.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -435,14 +435,14 @@ async function autoTrain() {
   try {
     const { data: due } = await sb.rpc("train_due", { p_hours: 24 });
     if (!due) return;
-    await enqueue("train");
+    await enqueue("ingest");
     setTimeout(() => { if ($("trainList")) loadTraining(); }, 4000);
   } catch (_) {}
 }
 
 async function trainNow() {
   $("trainMsg").textContent = "Queued — reading your uploads, the sources, then the bank. This runs on the server, so you can leave this screen.";
-  await enqueue("train");
+  await enqueue("ingest");
   setTimeout(() => { $("trainMsg").textContent = "Running on the server — open Help again in a minute to see the result."; loadTraining(); }, 3000);
   return;
   const { data, error } = await sb.functions.invoke("train-coach", { body: { mode: "all" } });
@@ -3864,14 +3864,10 @@ async function nextStep() {
   clearBoard();
   saveSession();
   paintActions();
-  // a question that fails the gate is skipped, not shown
-  if (step?.type === "question" && step.data) {
-    const okToShow = await gateBefore(step.data);
-    if (!okToShow) {
-      bubble("coach", "That one did not hold up when I checked it, so I have set it aside. Next one.");
-      S.si += 1;
-      return nextStep();
-    }
+  // only questions that passed their check reach this point: the view serves nothing else
+  if (step?.type === "question" && step.data && step.data.status === "failed") {
+    S.si += 1;
+    return nextStep();
   }
 
   if (S.si >= S.script.length) {

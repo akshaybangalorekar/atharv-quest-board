@@ -53,8 +53,14 @@ serve(async (req) => {
   let failed = false;
 
   try {
-    if (job.kind === "train") {
+    if (job.kind === "ingest" || job.kind === "train") {
+      // 1 keep what has arrived  2 read the sources  3 write questions  4 check them  5 gate them  6 align to official
       detail.train = await callFn("train-coach", { mode: "all" }, req);
+      for (const ex of ["aas", "edutest", "amc", "icas", "olympiad"]) {
+        detail["gate_" + ex] = await gateExam(admin, ex, { limit: 20 });
+        const { data: hasOfficial } = await admin.rpc("exam_has_official", { p_exam: ex });
+        if (hasOfficial) detail["align_" + ex] = await alignExam(admin, ex, { limit: 10 });
+      }
     } else if (job.kind === "parse_paper") {
       detail.parse = await parsePaper(admin, student, job.payload?.paper_id, req);
       const { data: paper } = await admin.from("papers").select("exam").eq("id", job.payload?.paper_id).maybeSingle();
