@@ -452,7 +452,10 @@ Deno.serve(async (req) => {
 
     const { mode = "reply", track = "olympiad", chapter, messages = [], note, onScreen } = await req.json();
     const toParent = mode === "parent" || mode === "parent-weekly";
-    const { data: ctx } = await asUser.rpc(toParent ? "parent_context" : "coach_context");
+    // one context for both threads: parent_context had drifted and was throwing, which made every
+    // parent turn arrive with an empty record — that is why she kept saying "nothing has been read".
+    const { data: ctx, error: ctxErr } = await asUser.rpc("coach_context");
+    if (ctxErr) console.error("context failed:", ctxErr.message);
     const c = ctx ?? {};
 
     // the standing brief, rebuilt every night: where he is, what he has done,
