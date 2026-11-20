@@ -1,0 +1,2 @@
+-- 142: truth() counts what the child can actually be given, so it matches sync_view and the exam cards
+-- (applied live: total and per-bank counts now filter status in ('cleared','provisional'))
