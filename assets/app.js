@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.77.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.78.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -4647,6 +4647,8 @@ registerActions({
   openChapter: (el) => openChapter(Number(el.dataset.a0)),
   padKey: (el) => padKey(el.dataset.a0),
 });
+
+window.__state = S;           // read-only view for the tests
 
 let api = {};
 try {
