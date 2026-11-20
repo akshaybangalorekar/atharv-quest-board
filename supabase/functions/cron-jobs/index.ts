@@ -123,6 +123,47 @@ Deno.serve(async (req) => {
                   findings, wrong, unsound });
   }
 
+
+  // the golden set: 25 questions from real papers whose answers were verified by hand
+  if (body?.mode === "golden") {
+    const golden: Array<[string, string, "pass" | "failed"]> = [
+      ["SST6-28", "A baby's expected adult height H cm is H = 24 + birth length in cm x 3. Carol was 0.51 m at birth. What is her expected adult height? Options: 225 cm / 201 cm / 177 cm / 153 cm / 73.5 cm", "pass"],
+      ["SST6-29", "Find the area of this trapezium: parallel sides 3 cm and 6 cm, height 2 cm. Options: 15 cm2 / 14 cm2 / 12 cm2 / 10 cm2 / 9 cm2", "pass"],
+      ["SST6-30", "30.475 is approximately what, to the nearest whole number? Options: 30 / 30.4 / 30.5 / 31 / 34", "pass"],
+      ["SST6-31", "160 x 80 = 12800. Using that, find 12.8 divided by 0.016. Options: 8000 / 800 / 80 / 8 / 0.8", "pass"],
+      ["SST6-32", "A remote control car costs $40 plus 10% shipping and handling. What is the total cost? Options: $440 / $50 / $44.4 / $44 / $40.4", "pass"],
+      ["SST6-33", "In the 12 km by 6 km rectangle, find the area of region QBRC and state what the shape is. Options: 36 km2 parallelogram / 39 km2 parallelogram / 39 km2 trapezium / 78 km2 trapezium / 216 km2 parallelogram", "pass"],
+      ["SST6-34", "Using the same diagram, find the area of the region PQRS. Options: 9 km2 / 12 km2 / 18 km2 / 21 km2 / 24 km2", "pass"],
+      ["SST6-35", "The sum of five consecutive prime numbers is 221. Find the difference between the smallest and the largest. Options: 8 / 16 / 18 / 19 / 21", "pass"],
+      ["SST6-36", "The product of M and 18 is a perfect cube. Find the smallest value of M. Options: 8 / 12 / 64 / 324 / 1000", "pass"],
+      ["SST6-37", "Find the volume of the cuboid shown: 12 cm by 18 cm by 5 cm. Options: 1080 cm3 / 60 cm3 / 90 cm3 / 108 cm3 / 540 cm3", "pass"],
+      ["S9-3A", "T-shirts cost $8 each. Amy buys one, Becky 3, Colin 5, Dan 7, and Emily as many as Amy, Becky and Colin combined. How much do the five spend?", "pass"],
+      ["S9-3B", "Find the sum of all counting numbers less than 25 which are not divisible by 2 or 5.", "pass"],
+      ["S9-3C", "In a group of 25 girls, 8 joined athletics, 13 joined maths, 6 joined both. How many joined neither?", "pass"],
+      ["S9-3D", "I climb half the steps, then a third of the remaining steps, then an eighth of the rest. What is the smallest possible number of steps?", "pass"],
+      ["S9-3E", "ABCD is 15 cm by 8 cm and AE = 12 cm. Find the total shaded area.", "pass"],
+      ["S9-4A", "Each of 6 piles has a different number of counters, at least one each. What is the least possible total?", "pass"],
+      ["S9-4B", "The ages of Amanda, Brittany and Carly are each prime. Amanda is youngest. Amanda plus Brittany equals Carly. How old is Amanda?", "pass"],
+      ["S9-4C", "A bus holds 24 adults or 30 children. 25 children are aboard. What is the largest number of adults who can still get on?", "pass"],
+      ["S9-4E", "20 numbers average 20; 60 numbers average 60. What is the average of all 80 together?", "pass"],
+      ["S9-4D", "ABCD is a square, DEFG a rectangle, EF = 25 cm, D is the midpoint of CE, and the perimeter of the shaded region is 180 cm. Find AG.", "pass"],
+      ["CH-1", "Find the side length of a cube whose volume is 512 cm3.", "pass"],
+      ["CH-2", "A small cube is 4 cm x 4 cm x 4 cm. How many fit into a box 16 cm x 20 cm x 30 cm?", "pass"],
+      ["CH-3", "A train averages 80 km/h while moving. It departs 8:00 am, arrives 3:30 pm, and stops at three stations for 5 minutes each. What is the total distance?", "pass"],
+      ["CH-4", "294 blue, 252 pink and 210 yellow balls are shared equally with none left over. What is the largest possible number of students?", "pass"],
+      ["CH-5", "Maggie has 3 square-number scores. The first two have the same three digits. The total is 590. What are the scores?", "pass"],
+    ];
+    const out: any[] = [];
+    for (const [id, q, expect] of golden) {
+      const v = await gateQuestion(admin, { chapter: 0, idx: 0, prompt: q }, "", false);
+      const noAnswer = /stored answer is missing/i.test(v.why);
+      const ok = expect === "failed" ? v.state === "failed" : (v.state !== "failed" || noAnswer);
+      out.push({ id, expect, got: v.state, ok, why: v.why.slice(0, 100) });
+    }
+    const bad = out.filter((r) => !r.ok);
+    return json({ cases: out.length, passed: out.length - bad.length, failed: bad.length, misses: bad });
+  }
+
   // the validation batch: does the gate reject what it must, and pass what it must?
   if (body?.mode === "validate") {
     const cases: Array<[string, "failed" | "pass", string]> = [
