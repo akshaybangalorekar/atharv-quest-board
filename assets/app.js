@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.07.2";
+import * as data from "./data.js?v=3.07.3";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.07.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.07.3";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -469,16 +469,9 @@ async function loadTraining() {
     </div>`).join("") : `<div class="sub">No sources yet.</div>`;
 
   const uploads = v.uploaded ?? [];
-  // the chips above already carry the counts, so this block only lists the files themselves
-  ups.innerHTML = uploads.length
-    ? `<div class="chipRow" style="margin-bottom:8px">
-         <span class="chip green" title="Files you have uploaded, and the questions taken from them."><b>${uploads.length}</b> file${uploads.length === 1 ? "" : "s"}</span>
-       </div>` + uploads.map((u) => `<div class="upRow"><span class="upName">${esc(u.title ?? "a paper")}
-        <span class="sub" style="display:block">${u.questions ?? 0} questions · ${u.pages ?? 0} pages</span></span></div>`).join("")
-    : `<div class="chipRow">
-         <span class="chip orange" title="No file uploaded yet. Everything he practises on so far was written from the web sources."><b>0</b> files</span>
-         <span class="sub" style="margin-left:6px">add one from the Question bank below</span>
-       </div>`;
+  // only real files are listed here; the counts are on the chips above
+  ups.innerHTML = uploads.map((u) => `<div class="upRow"><span class="upName">${esc(u.title ?? "a paper")}
+      <span class="sub" style="display:block">${u.questions ?? 0} questions · ${u.pages ?? 0} pages</span></span></div>`).join("");
 
   $("trainAdd").style.display = S.isParent ? "" : "none";
 
@@ -705,6 +698,9 @@ async function toggleTrainingSource(id, on) {
 }
 
 async function openHelp() {
+  // the child's Help explains how to use the app; the library and the bill are the parent's
+  const parentBits = [$("trainCard"), $("spendWrap")];
+  parentBits.forEach((el) => { if (el) el.style.display = S.isParent ? "" : "none"; });
   show("help");
   loadTraining();
   if ($("helpVer")) $("helpVer").textContent = "Version " + APP_VERSION;
