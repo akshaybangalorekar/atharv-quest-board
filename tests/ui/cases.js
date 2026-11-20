@@ -363,4 +363,97 @@ window.CASES = [
       assert("a failure is shown with its reason", /not reachable|failed/i.test(text) || text.length > 0);
     },
   },
+
+  {
+    name: "the three counts reconcile: written = given + held back + awaiting",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth();
+      window.__fixtures["sync_view"] = { totals: { questions: 62, cleared: 0, provisional: 62, draft: 4, failed: 3 },
+        library: { documents: 10, passages: 60, from_web: 10, from_upload: 0, official: 0 }, exams: [] };
+      window.__fixtures["training_status"] = { docs: 10, chunks: 60, web_docs: 10, upload_docs: 0,
+        cleared: 0, provisional: 62, draft: 4, failed: 3, servable: 62, official_exams: [] };
+      window.__fixtures["training_view"] = { sources: [], uploaded: [], generated: 69, from_files: 0 };
+      window.__fixtures["recent_jobs"] = [];
+      window.__fixtures["held_back_reasons"] = [{ reason: "the stored answer is wrong", n: 3, example: "a shop question" }];
+      window.__fixtures["model_balance"] = { balance_inr: 500, alert_below_inr: 10, low: false,
+        today: { inr: 0, calls: 0 }, week: { inr: 0 }, calls_by_function: {}, model: "glm5.3-flash" };
+      window.__fixtures["usage_limits"] = {};
+
+      T.show("help");
+      await window.loadTraining();
+      await T.wait(150);
+      const text = T.$("trainStore")?.textContent ?? "";
+      const flat = text.replace(/\s+/g, " ");
+      assert("the line is there", /Written so far/.test(flat));
+      assert("it names what he can be given", /62 he can be given/.test(flat));
+      assert("it names what was held back", /3 held back/.test(flat));
+      assert("it names what awaits a check", /4 awaiting/.test(flat));
+      assert("and the total is the sum of the three", /69/.test(flat));
+      assert("62 + 3 + 4 really is 69", 62 + 3 + 4 === 69);
+    },
+  },
+
+  {
+    name: "the exam cards split exactly the total, and name the held back",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth({ families: [
+        { label: "AAS", family: "aas", items: 0, verdict: "no_content", exam_on: "2027-02-06", days_left: 78, topics_all: 10, topics_done: 0, schools_list: [], schools: "A", rows: [], topics: [] },
+        { label: "Olympiad", family: "olympiad", items: 0, verdict: "no_content", exam_on: "2027-05-05", days_left: 166, topics_all: 24, topics_done: 0, schools_list: [], schools: "B", rows: [], topics: [] },
+      ] });
+      window.__fixtures["sync_view"] = { totals: { questions: 12, cleared: 0, provisional: 12, draft: 0, failed: 2 },
+        library: { documents: 1, passages: 1, from_web: 1, from_upload: 0, official: 0 },
+        exams: [
+          { key: "aas", label: "AAS", servable: 5, cleared: 0, provisional: 5, draft: 0, failed: 0 },
+          { key: "olympiad", label: "Olympiad", servable: 7, cleared: 0, provisional: 7, draft: 0, failed: 0 },
+        ] };
+      window.__fixtures["exam_pipeline"] = [];
+      window.__fixtures["topic_readiness"] = [];
+      window.__fixtures["exam_specs"] = [];
+
+      await window.goParent();
+      await T.wait(200);
+
+      const sum = (T.$("pExamSum")?.textContent ?? "").replace(/\s+/g, " ");
+      assert("the fold states the split total", /12 questions across the five exams/.test(sum));
+      assert("and the held back beside it", /2 held back/.test(sum));
+
+      // the same cards are drawn in the timetable, where the counts are visible without the fold
+      await window.openTimetable();
+      await T.wait(250);
+      const chips = [...(T.$("ttBody")?.querySelectorAll(".chip") ?? [])]
+        .map((c) => (c.textContent ?? "").trim())
+        .filter((t) => /^\d+ questions$/.test(t));
+      const nums = chips.map((t) => Number(t.split(" ")[0]));
+      assert("the cards carry their counts", nums.length >= 2);
+      assert("the cards add up to the total", nums.reduce((a, b) => a + b, 0) === 12);
+    },
+  },
+
+  {
+    name: "the runs add up to the total written",
+    async run({ assert, T }) {
+      const job = (i, gen) => ({ id: i, kind: "ingest", status: "done", detail: { generated: gen, fetched: 0 },
+        error: null, started_at: "2026-11-20T0" + i + ":00:00Z" });
+      window.__fixtures["truth"] = T.baseTruth();
+      window.__fixtures["sync_view"] = { totals: {}, library: {}, exams: [] };
+      window.__fixtures["training_status"] = { docs: 0, chunks: 0, web_docs: 0, upload_docs: 0, cleared: 0,
+        provisional: 0, draft: 0, failed: 0, servable: 0, official_exams: [] };
+      window.__fixtures["training_view"] = { sources: [], uploaded: [], generated: 0, from_files: 0 };
+      window.__fixtures["recent_jobs"] = [job(1, 20), job(2, 18), job(3, 0), job(4, 19)];
+      window.__fixtures["held_back_reasons"] = [];
+      window.__fixtures["model_balance"] = { balance_inr: 500, alert_below_inr: 10, low: false,
+        today: { inr: 0, calls: 0 }, week: { inr: 0 }, calls_by_function: {}, model: "glm5.3-flash" };
+      window.__fixtures["usage_limits"] = {};
+
+      T.show("help");
+      await window.loadTraining();
+      await T.wait(150);
+      const text = (T.$("trainJobs")?.textContent ?? "").replace(/\s+/g, " ");
+      const written = [...text.matchAll(/wrote (\d+) questions?/g)].map((m) => Number(m[1]));
+      assert("each run states its own count", written.length >= 3);
+      assert("they add up to 57", written.reduce((a, b) => a + b, 0) === 57);
+      assert("a pass that wrote nothing says so", /nothing new to do/.test(text));
+      assert("the card explains that they total", /add up to the total written/.test(text));
+    },
+  },
 ];
