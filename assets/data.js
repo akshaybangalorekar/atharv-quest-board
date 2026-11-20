@@ -111,4 +111,7 @@ export const held_back_reasons = (args) => call((a) => sb.rpc("held_back_reasons
 
 export const exam_pipeline = (args) => call((a) => sb.rpc("exam_pipeline", a), args);
 
+export const wipe_history = (args) => call((a) => sb.rpc("wipe_history", a), args);
+export const wipe_questions = (args) => call((a) => sb.rpc("wipe_questions", a), args);
+
 export const table = (name) => sb.from(name);

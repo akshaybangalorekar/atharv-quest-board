@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<link rel="stylesheet" href="./assets/app.css?v=3.10.0">
+<link rel="stylesheet" href="./assets/app.css?v=3.11.0">
 </head>
 <body>
 
@@ -414,29 +414,46 @@
       </details>
 
       <details><summary style="cursor:pointer;font-weight:600;color:var(--red)">Start again</summary>
-        <div style="margin-top:10px;display:grid;gap:12px">
+        <div style="margin-top:10px;display:grid;gap:14px">
+
           <div>
-            <div class="sub"><b>Everything.</b> Every answer, score, streak, journal note, test and file, plus every
-              question from either source, and the timetable. Back to day one.</div>
-            <div class="bar"><button class="ghost small" style="border-color:#f2c9c9;color:var(--red)"
-              data-action="wipe" data-arg="all">Wipe everything…</button></div>
+            <div class="k">His history</div>
+            <div class="sub">Answers, scores, sessions, tests, journal and board. The questions stay.</div>
+            <div class="bar" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+              <select id="wipeFrom" style="font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px">
+                <option value="all">everything</option>
+                <option value="7">the last 7 days</option>
+                <option value="30">the last 30 days</option>
+                <option value="90">the last 90 days</option>
+              </select>
+              <button class="ghost small" style="border-color:#f2c9c9;color:var(--red)"
+                data-action="wipeHistory">Wipe his history…</button>
+            </div>
           </div>
+
           <div>
-            <div class="sub"><b>Uploaded content only.</b> The files you added and the questions taken from them.
-              Everything else stays.</div>
-            <div class="bar"><button class="ghost small" data-action="wipe" data-arg="uploaded">Delete uploaded content…</button></div>
+            <div class="k">The questions</div>
+            <div class="sub">Choose which exam, and where the questions came from.</div>
+            <div class="bar" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+              <select id="wipeExam" style="font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px">
+                <option value="">every exam</option>
+                <option value="aas">AAS</option>
+                <option value="amc">AMC</option>
+                <option value="edutest">Edutest</option>
+                <option value="icas">ICAS</option>
+                <option value="olympiad">Olympiad</option>
+              </select>
+              <select id="wipeOrigin" style="font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px">
+                <option value="auto">written by her, from the web</option>
+                <option value="upload">taken from your files</option>
+                <option value="">both</option>
+              </select>
+              <button class="ghost small" style="border-color:#f2c9c9;color:var(--red)"
+                data-action="wipeQuestions">Wipe those questions…</button>
+            </div>
           </div>
-          <div>
-            <div class="sub"><b>Generated content only.</b> The questions the coach wrote. Your files and his progress
-              on them stay.</div>
-            <div class="bar"><button class="ghost small" data-action="wipe" data-arg="generated">Delete generated content…</button></div>
-          </div>
-          <div>
-            <div class="sub"><b>Both conversations.</b> Everything said to the coach — his thread and yours. Nothing
-              else is touched: his work, the files and the questions stay.</div>
-            <div class="bar"><button class="ghost small" data-action="wipe" data-arg="chats">Clear both conversations…</button></div>
-          </div>
-          <div id="wipeProg" class="hidden" style="margin-top:6px">
+
+          <div id="wipeProg" class="hidden">
             <div class="rowProg" style="margin-bottom:6px"><span id="wipeBar" style="width:0%"></span></div>
             <div class="sub" id="wipeText">Working…</div>
           </div>
@@ -716,6 +733,6 @@
 </footer>
 
 <script src="./supabase.js"></script>
-<script type="module" src="./assets/app.js?v=3.10.0"></script>
+<script type="module" src="./assets/app.js?v=3.11.0"></script>
 </body>
 </html>

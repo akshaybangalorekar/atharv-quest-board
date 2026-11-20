@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.10.0";
+import * as data from "./data.js?v=3.11.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.10.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.11.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -4969,6 +4969,32 @@ const CALL = (el, fn) => {
 };
 
 registerActions({
+  wipeHistory: async () => {
+    const v = $("wipeFrom")?.value ?? "all";
+    const days = v === "all" ? null : Number(v);
+    const from = days ? new Date(Date.now() - days * 86400000).toISOString().slice(0, 10) : null;
+    const msg = $("resetMsg");
+    if (msg) msg.textContent = "Wiping…";
+    const { data, error } = await sb.rpc("wipe_history", { p_from: from });
+    if (msg) msg.textContent = error
+      ? "Could not wipe: " + error.message
+      : `Wiped ${data?.attempts ?? 0} answers, ${data?.sessions ?? 0} sessions and ${data?.mocks ?? 0} tests` +
+        (from ? ` from ${from} onward.` : " — his record is empty.");
+    loadParent();
+  },
+
+  wipeQuestions: async () => {
+    const exam = $("wipeExam")?.value || null;
+    const origin = $("wipeOrigin")?.value || null;
+    const msg = $("resetMsg");
+    if (msg) msg.textContent = "Deleting…";
+    const { data, error } = await sb.rpc("wipe_questions", { p_exam: exam, p_origin: origin });
+    if (msg) msg.textContent = error
+      ? "Could not delete: " + error.message
+      : `Deleted ${data?.deleted ?? 0} question${(data?.deleted ?? 0) === 1 ? "" : "s"}` +
+        `${exam ? ` from ${exam.toUpperCase()}` : " from every exam"}${origin ? ` (${origin === "auto" ? "written by her" : "from your files"})` : ""}.`;
+    loadSync(); loadTraining();
+  },
   dismissScanBanner: () => { const el = $("scanBanner"); if (el) el.className = "hidden"; },
   saveLimits: async () => {
     await sb.rpc("set_usage_limits", {
