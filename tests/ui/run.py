@@ -18,6 +18,33 @@ RUNNER = """
 <script>
 window.__results = [];
 // every generated scenario becomes a case, with the same assertion interface
+if (window.__diagrams) {
+  window.CASES = (window.CASES || []).concat(window.__diagrams.map((sc) => ({
+    name: sc.name,
+    run: async ({ assert, T }) => {
+      window.__fixtures["truth"] = T.baseTruth();
+      window.__fixtures["sync_view"] = { totals: { questions: 1 }, library: {}, exams: [] };
+      window.__fixtures["exam_pipeline"] = [];
+      window.__fixtures["fn:draw-figure"] = { svg: "<svg viewBox='0 0 320 200'><circle cx='60' cy='60' r='40'/></svg>" };
+      window.__fixtures["fn:check-figure"] = { ok: true, why: "" };
+      T.show("session");
+      const el = document.createElement("div");
+      el.id = "qFig";
+      document.body.appendChild(el);
+      const fails = await window.__runScenario({ ...sc, wait: 200 }, T,
+        { question: "Look at the diagram. How many in both?", 1: 1, qFig: "qFig",
+          prompt: "Look at the diagram. How many in both?", svg: "",
+          q: { diagram_kind: "venn", prompt: "Look at the diagram. How many in both?" } });
+      // the drawer was asked, and something was drawn into the box
+      if (T.calls("draw-figure").length === 0) fails.push("the drawer was never asked");
+      if (!/<svg/i.test(el.innerHTML)) fails.push("nothing was drawn into the figure box");
+      el.remove();
+      if (fails.length) fails.forEach((f) => assert(f, false));
+      else assert("the figure path holds", true);
+    },
+  })));
+}
+
 if (window.__uploads) {
   window.CASES = (window.CASES || []).concat(window.__uploads.map((sc) => ({
     name: sc.name,
@@ -133,6 +160,7 @@ def build(filter_name: str, out_path: str) -> None:
         '<script src="./tests/ui/harness.js"></script>'
         '<script src="./tests/ui/scenarios.js"></script>'
         '<script src="./tests/ui/uploads.js"></script>'
+        '<script src="./tests/ui/diagrams.js"></script>'
         '<script src="./tests/ui/cases.js"></script>'
     )
     # the stub has to exist before the app creates its client
