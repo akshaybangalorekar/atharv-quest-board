@@ -142,7 +142,7 @@ async function handle(req: Request) {
 
     let filled: any = { made: 0, strands: 0, perExam: {}, trace: [] };
     let fillError = "";
-    try { filled = await fillFromMaterial(supa, { perStrand: 3, maxStrands: 6 }); }
+    try { filled = await fillFromMaterial(supa, { perStrand: 5, maxStrands: 15 }); }
     catch (e) { fillError = String((e as Error)?.message ?? e); console.error("fill failed:", fillError); }
 
     const ve = await inner("verify");
@@ -285,7 +285,7 @@ async function handle(req: Request) {
   // reading the sources fills the bank: this is not the parent pressing Generate
   let filled = { strands: 0, made: 0 };
   if (mode === "fetch" || mode === "all") {
-    try { filled = await fillFromMaterial(supa, { perStrand: 3, maxStrands: 6 }); }
+    try { filled = await fillFromMaterial(supa, { perStrand: 5, maxStrands: 15 }); }
     catch (e) { console.error("fill failed:", String((e as Error)?.message ?? e)); }
   }
 

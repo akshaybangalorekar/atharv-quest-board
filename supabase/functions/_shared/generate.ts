@@ -37,8 +37,8 @@ Options are optional; when given there must be exactly one correct, equal to "a"
 
 /** fill the thinnest strand of each exam from what she has read */
 export async function fillFromMaterial(admin: any, opts: { perStrand?: number; maxStrands?: number } = {}) {
-  const perStrand = opts.perStrand ?? 3;
-  const maxStrands = opts.maxStrands ?? 6;
+  const perStrand = opts.perStrand ?? 5;
+  const maxStrands = opts.maxStrands ?? 15;
 
   const trace: any[] = [];
   const picked: any[] = [];
