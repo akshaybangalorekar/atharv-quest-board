@@ -111,7 +111,7 @@ window.CASES = [
       });
       window.__fixtures["topic_readiness"] = [];
 
-      await window.goParent();
+      try { await window.goParent(); } catch (e) { assert("goParent threw: " + (e && e.stack ? e.stack.split("\n").slice(0,3).join(" | ") : e), false); return; }
       await T.wait(200);
 
       const card = T.$("pExams")?.textContent ?? "";
