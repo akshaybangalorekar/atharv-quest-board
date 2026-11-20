@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.91.0";
+import * as data from "./data.js?v=2.92.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -28,6 +28,20 @@ async function checkExamDates() {
     const { data: due } = await sb.rpc("date_check_due", { p_hours: 12 });
     if (due) sb.functions.invoke("exam-watch", { body: {} }).catch(() => {});
     await paintDateBanner();
+  } catch (_) {}
+}
+
+/* a background run that failed must be visible, not buried in Help */
+async function paintJobBanner() {
+  try {
+    const { data } = await sb.rpc("recent_jobs", { p_limit: 1 });
+    const j = data?.[0];
+    const el = $("dateBanner");
+    if (!j || j.status !== "failed" || !el) return;
+    el.className = "";
+    el.innerHTML = `<span><b>A background run failed</b> — ${esc(String(j.kind).replace("train:", ""))}:
+      ${esc(String(j.error ?? "no reason given").slice(0, 140))}. Open Help to see it and run it again.</span>
+      <button class="mini" data-action="dismissJobBanner">Got it</button>`;
   } catch (_) {}
 }
 
@@ -123,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.91.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.92.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -234,6 +248,7 @@ async function paintNote() {
   // a parent keeps it until they say so; a child's screen lets it go after three minutes
   if (!S.isParent) setTimeout(() => { if ($("noteBar")?.textContent) dismissNote(data.id); }, 180000);
   checkExamDates();
+  paintJobBanner();
   autoTrain();
 }
 
@@ -4684,6 +4699,7 @@ const CALL = (el, fn) => {
 };
 
 registerActions({
+  dismissJobBanner: () => { const el = $("dateBanner"); if (el) el.className = "hidden"; },
   addAlertTo: (el) => addAlertTo(el),
   addFromChat: (el) => addFromChat(el),
   addTrainingSource: (el) => addTrainingSource(el),
@@ -4766,7 +4782,7 @@ try {
 api = {
   signIn, signOut, goLanding, openTrack, openChapter, startSession, check, advance, nextStep, drawFigure, revealExample, sendMe, endSession, uploadWorking,
   startQuiz, submitTest,
-  goParent, goHome, openUpload, closeUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress,
+  goParent, goHome, openUpload, closeUpload, submitUpload, openParentChat, sendParent, parentWeekly, resetProgress, paintJobBanner,
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
