@@ -28,6 +28,9 @@ if (Array.isArray(window.__diagrams)) {
       window.__fixtures["fn:draw-figure"] = { svg: "<svg viewBox='0 0 320 200'><circle cx='60' cy='60' r='40'/></svg>" };
       window.__fixtures["fn:check-figure"] = { ok: true, why: "" };
       T.show("session");
+      document.getElementById("qFig")?.remove();          // no stale box from the case before
+      window.__state.script = []; window.__state.si = 0;   // and no stale session either
+      window.__state.chapter = 1;
       const el = document.createElement("div");
       el.id = "qFig";
       document.body.appendChild(el);
