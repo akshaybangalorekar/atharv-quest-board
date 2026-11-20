@@ -62,7 +62,7 @@ begin
       ('Kilvington Grammar',           'Edutest',   'Edutest numerical reasoning', 'we',   null),
       ('McKinnon Secondary (ELMS)',    'Edutest',   'ELMS',                        'math', 'elms'),
       ('Camberwell Grammar',           'AAS',       'AAS numerical reasoning',     'math', 'aas'),
-      ('The book · APSMO Division J',  'Olympiad',  'APSMO Division J',            'math', 'book'),
+      ('Olympiad',                    'Olympiad',  'APSMO Division J',            'math', 'book'),
       ('ICAS Mathematics',             'ICAS',      'ICAS Maths',                  'math', 'icas'),
       ('Australian Maths Competition', 'AMC',       'AMC Upper Primary',           'math', 'amc')
     ) as s(school, exam, cal_name, code, kind)
@@ -93,7 +93,7 @@ begin
            else 'needs work' end as verdict
     from detail
   )
-  select coalesce(json_agg(row_to_json(g) order by g.exam, g.school), '[]'::json)
+  select coalesce(json_agg(row_to_json(g) order by g.sits_on nulls last, g.exam, g.school), '[]'::json)
     into v_out
   from (
     select school, exam,

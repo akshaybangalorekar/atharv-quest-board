@@ -38,7 +38,20 @@ select seed_topics('AMC Upper Primary', array[
   'Basic arithmetic','Fractions and ratios','Algebra and pre-algebra','Geometry',
   'Measurement','Statistics and probability','Problem-solving']);
 
--- APSMO publishes no topic list, and Olympiad shows only the study guide's chapters.
--- Nothing is seeded for it: its contests are sat, not taught.
+-- APSMO: four contests and the preparation kit, which is what it publishes
+do $$
+declare
+  v_names text[] := array['Contest 1','Contest 2','Contest 3','Contest 4','Preparation kit'];
+  v_t text; v_n int;
+begin
+  foreach v_t in array v_names loop
+    if exists (select 1 from chapters where title = 'Olympiad · ' || v_t) then continue; end if;
+    select min(g) into v_n from generate_series(141,160) g
+     where not exists (select 1 from chapters c where c.n = g);
+    if v_n is null then select (select coalesce(max(n),0) from chapters)+1 into v_n; end if;
+    insert into chapters (n, title, pages, examples, practice, tier, source)
+    values (v_n, 'Olympiad · ' || v_t, null, 0, 0, 1, 'apsmo') on conflict (n) do nothing;
+  end loop;
+end $$;
 
 update chapters set practice = (select count(*) from problems p where p.chapter = chapters.n);
