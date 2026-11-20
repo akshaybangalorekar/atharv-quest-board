@@ -6,6 +6,7 @@
 
 import { serve, ok, context, studentFor } from "./_shared/mod.ts";
 import { fillFromMaterial } from "./_shared/generate.ts";
+import { alignExam } from "./_shared/authority.ts";
 
 const SUPABASE = Deno.env.get("SUPABASE_URL")!;
 
@@ -29,6 +30,11 @@ serve(async (req) => {
     } else if (job.kind === "parse_paper") {
       detail.parse = await parsePaper(admin, student, job.payload?.paper_id, req);
     } else if (job.kind === "verify") {
+      detail.verify = await callFn("train-coach", { mode: "verify" }, req);
+    } else if (String(job.kind).startsWith("align:")) {
+      // Top Scope material arrived: every question for that exam is reviewed against it
+      const exam = String(job.kind).split(":")[1];
+      detail.align = await alignExam(admin, exam, { limit: 25 });
       detail.verify = await callFn("train-coach", { mode: "verify" }, req);
     } else if (job.kind === "fill") {
       detail.fill = await fillFromMaterial(admin, { perStrand: 3, maxStrands: 6 });

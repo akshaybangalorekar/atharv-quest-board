@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.86.0";
+import * as data from "./data.js?v=2.87.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.86.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.87.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2404,6 +2404,12 @@ async function uploadAndRead(input) {
   input.value = "";
   if (!files.length) return;
 
+  // Top Scope material is the final authority for the exam it is ticked for
+  const edutest = !!$("authEdutest")?.checked;
+  const aas = !!$("authAas")?.checked;
+  S.uploadAuthority = edutest ? "topscope_edutest" : aas ? "topscope_aas" : null;
+  S.uploadAuthorityExam = edutest ? "edutest" : aas ? "aas" : null;
+
   const { data: { user } } = await sb.auth.getUser();
   const exam = $("upBank")?.value || "ELMS";
   const mode = strandMode();
@@ -2440,6 +2446,11 @@ async function uploadAndRead(input) {
       p_b64: b64, p_path: "",
     });
     paperId = savedId ?? null;
+    if (paperId && S.uploadAuthority) {
+      await sb.from("papers").update({ authority: S.uploadAuthority }).eq("id", paperId);
+      // every existing question for that exam is reviewed against it
+      await sb.rpc("enqueue_job", { p_kind: `align:${S.uploadAuthorityExam}`, p_payload: { paper_id: paperId } });
+    }
     bar.style.width = "75%";
     if (!error && paperId) state.textContent = `Saved to the database · file ${paperId}`;
     if (error || !paperId) {
