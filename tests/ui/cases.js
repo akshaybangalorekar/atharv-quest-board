@@ -192,4 +192,33 @@ window.CASES = [
       assert("each question is tagged with its exam", /EDUTEST/.test(list) && /ICAS/.test(list));
     },
   },
+  {
+    name: "a failed background run is shown, not buried",
+    async run({ assert, T }) {
+      window.__fixtures["recent_jobs"] = [
+        { id: 9, kind: "train:fetch", status: "failed", detail: {},
+          error: "Could not choose the best candidate function between store_doc", started_at: "2026-11-20T02:00:00Z" },
+      ];
+      window.__fixtures["truth"] = T.baseTruth();
+      await window.paintJobBanner();
+      await T.wait(80);
+      const el = T.$("dateBanner");
+      assert("the banner appears", !el?.classList.contains("hidden"));
+      assert("it names the run", /train|fetch/i.test(el?.textContent ?? ""));
+      assert("it gives the reason", /store_doc|candidate/i.test(el?.textContent ?? ""));
+    },
+  },
+
+  {
+    name: "a successful run raises no banner",
+    async run({ assert, T }) {
+      window.__fixtures["recent_jobs"] = [
+        { id: 10, kind: "train:all", status: "done", detail: { generated: 6 }, error: null, started_at: "2026-11-20T03:00:00Z" },
+      ];
+      T.$("dateBanner").className = "hidden";
+      await window.paintJobBanner();
+      await T.wait(80);
+      assert("no banner for a good run", T.$("dateBanner")?.classList.contains("hidden"));
+    },
+  },
 ];
