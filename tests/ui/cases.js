@@ -456,4 +456,29 @@ window.CASES = [
       assert("the card explains that they total", /add up to the total written/.test(text));
     },
   },
+  {
+    name: "clearing his history puts every question back in the queue",
+    async run({ assert, T }) {
+      const fam = { label: "Olympiad", family: "olympiad", items: 0, verdict: "no_content", exam_on: "2027-05-05", days_left: 166, topics_all: 24, topics_done: 0, schools_list: [], schools: "APSMO", rows: [], topics: [] };
+      window.__fixtures["truth"] = T.baseTruth({ families: [fam] });
+      window.__fixtures["sync_view"] = { totals: { questions: 10, cleared: 0, provisional: 10, draft: 0, failed: 0 },
+        library: { documents: 1, passages: 1, from_web: 1, from_upload: 0, official: 0 },
+        exams: [{ key: "olympiad", label: "Olympiad", servable: 10, cleared: 0, provisional: 10, draft: 0, failed: 0 }] };
+      window.__fixtures["exam_pipeline"] = [{ key: "olympiad", pipeline: 10, solved: 4, left_to_solve: 6 }];
+      window.__fixtures["topic_readiness"] = [];
+      window.__fixtures["exam_specs"] = [];
+
+      await window.openTimetable();
+      await T.wait(200);
+      let text = (T.$("ttBody")?.textContent ?? "").replace(/\s+/g, " ");
+      assert("before the wipe, six are left", /6 left/.test(text));
+
+      // the wipe happened: the pipeline is read again and nothing is solved
+      window.__fixtures["exam_pipeline"] = [{ key: "olympiad", pipeline: 10, solved: 0, left_to_solve: 10 }];
+      await window.openTimetable();
+      await T.wait(200);
+      text = (T.$("ttBody")?.textContent ?? "").replace(/\s+/g, " ");
+      assert("after the wipe, all ten are back", /10 left/.test(text));
+    },
+  },
 ];
