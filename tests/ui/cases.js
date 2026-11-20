@@ -624,4 +624,98 @@ window.CASES = [
       assert("a question with no source still says something", /written by the coach, no source recorded/.test(printed ?? ""));
     },
   },
+
+  {
+    name: "click through: she sends him to a chapter, he answers, he comes back, she assesses",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth({
+        student: { id: "kid", name: "Atharv", xp: 0, streak: 1, days_in: 2 },
+        plan: { chapter: 1, title: "Whole Numbers" },
+      });
+      window.__fixtures["sync_view"] = { totals: { questions: 2 }, library: {}, exams: [] };
+      window.__fixtures["exam_pipeline"] = [];
+      window.__fixtures["plan_sitting"] = { minutes: 60, questions: 2, chapter: 1 };
+      window.__fixtures["next_in_chapter"] = [{ chapter: 1, idx: 1, prompt: "What is 5 + 7?", options: null, answer: "12", status: "provisional", source_ref: "NRICH (Cambridge)" }, { chapter: 1, idx: 2, prompt: "What is 9 + 4?", options: null, answer: "13", status: "provisional", source_ref: "NRICH (Cambridge)" }];
+      window.__fixtures["submit_answer"] = { correct: true, answer: "12", method: "add the units" };
+      window.__fixtures["log_visit"] = {};
+      window.__fixtures["question_budget"] = { seconds: 90 };
+      window.__fixtures["save_session"] = { ok: true };
+      window.__fixtures["fn:coach-chat"] = { reply: "Two of two. Next: subtraction, tomorrow." };
+
+      T.show("session");
+
+      // 1. she sends him: he presses the chapter button
+      await window.startChapter(1);
+      await T.wait(200);
+      assert("the session screen is open", T.screen("session"));
+      assert("the chapter is recorded", window.__state.chapter === 1);
+      assert("a visit is logged", T.calls("log_visit").length >= 1);
+
+      // 2. the questions arrived and are in the script
+      const qs = (window.__state.script ?? []).filter((x) => x.type === "question");
+      assert("the questions are loaded", qs.length >= 2);
+
+      // 3. he answers the first one, exactly as the check button does
+      window.__state.si = (window.__state.script ?? []).findIndex((x) => x.type === "question");
+      const q = window.__state.script[window.__state.si].data;
+      const ans = T.$("ans");
+      if (ans) { ans.value = "12"; }
+      await window.check();
+      await T.wait(200);
+      const sent = T.lastCall("submit_answer");
+      assert("the answer is sent for marking", !!sent);
+      assert("it carries the question he was on", sent?.args?.p_idx === q.idx);
+
+      // 4. he goes back to her
+      await window.backToCoach();
+      await T.wait(200);
+      const coachCall = T.calls("coach-chat").at(-1);
+      assert("she is asked to assess", !!coachCall);
+      const note = String(coachCall?.args?.note ?? "");
+      assert("the note names the chapter", /chapter 1/i.test(note));
+      assert("the note carries how he did", /question/i.test(note));
+    },
+  },
+
+  {
+    name: "click through: pause keeps his place, and the server has it",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth();
+      window.__fixtures["sync_view"] = { totals: {}, library: {}, exams: [] };
+      window.__fixtures["save_session"] = { ok: true };
+      window.__fixtures["load_session"] = { chapter: 3, si: 1, paused: true,
+        script: [{ type: "question", data: { chapter: 3, idx: 1, prompt: "x", answer: "1" } },
+                 { type: "question", data: { chapter: 3, idx: 2, prompt: "y", answer: "2" } }] };
+
+      T.show("session");
+      window.__state.chapter = 3;
+      window.__state.si = 1;
+      window.__state.script = [{ type: "question", data: { chapter: 3, idx: 1, prompt: "x" } },
+                               { type: "question", data: { chapter: 3, idx: 2, prompt: "y" } }];
+      await window.endSession();
+      await T.wait(150);
+      const saved = T.lastCall("save_session");
+      assert("the place is written to the server", !!saved);
+      assert("it records where he was", saved?.args?.p_si === 1);
+      assert("it records the chapter", saved?.args?.p_chapter === 3);
+
+      const back = await window.readSessionFromServer();
+      assert("the server gives it back", back?.chapter === 3);
+      assert("with the same question", back?.si === 1);
+    },
+  },
+
+  {
+    name: "click through: the chapter button is absent when she did not send him",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth({ plan: null });
+      window.__fixtures["sync_view"] = { totals: {}, library: {}, exams: [] };
+      window.__fixtures["exam_pipeline"] = [];
+      T.show("session");
+      await window.paintActions();
+      await T.wait(80);
+      const bar = T.text("actionBar");
+      assert("no chapter button without a plan", !/Chapter \d+ →/.test(bar));
+    },
+  },
 ];
