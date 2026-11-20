@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.80.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.81.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2177,11 +2177,11 @@ async function goParent() {
       return `<div class="card ttExam">
         <div class="ttHead">
           <span class="ttName">${esc(fam)}</span>
-          <span class="pill grey">nothing loaded</span>
+          <span class="pill grey">no questions</span>
           <span class="ttMeta">${esc(when)}${f.days_left !== null ? ` · ${f.days_left} days` : ""}</span>
           <span class="ttMeta" style="margin-left:auto">0 questions</span>
         </div>
-        <div class="sub" style="margin:8px 0 0">No questions for this exam yet — nothing uploaded, nothing written.
+        <div class="sub" style="margin:8px 0 0">No questions in this exam's bank yet — none uploaded, none written.
           ${(f.schools_list ?? []).map((r) => esc(r.school)).join(", ")} sits it on ${esc(when)}.</div>
         ${(S.libNote ?? "") ? `<div class="sub" style="margin:4px 0 0">${esc(S.libNote)}</div>` : ""}
         <div class="bar" style="margin-top:10px">
@@ -2228,7 +2228,7 @@ async function goParent() {
       <div class="ttHead">
         <span class="ttName">${esc(fam)}</span>
         <span class="pill ${cls(f.verdict)}">${esc(
-          f.verdict === "no_content" ? "nothing loaded"
+          f.verdict === "no_content" ? "no questions"
           : f.verdict === "thin" ? `thin · ${totalQ} questions`
           : f.verdict)}</span>
         <span class="ttMeta">${esc(when)}${f.days_left !== null ? ` · ${f.days_left} days` : ""}</span>
@@ -3208,7 +3208,7 @@ async function openDash() {
     barRow("Cleared", `${cleared}`, Math.round(cleared / 24 * 100), "#7fc3a3") +
     barRow("Started", `${started}`, Math.round(started / 24 * 100), "var(--acc)");
 
-  const words = { ready: "enough", too_early: "too early", in_progress: "going", thin: "need more data", no_content: "nothing loaded" };
+  const words = { ready: "enough", too_early: "too early", in_progress: "going", thin: "need more data", no_content: "no questions" };
   $("examBars").innerHTML = (d.exams || []).map((e) => {
     const p = Math.min(100, e.items ? Math.round(100 * e.practised / e.items) : 0);
     return barRow(`${esc(e.exam)} · ${e.items} loaded`, `${e.practised} practised · ${e.mastered} mastered · ${words[e.verdict] ?? e.verdict}`, p,
