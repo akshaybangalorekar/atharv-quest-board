@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.21.0";
+import * as data from "./data.js?v=3.21.1";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -181,7 +181,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.21.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.21.1";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -605,17 +605,17 @@ async function loadTraining() {
 
     <div class="k" style="margin:12px 0 6px">Questions he can be given — ${servable}</div>
     <div style="display:flex;height:10px;border-radius:999px;overflow:hidden;background:#eef1f5">
-      <div style="width:${pct(cleared)}%;background:#1f9d55" title="cleared"></div>
-      <div style="width:${pct(prov)}%;background:#e6a817" title="provisional"></div>
-      <div style="width:${pct(draft)}%;background:#9aa7b4" title="awaiting a check"></div>
+      <div style="width:${pct(cleared)}%;background:#1f9d55" title="verified"></div>
+      <div style="width:${pct(prov)}%;background:#e6a817" title="not verified"></div>
+      <div style="width:${pct(draft)}%;background:#9aa7b4" title="to be verified"></div>
       <div style="width:${pct(failed)}%;background:#d64545" title="held back"></div>
     </div>
     <div class="chipRow" style="margin-top:8px">
-      ${chip(cleared, "cleared", cleared ? "green" : "grey",
-        "Checked against official material for its exam. The strongest state a question can be in.")}
-      ${chip(prov, "provisional", prov ? "amber" : "grey",
-        "Checked and answerable, but no official material exists for its exam yet. He sees it marked provisional.")}
-      ${chip(draft, "awaiting a check", draft ? "amber" : "grey", "Written but not yet checked. Never shown.")}
+      ${chip(cleared, "verified", cleared ? "green" : "grey",
+        "Verified: checked against official material for its exam. The strongest state a question can be in.")}
+      ${chip(prov, "not verified", prov ? "amber" : "grey",
+        "Not verified: answerable, but no official material exists for its exam yet, so nothing can confirm it. He sees it marked not verified.")}
+      ${chip(draft, "to be verified", draft ? "amber" : "grey", "To be verified: written but not yet checked. Never shown.")}
       ${chip(failed, "held back", failed ? "red" : "grey",
         failed
           ? `${failed} rejected by the check, in ${(S.heldBack ?? []).length} kind${(S.heldBack ?? []).length === 1 ? "" : "s"}. Open "Why questions are held back" below for each reason and an example. Nothing reaches him.`
@@ -636,11 +636,11 @@ async function loadTraining() {
       </div></details>` : ""}
 
     <div class="sub" style="margin-top:6px">Written so far: <b>${servable + failed + draft}</b> =
-      <b>${servable}</b> he can be given + <b>${failed}</b> held back + <b>${draft}</b> awaiting a check.
+      <b>${servable}</b> he can be given + <b>${failed}</b> held back + <b>${draft}</b> to be verified.
       The exam cards split the ${servable}; the runs below are how each pass added to the total.</div>
     <div class="sub" style="margin-top:6px">${(k.official_exams ?? []).length
       ? `Official material loaded for ${(k.official_exams ?? []).join(", ")}. Those questions are checked against it and can be cleared.`
-      : "No official material yet, so every question is provisional until you upload some."}</div>`;
+      : "No official material yet, so every question is unverified until you upload some. That is what turns them into verified questions."}</div>`;
 }
 
 /* read the sources, keep your uploads, and check the bank */
@@ -1889,7 +1889,7 @@ async function printQuestions(fam) {
       <h2>${esc((rows.find((r) => r.chapter === n)?.strand) ?? ("Chapter " + n))}</h2>
       ${rows.filter((r) => r.chapter === n).map((r, i) => `
         <div class="q"><span class="n">${i + 1}.</span> ${esc(r.prompt)}
-          <span class="tag">${r.status === "cleared" ? "verified" : r.status === "provisional" ? "provisional" : "unchecked"}</span>
+          <span class="tag">${r.status === "cleared" ? "verified" : r.status === "provisional" ? "not verified" : r.status === "failed" ? "held back" : "unchecked"}</span>
           ${r.diagram_svg ? `<div class="fig">${r.diagram_svg}</div>` : ""}
           <div class="src">${r.derived_from
             ? `${esc(r.source_ref ?? "variation")} — original: “${esc(String(r.derived_from).slice(0, 70))}”`
@@ -4176,7 +4176,8 @@ function gateLabel(q) {
   const st = String(q?.status ?? q?.gate_state ?? "");
   const src = String(q?.source_ref ?? "").trim();
   const where = src ? `from ${src}` : "source not recorded";
-  const tag = st === "cleared" ? "verified" : st === "provisional" ? "provisional" : st === "failed" ? "held back" : "unchecked";
+  const tag = st === "cleared" ? "verified" : st === "provisional" ? "not verified"
+    : st === "failed" ? "held back" : st === "draft" ? "to be verified" : "unchecked";
   return ` (${tag} · ${where})`;
 }
 
