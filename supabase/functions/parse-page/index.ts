@@ -129,9 +129,12 @@ Deno.serve(async (req) => {
               { type: "text", text: `Extract the questions from this image.
 
 Two things to check before you start:
-1. A scanned image often holds TWO facing book pages. Read the LEFT page first, then the RIGHT page.
-   Give every question a "page" field: the printed page number if you can see it, otherwise "left" or "right".
-   Never merge a question from the left page with a question from the right page.
+1. A scanned image may hold ONE page or TWO facing pages. Decide which, from what you can see — do not assume:
+   - one page: read it top to bottom, and set "page" to the printed page number if visible, otherwise "single";
+   - two facing pages: read the LEFT page fully, then the RIGHT page, and set "page" to "left" or "right"
+     (or the printed numbers if you can see both).
+   Never merge a question from the left page with a question from the right page, and never split a single page
+   in two just because the text is in columns.
 2. If the image has no readable text at all, return {"rows": [], "why": "no readable text"} rather than guessing.` },
               { type: "image_url", image_url: { url: `data:image/jpeg;base64,${b64}` } },
             ],
