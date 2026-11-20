@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.11.0";
+import * as data from "./data.js?v=3.11.2";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.11.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.11.2";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -320,8 +320,8 @@ async function dismissNote(id) {
 
 /* the plan, per exam and per topic, and whether he is ahead of it */
 async function openTimetable() {
-  // the timetable shows counts, so it needs the shared view like every other screen
-  if (!S.sync) await loadSync();
+  // the timetable shows counts, so it re-reads the shared view rather than trusting an old copy
+  await loadSync();
   show("timetable");
   const box = $("ttBody");
   box.innerHTML = `<div class="card"><div class="sub">Working out where you are…</div></div>`;
@@ -438,6 +438,8 @@ async function openTimetable() {
         <span class="ttName">${esc(x.label)}</span>
         <span class="chip ${toneForCount(examCount)}"
               title="${examCount} questions for this exam."><b>${examCount}</b> questions</span>
+        <span class="chip ${Number(left) === 0 ? "grey" : "amber"}"
+              title="${examCount} questions · ${examCount - left} solved · ${left} left to solve."><b>${left}</b> left</span>
         <span class="chip grey" title="${esc(x.label)} sits on ${esc(examWhen)}"><b>${x.days_left ?? 0}</b> days</span>
         <span class="ttMeta" style="margin-left:auto">${done} of ${all} topics</span>
       </div>
@@ -2506,6 +2508,9 @@ async function goParent() {
       <div class="ttHead">
         <span class="ttName">${esc(fam)}</span>
         <span class="chip ${toneForCount(examCount)}" title="${pipeTip}"><b>${examCount}</b> questions</span>
+        <span class="chip ${Number(pipeRow.left_to_solve ?? examCount) === 0 ? "grey" : "amber"}"
+              title="${examCount} questions · ${pipeRow.solved ?? 0} solved · ${pipeRow.left_to_solve ?? examCount} left to solve. Clearing his history puts them all back in the queue.">
+          <b>${pipeRow.left_to_solve ?? examCount}</b> left</span>
         <span class="chip grey" title="${esc(fam)} sits on ${esc(when)}"><b>${f.days_left ?? 0}</b> days</span>
         <span class="ttMeta" style="margin-left:auto">${coveredMin} of ${sitsMin} min testable</span>
       </div>
@@ -4980,7 +4985,10 @@ registerActions({
       ? "Could not wipe: " + error.message
       : `Wiped ${data?.attempts ?? 0} answers, ${data?.sessions ?? 0} sessions and ${data?.mocks ?? 0} tests` +
         (from ? ` from ${from} onward.` : " — his record is empty.");
-    loadParent();
+    // solved and pending both change, so the pipeline is re-read, not assumed
+    await loadSync();
+    await loadParent();
+    if (!$("help").classList.contains("hidden")) await loadTraining();
   },
 
   wipeQuestions: async () => {
