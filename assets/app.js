@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.84.0";
+import * as data from "./data.js?v=2.85.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.84.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.85.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -407,18 +407,29 @@ async function loadTraining() {
 
 /* read the sources, keep your uploads, and check the bank */
 /* she reads the sources on her own once a day, in the background, so nobody waits */
+/* hand the work to the server, then nudge the worker. The request runs to completion
+   even if this tab closes, so a half-finished job is no longer possible. */
+async function enqueue(kind, payload) {
+  try {
+    await sb.rpc("enqueue_job", { p_kind: kind, p_payload: payload ?? {} });
+    sb.functions.invoke("run-jobs", { body: {} }).catch(() => {});
+  } catch (_) {}
+}
+
 async function autoTrain() {
   try {
     const { data: due } = await sb.rpc("train_due", { p_hours: 24 });
     if (!due) return;
-    sb.functions.invoke("train-coach", { body: { mode: "all" } })
-      .then(() => { if ($("trainList")) loadTraining(); })
-      .catch(() => {});
+    await enqueue("train");
+    setTimeout(() => { if ($("trainList")) loadTraining(); }, 4000);
   } catch (_) {}
 }
 
 async function trainNow() {
-  $("trainMsg").textContent = "Reading your uploads, then the sources, then checking the bank… this takes a minute.";
+  $("trainMsg").textContent = "Queued — reading your uploads, the sources, then the bank. This runs on the server, so you can leave this screen.";
+  await enqueue("train");
+  setTimeout(() => { $("trainMsg").textContent = "Running on the server — open Help again in a minute to see the result."; loadTraining(); }, 3000);
+  return;
   const { data, error } = await sb.functions.invoke("train-coach", { body: { mode: "all" } });
   if (error) { $("trainMsg").textContent = "Could not train: " + error.message; return; }
 
@@ -4708,7 +4719,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
