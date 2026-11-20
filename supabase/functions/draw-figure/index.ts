@@ -13,6 +13,7 @@
 // original page.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ask } from "./_shared/mod.ts";
 
 const MODEL = "glm5.3-flash";
 const ENDPOINT = "https://api.sarvam.ai/v2/chat/completions";

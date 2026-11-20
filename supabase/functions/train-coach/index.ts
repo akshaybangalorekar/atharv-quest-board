@@ -11,6 +11,8 @@
 // Secrets: SARVAM_API_KEY
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ask } from "./_shared/mod.ts";
+import { checkQuestion, verdictColumns } from "./_shared/quality.ts";
 import { fillFromMaterial } from "./_shared/generate.ts";
 
 const ENDPOINT = "https://api.sarvam.ai/v2/chat/completions";

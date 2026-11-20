@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.98.0";
+import * as data from "./data.js?v=2.99.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.98.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.99.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -438,11 +438,13 @@ async function loadTraining() {
       const perFn = Object.entries(bal.calls_by_function ?? {})
         .map(([k, v]) => `${esc(k)} ${v}`).join(" · ") || "no calls today";
       $("spendCard").innerHTML = `
-        <div class="k" style="margin-bottom:4px">What the model costs</div>
-        <div class="sub">Balance ${rupee(bal.balance_inr)} · today ${rupee(bal.today?.inr)} (${bal.today?.calls ?? 0} calls)
-          · last 7 days ${rupee(bal.week?.inr)}</div>
+        <div class="sub"><b>Balance ${rupee(bal.balance_inr)}</b> — the figure you last entered from the Sarvam
+          dashboard. Today she has spent ${rupee(bal.today?.inr)} over ${bal.today?.calls ?? 0} calls; the last
+          seven days come to ${rupee(bal.week?.inr)}.</div>
         <div class="sub" style="margin-top:4px">Today by task: ${perFn}</div>
-        <div class="sub" style="margin-top:4px">Rate used: ${esc(bal.model)} — ₹13.50 per million in, ₹45 per million out.</div>
+        <div class="sub" style="margin-top:4px">Charged at Sarvam's published rate for ${esc(bal.model)}:
+          ₹13.50 per million tokens sent, ₹45 per million received. Token counts come from the API itself, not
+          from an estimate.</div>
         <div class="bar" style="margin-top:8px">
           <input id="balIn" type="number" step="1" min="0" placeholder="Balance ₹ from your Sarvam dashboard"
                  style="width:200px">
@@ -1685,6 +1687,8 @@ async function generateFor(fam, count, btn) {
   } catch (_) {}
 
   const { data, error } = await sb.functions.invoke("make-questions", { body: { exam, count } });
+  // whatever it wrote is checked against official material before it can be served
+  await sb.rpc("enqueue_job", { p_kind: `gate:${String(exam).toLowerCase()}`, p_payload: {} }).catch(() => {});
   const added = (data?.added ?? 0) + extra;
   const figs = data?.figures ?? 0;
   await sb.rpc("log_topup", {
