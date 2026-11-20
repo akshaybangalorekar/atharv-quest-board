@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<link rel="stylesheet" href="./assets/app.css?v=2.99.0">
+<link rel="stylesheet" href="./assets/app.css?v=2.99.1">
 </head>
 <body>
 
@@ -561,13 +561,13 @@
       <div class="err" id="trMsg"></div>
     </div>
   </details>
-  <div class="card" id="spendWrap">
-    <div class="k" style="margin-bottom:2px">What the model costs</div>
-    <div class="sub">Every question she writes, every check, and every reply she sends is a paid call to the
-      model. This card counts them, in rupees, for today and the last seven days — so a runaway loop shows up
-      as money rather than as a mystery.</div>
+  <details class="card" id="spendWrap">
+    <summary class="foldHead">What the model costs</summary>
+    <div class="sub" style="margin-top:8px">Every question she writes, every check, and every reply she sends is
+      a paid call to the model. This counts them, in rupees, for today and the last seven days — so a runaway
+      loop shows up as money rather than as a mystery.</div>
     <div id="spendCard" style="margin-top:10px"></div>
-  </div>
+  </details>
 </div>
 
   <div class="card">
@@ -708,6 +708,6 @@
 </footer>
 
 <script src="./supabase.js"></script>
-<script type="module" src="./assets/app.js?v=2.99.0"></script>
+<script type="module" src="./assets/app.js?v=2.99.1"></script>
 </body>
 </html>
