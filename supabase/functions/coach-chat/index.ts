@@ -11,6 +11,7 @@
 // own technique notes, his weak areas and what he has done today — all read
 // from the database with his own login, so it can only see his rows.
 
+import { buildEnvelope, checkReply } from "./_shared/coach.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const MODEL = "glm5.3-flash";
@@ -458,11 +459,11 @@ Deno.serve(async (req) => {
       pack = p ?? {};
     }
 
+    const envelope = buildEnvelope(c, { parent: true, note });
+    const childEnvelope = buildEnvelope(c, { parent: false, note });
+
     const parentFacts = [
-      `CONTEXT READ FROM THE DATABASE AT ${c.today ?? "now"} — every line below was computed at this moment for this
-       message. There is no cache and no other source.`,
-      `${c.library ?? "LIBRARY: nothing read yet"}`,
-      `${c.bank ?? "QUESTION BANK: empty"}`,
+      envelope.text,
       `Child: ${c.student ?? "Atharv"}. XP ${c.xp ?? 0}, streak ${c.streak ?? 0} days.`,
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
@@ -481,10 +482,7 @@ Deno.serve(async (req) => {
 
     const isParentTurn = mode === "parent";
     const facts = [
-      `CONTEXT READ FROM THE DATABASE AT ${c.today ?? "now"} — every line below was computed at this moment for this
-       message. There is no cache and no other source.`,
-      `${c.library ?? "LIBRARY: nothing read yet"}`,
-      `${c.bank ?? "QUESTION BANK: empty"}`,
+      childEnvelope.text,
       `Today is ${c.today}. His name is ${c.name ?? "Atharv"}.`,
       `Day ${c.days_in ?? 1} of the programme. First day: ${c.is_first_day ? "yes" : "no"}. Started ${c.started_on ?? "today"}.`,
       `Sessions in the last 7 days: ${c.sessions_7d ?? 0}. Days since the last one: ${c.days_since_last ?? 0}.`,
@@ -558,6 +556,39 @@ Deno.serve(async (req) => {
     for (const [re, to] of BANNED) reply = reply.replace(re, to);
     reply = reply.replace(/\s{2,}/g, " ").replace(/\s+([.,!?])/g, "$1").trim();
     if (before !== reply) console.warn("coach reply mentioned a removed feature; cleaned");
+
+    // the guard: a reply that denies what the context shows is not sent
+    const env = isParentTurn ? envelope : childEnvelope;
+    let verdict = checkReply(reply, env);
+    if (!verdict.ok) {
+      console.warn("reply contradicted the context:", verdict.reason);
+      try {
+        const fix = await fetch(ENDPOINT, {
+          method: "POST",
+          headers: { "content-type": "application/json", "api-subscription-key": Deno.env.get("SARVAM_API_KEY")! },
+          body: JSON.stringify({
+            ...body,
+            messages: [
+              ...(body.messages ?? []),
+              { role: "assistant", content: reply },
+              { role: "user", content: verdict.correction },
+            ],
+          }),
+        });
+        if (fix.ok) {
+          const b3 = await fix.json();
+          const second = (b3?.choices?.[0]?.message?.content ?? "").trim();
+          const again = second ? checkReply(second, env) : { ok: false };
+          if (second && again.ok) { reply = second; verdict = again; }
+        }
+      } catch (_) { /* fall through to the plain correction */ }
+
+      if (!verdict.ok) {
+        // still wrong: say the truth in her voice rather than send the denial
+        reply = `${env.sections.find((x) => x.key === "library")?.body ?? ""}\n\n` +
+                `${env.sections.find((x) => x.key === "bank")?.body ?? ""}`.trim();
+      }
+    }
 
     if (reply.trim().startsWith("{")) {
       const j = looseParse(reply);
