@@ -97,4 +97,7 @@ export const load_session = (args) => call((a) => sb.rpc("load_session", a), arg
 export const clear_session = (args) => call((a) => sb.rpc("clear_session", a), args);
 export const usage_today = (args) => call((a) => sb.rpc("usage_today", a), args);
 
+export const model_balance = (args) => call((a) => sb.rpc("model_balance", a), args);
+export const set_model_balance = (args) => call((a) => sb.rpc("set_model_balance", a), args);
+
 export const table = (name) => sb.from(name);

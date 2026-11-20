@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.95.0";
+import * as data from "./data.js?v=2.96.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.95.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.96.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -428,6 +428,36 @@ async function loadTraining() {
 
   const { data: st } = await sb.rpc("training_status");
   const k = st ?? {};
+  // what the model has cost, in rupees, and what is left
+  try {
+    const { data: bal } = await sb.rpc("model_balance");
+    if (bal && $("spendCard")) {
+      const rupee = (n) => "₹" + Number(n ?? 0).toFixed(2);
+      const perFn = Object.entries(bal.calls_by_function ?? {})
+        .map(([k, v]) => `${esc(k)} ${v}`).join(" · ") || "no calls today";
+      $("spendCard").innerHTML = `
+        <div class="k" style="margin-bottom:4px">What the model costs</div>
+        <div class="sub">Balance ${rupee(bal.balance_inr)} · today ${rupee(bal.today?.inr)} (${bal.today?.calls ?? 0} calls)
+          · last 7 days ${rupee(bal.week?.inr)}</div>
+        <div class="sub" style="margin-top:4px">Today by task: ${perFn}</div>
+        <div class="sub" style="margin-top:4px">Rate used: ${esc(bal.model)} — ₹13.50 per million in, ₹45 per million out.</div>
+        <div class="bar" style="margin-top:8px">
+          <input id="balIn" type="number" step="1" min="0" placeholder="Balance ₹ from your Sarvam dashboard"
+                 style="width:220px">
+          <button class="mini" data-action="saveBalance">Update balance</button>
+        </div>`;
+    }
+    if (bal?.low) {
+      const el = $("dateBanner");
+      if (el) {
+        el.className = "";
+        el.innerHTML = `<span><b>Model credit is low</b> — ₹${Number(bal.balance_inr ?? 0).toFixed(2)} left,
+          below your ₹${Number(bal.alert_below_inr ?? 10).toFixed(0)} alert. Top up at sarvam.ai and update the
+          balance in Help.</span><button class="mini" data-action="dismissJobBanner">Got it</button>`;
+      }
+    }
+  } catch (_) {}
+
   const { data: jobs } = await sb.rpc("recent_jobs", { p_limit: 4 });
   const jobLine = (jobs ?? []).map((j) => {
     const when = new Date(j.started_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
@@ -4721,6 +4751,13 @@ const CALL = (el, fn) => {
 };
 
 registerActions({
+  saveBalance: async () => {
+    const v = Number($("balIn")?.value ?? 0);
+    if (!Number.isFinite(v) || v < 0) return;
+    await sb.rpc("set_model_balance", { p_inr: v });
+    $("dateBanner") && ($("dateBanner").className = "hidden");
+    loadTraining();
+  },
   dismissJobBanner: () => { const el = $("dateBanner"); if (el) el.className = "hidden"; },
   addAlertTo: (el) => addAlertTo(el),
   addFromChat: (el) => addFromChat(el),

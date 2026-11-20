@@ -73,7 +73,15 @@ export async function ask(system: string, user: string, temperature = 0, maxToke
   const b = await r.json();
   const out = (b?.choices?.[0]?.message?.content ?? "").trim();
   try {
-    await admin.rpc("record_usage", { p_fn: fn, p_in: (system?.length ?? 0) + (user?.length ?? 0), p_out: out.length });
+    // real token counts when the API reports them, characters otherwise
+    const u = b?.usage ?? {};
+    await admin.rpc("record_usage", {
+      p_fn: fn,
+      p_in: (system?.length ?? 0) + (user?.length ?? 0),
+      p_out: out.length,
+      p_tokens_in: Number(u.prompt_tokens ?? 0),
+      p_tokens_out: Number(u.completion_tokens ?? 0),
+    });
   } catch (_) {}
   return out;
 }
