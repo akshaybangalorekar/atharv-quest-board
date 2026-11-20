@@ -70,7 +70,17 @@ export async function ask(system: string, user: string, temperature = 0, maxToke
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
     }),
   });
-  if (!r.ok) return "";
+  if (!r.ok) {
+    if (r.status === 402) {
+      // the only balance signal the API gives: the wallet is empty, and no retry will clear it
+      try {
+        const admin402 = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        await admin402.from("app_config").upsert({ key: "credits_empty_at", value: new Date().toISOString() });
+      } catch (_) { /* the flag is a nicety, not a dependency */ }
+      console.error("Sarvam reports no credits available (402)");
+    }
+    return "";
+  }
   const b = await r.json();
   const out = (b?.choices?.[0]?.message?.content ?? "").trim();
   try {
