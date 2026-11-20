@@ -140,7 +140,7 @@ async function handle(req: Request) {
   if (mode === "verify") {
     const { data: rows } = await supa.from("problems")
       .select("chapter, idx, prompt, options, diagram_svg")
-      .or("verified.eq.false,verified.is.null").limit(40);
+      .in("status", ["draft"]).limit(40);
 
     const checked: Array<{ chapter: number; idx: number; ok: boolean; why: string }> = [];
     for (const r of rows ?? []) {
@@ -149,7 +149,10 @@ async function handle(req: Request) {
       const hasFigure = !!r.diagram_svg;
 
       const v = await checkQuestion(q, hasFigure);
-      await supa.from("problems").update(verdictColumns(v)).eq("chapter", r.chapter).eq("idx", r.idx);
+      await supa.rpc("set_question_status", {
+        p_chapter: r.chapter, p_idx: r.idx,
+        p_status: v.ok ? "provisional" : "failed", p_note: v.ok ? null : v.why,
+      });
       checked.push({ chapter: r.chapter, idx: r.idx, ok: v.ok, why: v.why });
     }
     await supa.rpc("finish_job", {

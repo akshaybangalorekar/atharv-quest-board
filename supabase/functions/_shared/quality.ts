@@ -49,11 +49,13 @@ export async function checkBatch(rows: Array<{ q: string; hasFigure?: boolean }>
   };
 }
 
-/** the columns every stored question must carry, so no writer forgets the verdict */
-export function verdictColumns(v: Verdict) {
-  return {
-    verified: v.ok,
-    verified_at: new Date().toISOString(),
-    verify_note: v.ok ? null : v.why,
-  };
+/** the one status a question can carry, and the note that explains it */
+export function verdictColumns(v: Verdict, clearedAgainstOfficial = false) {
+  const status = !v.ok ? "failed" : clearedAgainstOfficial ? "cleared" : "provisional";
+  return { status, status_note: v.ok ? null : v.why, status_at: new Date().toISOString() };
+}
+
+/** the same transition, made through the one function that owns it */
+export async function setStatus(admin: any, chapter: number, idx: number, status: string, note?: string) {
+  await admin.rpc("set_question_status", { p_chapter: chapter, p_idx: idx, p_status: status, p_note: note ?? null });
 }

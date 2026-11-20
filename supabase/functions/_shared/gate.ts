@@ -72,7 +72,7 @@ export async function gateExam(admin: any, exam: string, opts: { limit?: number 
   const official = (material ?? []).map((x: any) => String(x.body ?? "")).join("\n\n").slice(0, 3000);
 
   const { data: rows } = await admin.rpc("exam_questions", { p_exam: exam });
-  const pending = (rows ?? []).filter((r: any) => !r.gate_state).slice(0, limit);
+  const pending = (rows ?? []).filter((r: any) => !r.status || r.status === "draft").slice(0, limit);
 
   const counts = { cleared: 0, provisional: 0, failed: 0 };
 
@@ -83,19 +83,28 @@ export async function gateExam(admin: any, exam: string, opts: { limit?: number 
       .select("answer_key").eq("chapter", r.chapter).eq("idx", r.idx).maybeSingle();
 
     const verdict = await gateQuestion(admin, { ...full, answer: ans?.answer_key }, official, hasOfficial);
-    await admin.from("problems").update({
-      gate_state: verdict.state, gate_at: new Date().toISOString(), gate_note: verdict.why || null,
-    }).eq("chapter", r.chapter).eq("idx", r.idx);
+    await admin.rpc("set_question_status", {
+      p_chapter: r.chapter, p_idx: r.idx, p_status: verdict.state, p_note: verdict.why || null,
+    });
 
     counts[verdict.state]++;
   }
 
-  // official material exists, so nothing for this exam may stay provisional
+  // official material exists, so nothing for this exam may stay provisional: it is checked again
   if (hasOfficial) {
-    const { data: leftovers } = await admin.from("problems")
-      .update({ gate_state: null }).eq("gate_state", "provisional")
-      .in("chapter", (rows ?? []).map((r: any) => r.chapter));
-    void leftovers;
+    const { data: provisional } = await admin.from("problems")
+      .select("chapter, idx, prompt, options").eq("status", "provisional")
+      .in("chapter", (rows ?? []).map((r: any) => r.chapter)).limit(20);
+
+    for (const q of provisional ?? []) {
+      const { data: ans } = await admin.from("problem_answers")
+        .select("answer_key").eq("chapter", q.chapter).eq("idx", q.idx).maybeSingle();
+      const v = await gateQuestion(admin, { ...q, answer: ans?.answer_key }, official, true);
+      await admin.rpc("set_question_status", {
+        p_chapter: q.chapter, p_idx: q.idx, p_status: v.state, p_note: v.why || null,
+      });
+      counts[v.state]++;
+    }
   }
 
   return { exam, official: hasOfficial, checked: pending.length, ...counts };

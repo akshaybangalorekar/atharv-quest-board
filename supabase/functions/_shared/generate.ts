@@ -102,7 +102,7 @@ kind of thinking with different numbers, names and scenario, so a child who has 
         difficulty: Number(row.d) || 2,
         technique_tags: [String(ch.title).split("·").pop()?.trim() ?? String(ch.title)],
         source: ch.source ?? "book",
-        ...verdictColumns(verdict),
+        ...verdictColumns(verdict, false),
       });
       if (error) { idx -= 1; continue; }
 

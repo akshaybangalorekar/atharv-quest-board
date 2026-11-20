@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.92.0";
+import * as data from "./data.js?v=2.93.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.92.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.93.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -3947,7 +3947,7 @@ function pickOption(btn) {
 
 /* a question that has not been cleared against official material is labelled as such */
 function gateLabel(q) {
-  return (q?.gate_state === "provisional") ? " (provisional)" : "";
+  return (q?.status === "provisional" || q?.gate_state === "provisional") ? " (provisional)" : "";
 }
 
 /* the gate runs again, for this question, before he sees it */
@@ -3956,8 +3956,8 @@ async function gateBefore(q) {
     const { data } = await sb.functions.invoke("run-jobs", {
       body: { mode: "one", chapter: q.chapter, idx: q.idx },
     });
-    if (data?.gate_state === "failed") return false;
-    if (data?.gate_state) q.gate_state = data.gate_state;
+    if (data?.status === "failed" || data?.gate_state === "failed") return false;
+    if (data?.status) { q.status = data.status; q.gate_state = data.status; }
   } catch (_) { /* if the check cannot run, the question is shown labelled provisional */ }
   return true;
 }
