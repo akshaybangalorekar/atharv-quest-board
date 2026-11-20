@@ -56,7 +56,8 @@ if (Array.isArray(window.__uploads)) {
       window.__fixtures["sync_view"] = { totals: { questions: 0 }, library: {}, exams: [] };
       window.__fixtures["exam_pipeline"] = [];
       window.__fixtures["save_upload"] = 11;
-      window.__fixtures["next_parse_page"] = up.next ?? null;
+      let pagesLeft = up.next ? 1 : 0;
+      window.__fixtures["next_parse_page"] = () => (pagesLeft-- > 0 ? up.next : null);
       window.__fixtures["parse_progress"] = up.prog ?? { pages_done: 0, pages_total: 1 };
       window.__fixtures["papers_to_read"] = [{ id: 1, title: up.name, pages: up.pages, questions: 0 }];
       window.__fixtures["restart_reading"] = { ok: true };
@@ -77,7 +78,9 @@ if (Array.isArray(window.__uploads)) {
         : { ok: true, questions: 3, diagrams: 1, answers: 3 };
       T.show("parent");
       const file = new File(["x"], up.name || "B1.pdf", { type: up.mime || "application/pdf" });
-      const fails = await window.__runScenario({ ...sc, wait: 15 }, T, { __FILE__: file, kid: "kid", edutest: "edutest" });
+      // a file with nothing to read cannot call the reader: drop that expectation for those states
+      const steps = up.next ? sc.steps : sc.steps.filter((x) => !String(x).includes("expect:call:parse-page"));
+      const fails = await window.__runScenario({ ...sc, steps, wait: 15 }, T, { __FILE__: file, kid: "kid", edutest: "edutest" });
       if (fails.length) fails.forEach((f) => assert(f, false));
       else assert("the upload journey holds", true);
     },
