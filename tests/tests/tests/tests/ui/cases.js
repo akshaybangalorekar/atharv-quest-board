@@ -169,4 +169,56 @@ window.CASES = [
       assert("it does not claim work it did not do", !text.includes("37 checked"));
     },
   },
+  {
+    name: "the placement spans every exam, not just one",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth();
+      const items = [
+        { chapter: 1, idx: 1, exam: "olympiad", prompt: "A book question" },
+        { chapter: 160, idx: 2, exam: "aas", prompt: "An AAS question" },
+        { chapter: 175, idx: 3, exam: "edutest", prompt: "An Edutest question" },
+        { chapter: 190, idx: 4, exam: "amc", prompt: "An AMC question" },
+        { chapter: 200, idx: 5, exam: "icas", prompt: "An ICAS question" },
+        { chapter: 161, idx: 6, exam: "aas", prompt: "Another AAS question" },
+      ];
+      window.__fixtures["start_placement"] = { exam_id: "e9", minutes: 20, items };
+
+      await window.startPlacement();
+      await T.wait(150);
+
+      const where = T.text("examWhere");
+      assert("the header names the exams it covers", /OLYMPIAD/.test(where) && /AAS/.test(where) && /AMC/.test(where));
+      const list = T.$("examList")?.textContent ?? "";
+      assert("each question is tagged with its exam", /EDUTEST/.test(list) && /ICAS/.test(list));
+    },
+  },
+  {
+    name: "a failed background run is shown, not buried",
+    async run({ assert, T }) {
+      window.__fixtures["recent_jobs"] = [
+        { id: 9, kind: "train:fetch", status: "failed", detail: {},
+          error: "Could not choose the best candidate function between store_doc", started_at: "2026-11-20T02:00:00Z" },
+      ];
+      window.__fixtures["truth"] = T.baseTruth();
+      await window.paintJobBanner();
+      await T.wait(80);
+      const el = T.$("dateBanner");
+      assert("the banner appears", !el?.classList.contains("hidden"));
+      assert("it names the run", /train|fetch/i.test(el?.textContent ?? ""));
+      assert("it gives the reason", /store_doc|candidate/i.test(el?.textContent ?? ""));
+    },
+  },
+
+  {
+    name: "a successful run raises no banner",
+    async run({ assert, T }) {
+      window.__fixtures["recent_jobs"] = [
+        { id: 10, kind: "train:all", status: "done", detail: { generated: 6 }, error: null, started_at: "2026-11-20T03:00:00Z" },
+      ];
+      T.$("dateBanner").className = "hidden";
+      await window.paintJobBanner();
+      await T.wait(80);
+      assert("no banner for a good run", T.$("dateBanner")?.classList.contains("hidden"));
+    },
+  },
 ];

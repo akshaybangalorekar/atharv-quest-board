@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.94.0";
+import * as data from "./data.js?v=2.95.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -137,7 +137,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.94.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.95.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -150,6 +150,12 @@ const ROUTE_KEY = "quest.route";
 
 function saveSession() {
   if (!S.script || !S.script.length) return;
+  // the server keeps the real place: a lost tab or a different device still resumes correctly
+  sb.rpc("save_session", {
+    p_chapter: S.chapter, p_si: S.si, p_script: S.script,
+    p_started: S.startedAt ? new Date(S.startedAt).toISOString() : null,
+    p_paused: !!S.paused,
+  }).catch(() => {});
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       at: Date.now(), chapter: S.chapter, workMode: S.workMode, si: S.si,
@@ -159,7 +165,20 @@ function saveSession() {
   } catch (_) {}
 }
 
-function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (_) {} }
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
+  sb.rpc("clear_session").catch(() => {});
+}
+
+/* the server copy of where he is, used when this device has never seen the session */
+async function readSessionFromServer() {
+  try {
+    const { data } = await sb.rpc("load_session");
+    if (!data || !data.script || !(data.script ?? []).length) return null;
+    return { at: Date.now(), chapter: data.chapter, si: data.si, script: data.script,
+             paused: data.paused, done: (data.si ?? 0) >= (data.script ?? []).length };
+  } catch (_) { return null; }
+}
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (_) { return null; }
@@ -173,6 +192,13 @@ function restorableSession() {
   const age = Date.now() - (st.at ?? 0);
   if (st.done && age > 24 * 60 * 60 * 1000) return null;   // finished: keep a day, then let go
   return st;
+}
+
+/* on boot, if this device has no copy, ask the server where he was */
+async function restorableSessionAsync() {
+  const local = restorableSession();
+  if (local) return local;
+  return await readSessionFromServer();
 }
 function saveRoute() {
   try {

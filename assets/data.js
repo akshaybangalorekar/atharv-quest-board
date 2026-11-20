@@ -92,4 +92,9 @@ export const finish_job = (args) => call((a) => sb.rpc("finish_job", a), args);
 export const enqueue_job = (args) => call((a) => sb.rpc("enqueue_job", a), args);
 export const claim_job = (args) => call((a) => sb.rpc("claim_job", a), args);
 
+export const save_session = (args) => call((a) => sb.rpc("save_session", a), args);
+export const load_session = (args) => call((a) => sb.rpc("load_session", a), args);
+export const clear_session = (args) => call((a) => sb.rpc("clear_session", a), args);
+export const usage_today = (args) => call((a) => sb.rpc("usage_today", a), args);
+
 export const table = (name) => sb.from(name);
