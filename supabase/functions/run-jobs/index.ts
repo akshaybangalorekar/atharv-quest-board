@@ -7,6 +7,7 @@
 import { serve, ok, context, studentFor } from "./_shared/mod.ts";
 import { fillFromMaterial } from "./_shared/generate.ts";
 import { alignExam } from "./_shared/authority.ts";
+import { gateExam } from "./_shared/gate.ts";
 
 const SUPABASE = Deno.env.get("SUPABASE_URL")!;
 
@@ -31,11 +32,19 @@ serve(async (req) => {
       detail.parse = await parsePaper(admin, student, job.payload?.paper_id, req);
     } else if (job.kind === "verify") {
       detail.verify = await callFn("train-coach", { mode: "verify" }, req);
+      for (const ex of ["aas", "edutest", "amc", "icas", "olympiad"]) {
+        detail["gate_" + ex] = await gateExam(admin, ex, { limit: 25 });
+      }
     } else if (String(job.kind).startsWith("align:")) {
       // Top Scope material arrived: every question for that exam is reviewed against it
       const exam = String(job.kind).split(":")[1];
       detail.align = await alignExam(admin, exam, { limit: 25 });
       detail.verify = await callFn("train-coach", { mode: "verify" }, req);
+      detail.gate = await gateExam(admin, exam, { limit: 40 });   // official material just arrived
+    } else if (String(job.kind).startsWith("gate:")) {
+      // the last check before anything is served
+      const exam = String(job.kind).split(":")[1];
+      detail.gate = await gateExam(admin, exam, { limit: 40 });
     } else if (job.kind === "fill") {
       detail.fill = await fillFromMaterial(admin, { perStrand: 3, maxStrands: 6 });
     } else {

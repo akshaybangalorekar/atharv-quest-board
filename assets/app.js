@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.88.0";
+import * as data from "./data.js?v=2.89.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.88.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.89.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -3921,13 +3921,18 @@ function pickOption(btn) {
   if (chk) { chk.disabled = false; chk.textContent = "Submit"; }
 }
 
+/* a question that has not been cleared against official material is labelled as such */
+function gateLabel(q) {
+  return (q?.gate_state === "provisional") ? " (provisional)" : "";
+}
+
 function showQuestion(q) {
   S.forceScroll = true;
   const el = document.createElement("div");
   el.className = "qcard";
   el.innerHTML = `
     <div class="n">CHAPTER ${q.chapter} · QUESTION ${q.idx} · ${S.si + 1} of ${S.script.length}</div>
-    <div class="q">${esc(q.prompt)}</div>
+    <div class="q">${esc(q.prompt)}${gateLabel(q)}</div>
     <div id="qFig"></div>
     <div id="qOpts" class="opts"></div>
     <div style="display:flex;gap:8px">
