@@ -7,6 +7,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { fillFromMaterial } from "./_shared/generate.ts";
 import { gateExam, gateQuestion } from "./_shared/gate.ts";
+import { checkQuestion } from "./_shared/quality.ts";
+import { ask } from "./_shared/mod.ts";
 import { alignExam } from "./_shared/authority.ts";
 
 const SUPABASE = Deno.env.get("SUPABASE_URL")!;
@@ -42,6 +44,53 @@ Deno.serve(async (req) => {
     });
     const text = await r.text();
     return json({ status: r.status, keyPresent: !!Deno.env.get("SARVAM_API_KEY"), body: text.slice(0, 300) });
+  }
+
+  // the online-question checker: is each question in the strand it belongs to, and is it sound?
+  if (body?.mode === "audit") {
+    const limit = Number(body?.limit ?? 30);
+    const { data: rows } = await admin.from("problems")
+      .select("chapter, idx, prompt, options, status").order("chapter").limit(limit);
+    const { data: strands } = await admin.from("strands").select("n, title, exam_id");
+    const { data: exams } = await admin.from("exams").select("id, key");
+    const examOf = new Map((exams ?? []).map((e: any) => [e.id, e.key]));
+    const titleOf = new Map((strands ?? []).map((x: any) => [x.n, x.title]));
+
+    const findings: any[] = [];
+    for (const q of rows ?? []) {
+      const own = titleOf.get(q.chapter) ?? "";
+      const examId = (strands ?? []).find((x: any) => x.n === q.chapter)?.exam_id;
+      const siblings = (strands ?? []).filter((x: any) => x.exam_id === examId).map((x: any) => x.title);
+
+      // is it answerable at all?
+      const verdict = await checkQuestion(String(q.prompt), false);
+
+      // does it belong where it is?
+      let best = own, belongs = true;
+      if (siblings.length > 1) {
+        const pick = await ask(
+          `You file practice questions under a topic. Here are the topics for this exam:\n${siblings.join("\n")}`,
+          `Question: ${q.prompt}\n\nReply with JSON only: {"topic":"one topic from the list, copied exactly"}`,
+          0, 200, "audit");
+        const m = String(pick).match(/\{[\s\S]*\}/);
+        if (m) {
+          try {
+            const parsed = JSON.parse(m[0]);
+            best = String(parsed.topic ?? own);
+            belongs = best.trim().toLowerCase() === own.trim().toLowerCase();
+          } catch (_) {}
+        }
+      }
+
+      findings.push({ chapter: q.chapter, idx: q.idx, exam: examOf.get(examId) ?? "?", strand: own,
+                      sound: verdict.ok, why: verdict.why, in_right_strand: belongs,
+                      suggested: belongs ? own : best, head: String(q.prompt).slice(0, 70) });
+    }
+
+    const wrong = findings.filter((f) => !f.in_right_strand);
+    const unsound = findings.filter((f) => !f.sound);
+    return json({ audited: findings.length, wrong_strand: wrong.length, unsound: unsound.length,
+                  findings, wrong, unsound });
   }
 
   // golden questions: the judgement itself, tested against the live model
