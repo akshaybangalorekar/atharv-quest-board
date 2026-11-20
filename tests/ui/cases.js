@@ -481,4 +481,22 @@ window.CASES = [
       assert("after the wipe, all ten are back", /10 left/.test(text));
     },
   },
+  {
+    name: "an empty wallet raises the orange banner, and clearing it removes it",
+    async run({ assert, T }) {
+      window.__fixtures["credits_state"] = { empty: true, empty_at: "2026-11-20T05:00:00Z" };
+      await window.paintWalletBanner();
+      await T.wait(60);
+      let el = T.$("walletBanner");
+      assert("the banner appears", !el?.classList.contains("hidden"));
+      assert("it says the wallet is empty", /wallet is empty/i.test(el?.textContent ?? ""));
+      assert("it says what to do", /re-fill|top up/i.test(el?.textContent ?? ""));
+
+      window.__fixtures["credits_state"] = { empty: false, empty_at: null };
+      await window.paintWalletBanner();
+      await T.wait(60);
+      el = T.$("walletBanner");
+      assert("it goes away once cleared", el?.classList.contains("hidden"));
+    },
+  },
 ];
