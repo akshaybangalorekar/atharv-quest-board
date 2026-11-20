@@ -21,7 +21,7 @@ extra = sorted(a for a in wired if a not in defined and a not in
                {"pickFile","toggleOpen","padShift","wipe","openPad","toggleTrainingSource",
                 "removeAlertTo","pickOption","revealExample","startSolo","openTrack","startChapter",
                 "retryReading","dismissNote","deletePaper","openChapter","padKey"})
-INLINE = {"dismissJobBanner", "saveBalance", "saveLimits"}   # defined inside registerActions itself
+INLINE = {"dismissJobBanner", "dismissScanBanner", "saveBalance", "saveLimits"}   # defined inside registerActions itself
 extra = [x for x in extra if x not in INLINE]
 if extra: fails.append("wired but not defined: " + ", ".join(extra))
 

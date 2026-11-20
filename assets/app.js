@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.01.1";
+import * as data from "./data.js?v=3.02.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -29,6 +29,40 @@ async function checkExamDates() {
     if (due) sb.functions.invoke("exam-watch", { body: {} }).catch(() => {});
     await paintDateBanner();
   } catch (_) {}
+}
+
+/* what the scan is doing right now, at the top of the screen for both of them */
+let scanTimer = null;
+async function paintScanBanner() {
+  const el = $("scanBanner");
+  if (!el) return;
+  try {
+    const { data: p } = await sb.rpc("ingest_progress");
+    if (!p) return;
+    const busy = p.state === "running" || p.queued > 0;
+
+    if (busy) {
+      el.className = "";
+      el.innerHTML = `<span><b>Reading and writing questions</b> — ${p.fetched ?? 0} sources read,
+        ${p.generated ?? 0} written this run, ${p.bank ?? 0} in the bank${p.queued ? ` · ${p.queued} more run${p.queued === 1 ? "" : "s"} queued` : ""}.
+        You can carry on; this finishes on its own.</span>`;
+      clearTimeout(scanTimer);
+      scanTimer = setTimeout(paintScanBanner, 6000);
+      return;
+    }
+
+    if (p.state === "done" && p.finished_at && (Date.now() - new Date(p.finished_at).getTime()) < 120000) {
+      el.className = "";
+      el.innerHTML = `<span><b>Finished</b> — read ${p.fetched ?? 0} sources, wrote ${p.generated ?? 0} questions,
+        ${p.bank ?? 0} now in the bank.</span>
+        <button class="mini" data-action="dismissScanBanner">Got it</button>`;
+      return;
+    }
+
+    el.className = "hidden";
+  } catch (_) {
+    el.className = "hidden";
+  }
 }
 
 /* a background run that failed must be visible, not buried in Help */
@@ -137,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.01.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.02.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -274,6 +308,7 @@ async function paintNote() {
   // a parent keeps it until they say so; a child's screen lets it go after three minutes
   if (!S.isParent) setTimeout(() => { if ($("noteBar")?.textContent) dismissNote(data.id); }, 180000);
   checkExamDates();
+  paintScanBanner();
   paintJobBanner();
   autoTrain();
 }
@@ -4787,6 +4822,7 @@ const CALL = (el, fn) => {
 };
 
 registerActions({
+  dismissScanBanner: () => { const el = $("scanBanner"); if (el) el.className = "hidden"; },
   saveLimits: async () => {
     await sb.rpc("set_usage_limits", {
       p_calls: Number($("capCalls")?.value ?? 400),

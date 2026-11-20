@@ -103,4 +103,6 @@ export const set_model_balance = (args) => call((a) => sb.rpc("set_model_balance
 export const usage_limits = (args) => call((a) => sb.rpc("usage_limits", a), args);
 export const set_usage_limits = (args) => call((a) => sb.rpc("set_usage_limits", a), args);
 
+export const ingest_progress = (args) => call((a) => sb.rpc("ingest_progress", a), args);
+
 export const table = (name) => sb.from(name);
