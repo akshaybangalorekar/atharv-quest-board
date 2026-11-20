@@ -54,12 +54,14 @@ serve(async (req) => {
 
   try {
     if (job.kind === "ingest" || job.kind === "train") {
-      // 1 keep what has arrived  2 read the sources  3 write questions  4 check them  5 gate them  6 align to official
+      // 1 keep what has arrived  2 read the sources  3 write questions  4 check them
+      // 5 align to official material  6 gate what is left, so nothing is served unchecked
       detail.train = await callFn("train-coach", { mode: "all" }, req);
       for (const ex of ["aas", "edutest", "amc", "icas", "olympiad"]) {
-        detail["gate_" + ex] = await gateExam(admin, ex, { limit: 20 });
         const { data: hasOfficial } = await admin.rpc("exam_has_official", { p_exam: ex });
+        // align first: a rewritten question must be gated after the rewrite, never before
         if (hasOfficial) detail["align_" + ex] = await alignExam(admin, ex, { limit: 10 });
+        detail["gate_" + ex] = await gateExam(admin, ex, { limit: 20 });
       }
     } else if (job.kind === "parse_paper") {
       detail.parse = await parsePaper(admin, student, job.payload?.paper_id, req);

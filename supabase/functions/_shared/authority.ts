@@ -44,13 +44,15 @@ export async function alignExam(admin: any, exam: string, opts: { limit?: number
     const fixed = String(verdict.fixed ?? "").trim();
     if (!fixed) continue;
 
-    // the corrected wording replaces the old one, and the question is checked again before it is served
-    const { error } = await admin.from("problems").update({
-      prompt: fixed, verified: false, verified_at: null,
-      verify_note: `corrected to match Top Scope: ${String(verdict.why ?? "").slice(0, 120)}`,
-    }).eq("chapter", r.chapter).eq("idx", r.idx);
+    // the corrected wording replaces the old one, and it goes back to draft until the gate passes it again
+    const { error } = await admin.from("problems").update({ prompt: fixed }).eq("chapter", r.chapter).eq("idx", r.idx);
+    if (error) continue;
 
-    if (!error) changed++;
+    await admin.rpc("set_question_status", {
+      p_chapter: r.chapter, p_idx: r.idx, p_status: "draft",
+      p_note: `corrected to match official material: ${String(verdict.why ?? "").slice(0, 120)}`,
+    });
+    changed++;
   }
 
   return { exam, reviewed: live.length, changed };
