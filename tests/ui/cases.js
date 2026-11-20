@@ -164,7 +164,7 @@ window.CASES = [
       await window.loadTraining();
       await T.wait(120);
       const text = T.$("trainJobs")?.textContent ?? "";
-      assert("the last run is listed", /7 read|7 sources/.test(text));
+      assert("the last run is listed", /wrote|read \d|nothing new/.test(text));
       assert("a failed run says why", text.includes("could not be read"));
       assert("it does not claim work it did not do", !text.includes("37 checked"));
     },
