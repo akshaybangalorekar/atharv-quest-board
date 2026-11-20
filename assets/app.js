@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.09.1";
+import * as data from "./data.js?v=3.09.2";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.09.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.09.2";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -556,7 +556,7 @@ async function loadTraining() {
   $("trainJobs").innerHTML = jobLine
     ? `<div class="k" style="margin-top:8px;margin-bottom:2px">Last runs — today</div>
        <div class="sub" style="margin-bottom:6px">Each line is one automatic pass: what she read, and how many
-         questions she wrote. Kept for a day.</div>${jobLine}`
+         questions that pass wrote. They add up to the total written above. Kept for a day.</div>${jobLine}`
     : "";
 
   // the same shape of card everywhere: a heading, then chips, then one bar
@@ -616,6 +616,9 @@ async function loadTraining() {
           saved and discards the rest; the count falls on the next run.</div>
       </div></details>` : ""}
 
+    <div class="sub" style="margin-top:6px">Written so far: <b>${servable + failed + draft}</b> =
+      <b>${servable}</b> he can be given + <b>${failed}</b> held back + <b>${draft}</b> awaiting a check.
+      The exam cards split the ${servable}; the runs below are how each pass added to the total.</div>
     <div class="sub" style="margin-top:6px">${(k.official_exams ?? []).length
       ? `Official material loaded for ${(k.official_exams ?? []).join(", ")}. Those questions are checked against it and can be cleared.`
       : "No official material yet, so every question is provisional until you upload some."}</div>`;
@@ -2505,7 +2508,9 @@ async function goParent() {
   const sumLine = $("pExamSum");
   if (sumLine) {
     const total = (S.sync?.totals?.questions ?? 0);
-    sumLine.innerHTML = `<span class="chip blue" title="The five cards below add up to this, and it is the same number Help shows."><b>${total}</b> questions across the five exams</span>`;
+    const heldBack = Number(S.sync?.totals?.failed ?? 0);
+    sumLine.innerHTML = `<span class="chip blue" title="The five cards below add up to this, and it is the same number Help shows."><b>${total}</b> questions across the five exams</span>` +
+      (heldBack ? `<span class="chip red" title="Written but rejected by the check, so not counted above."><b>${heldBack}</b> held back</span>` : "");
   }
 
   $("pExams").querySelectorAll("[data-gen]").forEach((b) => {
