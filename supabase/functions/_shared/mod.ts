@@ -49,7 +49,16 @@ export async function studentFor(admin: any, userId: string): Promise<string> {
 }
 
 /** the model, called the same way everywhere */
-export async function ask(system: string, user: string, temperature = 0, maxTokens = 1200): Promise<string> {
+export async function ask(system: string, user: string, temperature = 0, maxTokens = 1200, fn = "ask"): Promise<string> {
+  // every call is counted, and a hard daily cap stops a runaway loop before it costs anything
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  try {
+    const { data: left } = await admin.rpc("daily_budget_left", { p_cap: 400 });
+    if (typeof left === "number" && left <= 0) {
+      console.warn("daily model budget reached; refusing the call");
+      return "";
+    }
+  } catch (_) {}
   const r = await fetch("https://api.sarvam.ai/v2/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json", "api-subscription-key": Deno.env.get("SARVAM_API_KEY")! },
@@ -62,7 +71,11 @@ export async function ask(system: string, user: string, temperature = 0, maxToke
   });
   if (!r.ok) return "";
   const b = await r.json();
-  return (b?.choices?.[0]?.message?.content ?? "").trim();
+  const out = (b?.choices?.[0]?.message?.content ?? "").trim();
+  try {
+    await admin.rpc("record_usage", { p_fn: fn, p_in: (system?.length ?? 0) + (user?.length ?? 0), p_out: out.length });
+  } catch (_) {}
+  return out;
 }
 
 /** the first JSON object in a reply, or null */
