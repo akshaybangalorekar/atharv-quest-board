@@ -123,6 +123,57 @@ Deno.serve(async (req) => {
                   findings, wrong, unsound });
   }
 
+  // the validation batch: does the gate reject what it must, and pass what it must?
+  if (body?.mode === "validate") {
+    const cases: Array<[string, "failed" | "pass", string]> = [
+      ["Tom has 3 more marbles than Sam. How many does Tom have?", "failed", "a quantity is never given"],
+      ["A rectangle is 4 cm by 6 cm. What is its area?", "pass", "complete"],
+      ["Look at the diagram below. What is the marked angle?", "failed", "no drawing supplied"],
+      ["What is 15% of 80?", "pass", "complete"],
+      ["A bag has some red and blue counters. What fraction are red?", "failed", "no numbers at all"],
+      ["What is the answer to the previous question?", "failed", "refers to something absent"],
+      ["A train travels at 60 km/h for 2 hours. How far does it go?", "pass", "complete"],
+      ["A train travels at 60 for 2 hours. How far does it go?", "failed", "no unit on the speed"],
+      ["A rectangle has an area of 24 cm² and a width of 4 cm. What is its length?", "pass", "complete"],
+      ["How many apples does he have?", "failed", "no data"],
+      ["What is 5 + 7?", "pass", "complete"],
+      ["A square has a side of 5 cm. What is its perimeter?", "pass", "complete"],
+      ["There are 12 more girls than boys. How many girls are there?", "failed", "boys never given"],
+      ["A book costs $12. A pen costs $4 less than the book. What do they cost together?", "pass", "complete"],
+      ["What is the next number: 2, 4, 8, 16, ?", "pass", "rule is clear"],
+      ["What is the next number: 2, 4, 8, ?", "failed", "more than one rule fits"],
+      ["A car travels 120 km in 2 hours. What is its average speed?", "pass", "complete"],
+      ["A car travels 120 in 2 hours. What is its average speed?", "failed", "distance has no unit"],
+      ["Half of a number is 12. What is the number?", "pass", "complete"],
+      ["The perimeter of a square is 20 cm. What is the length of one side?", "pass", "complete"],
+      ["Round 3.14159 to 2 decimal places.", "pass", "rounding stated"],
+      ["Round 3.14159.", "failed", "no rounding stated"],
+      ["A cube has 6 faces. How many edges does it have?", "pass", "complete"],
+      ["How many edges does it have?", "failed", "no object named"],
+      ["A bag has 3 red and 5 blue counters. What fraction are red?", "pass", "complete"],
+      ["A shirt costs $40 and is reduced by 25%. What is the new price?", "pass", "complete"],
+      ["A shirt costs $40 and is reduced. What is the new price?", "failed", "reduction missing"],
+      ["Mia is twice as old as her brother. How old is Mia?", "failed", "brother's age missing"],
+      ["Mia is 10 and her brother is 5. Mia is twice as old as her brother. How old will Mia be in 3 years?", "pass", "complete"],
+      ["What is 1/4 + 2/4?", "pass", "complete"],
+      ["What is 1/4 + 2/3 in simplest form?", "pass", "complete"],
+      ["What is the area of a triangle with base 6 cm and height 4 cm?", "pass", "complete"],
+      ["What is the area of a triangle with base 6 and height 4?", "failed", "units missing on both"],
+      ["A jar holds 750 mL. How many jars are needed for 3 litres?", "pass", "complete"],
+      ["How many jars are needed?", "failed", "no volumes given"],
+    ];
+
+    const results: any[] = [];
+    for (const [q, expect, why] of cases) {
+      const v = await gateQuestion(admin, { chapter: 0, idx: 0, prompt: q }, "", false);
+      const ok = expect === "failed" ? v.state === "failed" : v.state !== "failed";
+      results.push({ q: q.slice(0, 58), expect, got: v.state, ok, why: v.why.slice(0, 90), tested: why });
+    }
+    const failed = results.filter((r) => !r.ok);
+    return json({ cases: results.length, passed: results.length - failed.length,
+                  failed: failed.length, misses: failed, all: results });
+  }
+
   // golden questions: the judgement itself, tested against the live model
   if (body?.mode === "selftest") {
     const cases = [
