@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=2.82.0";
+import * as data from "./data.js?v=2.83.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.82.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.83.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -1561,6 +1561,14 @@ const FAMILY_EXAM = {
 };
 
 /* write more questions for one exam, on demand */
+/* after any write, the screen that shows the result is re-read */
+async function afterWrite(where) {
+  lastRefresh = 0;                       // the throttle must not swallow our own change
+  if (where === "parent" && S.isParent) return goParent();
+  if (where === "track" && S.track) return paintTrackCard(S.track);
+  if (where === "help") return loadTraining();
+}
+
 async function generateFor(fam, count, btn) {
   const exam = FAMILY_EXAM[fam] ?? fam;
   if (btn) { btn.disabled = true; btn.textContent = "Writing…"; }
@@ -1587,6 +1595,7 @@ async function generateFor(fam, count, btn) {
     btn.disabled = false;
     btn.textContent = added ? `Added ${added}${figs ? ` · ${figs} with a figure` : ""}` : "Nothing added";
   }
+  lastRefresh = 0;
   setTimeout(() => goParent(), 900);
 }
 
@@ -3035,6 +3044,25 @@ function resumeSession() {
   if (S.script?.length) startBudget(S.sitting?.minutes ?? 60);
   return true;
 }
+
+/* when the tab comes back into view, re-read whatever screen is showing.
+   Nothing is cached in the page, so this is a re-read, not an invalidation. */
+let lastRefresh = 0;
+async function refreshVisible() {
+  const now = Date.now();
+  if (now - lastRefresh < 15000) return;         // at most once every fifteen seconds
+  lastRefresh = now;
+  try {
+    if (S.isParent && !$("parent").classList.contains("hidden")) { await goParent(); return; }
+    if (!$("track").classList.contains("hidden") && S.track) { await paintTrackCard(S.track); return; }
+    if (!$("timetable").classList.contains("hidden")) { await openTimetable(); return; }
+    if (!$("help").classList.contains("hidden")) { await loadTraining(); return; }
+    if (!$("pchat").classList.contains("hidden")) { await loadChat("pchatWrap", true); return; }
+  } catch (_) {}
+}
+
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshVisible(); });
+window.addEventListener("focus", refreshVisible);
 
 function goLanding() {
   show("landing");
@@ -4679,7 +4707,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;
