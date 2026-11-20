@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.06.0";
+import * as data from "./data.js?v=3.06.1";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -171,7 +171,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.06.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.06.1";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -513,6 +513,9 @@ async function loadTraining() {
     }
   } catch (_) {}
 
+  try { const { data: hb } = await sb.rpc("held_back_reasons"); S.heldBack = hb ?? []; }
+  catch (e) { console.error("held back reasons failed:", e); S.heldBack = []; }
+
   const { data: jobs } = await sb.rpc("recent_jobs", { p_limit: 5 });
   const jobLine = (jobs ?? []).map((j) => {
     const when = new Date(j.started_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
@@ -546,10 +549,12 @@ async function loadTraining() {
       ${chip(k.upload_docs ?? 0, "your uploads", (k.upload_docs ? "green" : "orange"),
         (k.upload_docs ? "Files you have uploaded. Their questions are tagged with the file name."
                        : "No file uploaded yet. Add one from the Question bank in the parent view."))}
-      ${chip(k.web_docs ?? 0, "web sources", (k.web_docs ? "green" : "orange"),
-        "Sites she reads on her own. Their questions say which site they came from.")}
-      ${chip(k.docs ?? 0, "documents", "blue", "Everything she has kept: web pages and your files together.")}
-      ${chip(k.chunks ?? 0, "passages", "blue", "The pieces of text she can quote when she writes or explains.")}
+      ${chip(k.web_docs ?? 0, "websites read", (k.web_docs ? "green" : "orange"),
+        "Sites she fetches on her own. Every question she writes from them says which site it came from.")}
+      ${chip(k.docs ?? 0, "pages kept", "blue",
+        "One count per page she has kept — 10 pages from 10 websites. Nothing to do with your uploads; those are the orange chip.")}
+      ${chip(k.chunks ?? 0, "text passages", "blue",
+        "The pages above, cut into readable pieces she can quote. About six pieces per page, which is why 10 pages is 60 passages.")}
     </div>
     <div class="chipRow" style="display:none">
     </div>
@@ -567,7 +572,11 @@ async function loadTraining() {
       ${chip(prov, "provisional", prov ? "amber" : "grey",
         "Checked and answerable, but no official material exists for its exam yet. He sees it marked provisional.")}
       ${chip(draft, "awaiting a check", draft ? "amber" : "grey", "Written but not yet checked. Never shown.")}
-      ${chip(failed, "held back", failed ? "red" : "grey", "Checked and rejected. Never shown to him.")}
+      ${chip(failed, "held back", failed ? "red" : "grey",
+        failed ? (S.heldBack?.length
+          ? `Why: ${S.heldBack.map((x) => `${x.n} — ${x.reason}`).join(" | ").slice(0, 300)}. What to do: nothing — she rewrites or discards them herself. They never reach him.`
+          : "Checked and rejected, so never shown to him. She rewrites or discards them herself.")
+        : "Nothing has been rejected. Every question written so far passed its check.")}
     </div>
     <div class="sub" style="margin-top:6px">${(k.official_exams ?? []).length
       ? `Official material loaded for ${(k.official_exams ?? []).join(", ")}. Those questions are checked against it and can be cleared.`
