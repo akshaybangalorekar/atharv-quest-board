@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.15.0";
+import * as data from "./data.js?v=3.16.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -146,13 +146,6 @@ function rememberUser(typed) {
   } catch (_) {}
 }
 
-/* "atharv" is enough if this device has seen that name before */
-function resolveUser(input) {
-  const v = (input || "").trim();
-  if (!v || v.includes("@")) return v;
-  const names = readNames();
-  return names[v.toLowerCase()] ?? v;
-}
 const remember = localStorage.getItem(REMEMBER_KEY) !== "0";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: remember, autoRefreshToken: remember, detectSessionInUrl: true },
@@ -188,7 +181,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.15.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.16.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -245,12 +238,6 @@ function restorableSession() {
   return st;
 }
 
-/* on boot, if this device has no copy, ask the server where he was */
-async function restorableSessionAsync() {
-  const local = restorableSession();
-  if (local) return local;
-  return await readSessionFromServer();
-}
 function saveRoute() {
   try {
     localStorage.setItem(ROUTE_KEY, JSON.stringify({
@@ -2828,19 +2815,6 @@ async function runServerQueue() {
   loadPapersToRead();
 }
 
-/* one page in, rows out */
-async function callExtractRows(blobOrFile, exam) {
-  const name = `bg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-  const { data: { user } } = await sb.auth.getUser();
-  const path = `${user.id}/${name}`;
-  const up = await sb.storage.from("papers").upload(path, blobOrFile, { upsert: true, contentType: blobOrFile.type || "image/jpeg" });
-  if (up.error) return [];
-  // retired: reading a page is ingest's job now, so this hands over instead of duplicating it
-  await sb.rpc("enqueue_job", { p_kind: "ingest", p_payload: {} }).catch((e) => console.error("queue failed", e));
-  const data = { retired: true }, error = null;
-  if (error || data?.error) return { rows: [], strand: "" };
-  return { rows: data?.rows ?? [], strand: data?.strand ?? "" };
-}
 
 /* cut the figure out of the page, and keep it as its own picture */
 async function cropDiagram(pageBlob, box, userId) {
@@ -2877,31 +2851,6 @@ async function cropDiagram(pageBlob, box, userId) {
   } catch (_) { return null; }
 }
 
-/* and rows in, questions in the bank */
-async function commitRows(rows, exam, strandFromReader, pageBlob) {
-  const opts = rows.map((r) => (Array.isArray(r.options) && r.options.length >= 2 ? r.options : null));
-  const payload = [];
-  for (let i = 0; i < rows.length; i++) {
-    const r = { ...rows[i] };
-    if (opts[i]) r.options = opts[i];
-    if (r.diagram && pageBlob) {
-      const { data: { user } } = await sb.auth.getUser();
-      const saved = await cropDiagram(pageBlob, r.diagram, user.id);
-      if (saved) { r.diagram_url = saved; r.diagram_kind = r.diagram_kind ?? "complex"; }
-    }
-    payload.push(r);
-  }
-  const { data, error } = await sb.rpc("add_questions", {
-    p_exam: exam,
-    p_strand: $("upStrand")?.value?.trim() || strandFromReader || "General",
-    p_rows: payload,
-    p_paper: S.pendingPaper ?? null,
-    p_pages: S.pendingPages?.length === rows.length ? S.pendingPages : null,
-  });
-  if (error) throw new Error(error.message);
-  const unanswered = rows.filter((r) => !String(r.a ?? "").trim()).length;
-  return { added: data?.added ?? 0, strand: data?.strand ?? "", unanswered };
-}
 
 async function readPaper(input) {
   const files = [...(input.files ?? [])];
@@ -3696,12 +3645,6 @@ async function openTrack(id) {
   loadWhatsNew(id);
 }
 
-function bankFor(id) {
-  return id === "aas" ? "AAS numerical reasoning"
-       : id === "edutest" ? "Edutest numerical reasoning"
-       : id === "amc" ? "AMC Upper Primary"
-       : "Olympiad book";
-}
 
 
 
@@ -4193,17 +4136,6 @@ function gateLabel(q) {
   return src ? ` (from ${src})` : "";
 }
 
-/* the gate runs again, for this question, before he sees it */
-async function gateBefore(q) {
-  try {
-    const { data } = await sb.functions.invoke("run-jobs", {
-      body: { mode: "one", chapter: q.chapter, idx: q.idx },
-    });
-    if (data?.status === "failed" || data?.gate_state === "failed") return false;
-    if (data?.status) { q.status = data.status; q.gate_state = data.status; }
-  } catch (_) { /* if the check cannot run, the question is shown labelled provisional */ }
-  return true;
-}
 
 function showQuestion(q) {
   S.forceScroll = true;
