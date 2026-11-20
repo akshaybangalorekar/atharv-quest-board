@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.18.0";
+import * as data from "./data.js?v=3.19.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -181,7 +181,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.18.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.19.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2629,7 +2629,7 @@ async function uploadAndRead(input) {
   if (!files.length) return;
 
   // official material is the final authority for the exam selected above — and only that exam
-  const official = !!$("authOfficial")?.checked;
+  const official = document.querySelector('input[name="authMode"]:checked')?.value === "official";
   const examKey = (() => {
     const e = String($("upBank")?.value ?? "").toLowerCase();
     if (e.includes("edutest") || e.includes("elms")) return "edutest";
@@ -2939,10 +2939,41 @@ function fileKind(f) {
   return "unknown";
 }
 
+document.addEventListener("change", (e) => {
+  if (e.target && (e.target.id === "upStrandPick" || e.target.name === "strandMode" || e.target.name === "authMode")) updateDest();
+});
+
 function updateDest() {
-  const exam = $("upBank").value;
-  const strand = $("upStrand").value.trim();
-  $("upDest").textContent = `Going into: ${BANK_LABEL[exam] ?? exam} · ${strand || "the strand the reader finds"}`;
+  const exam = $("upBank")?.value ?? "";
+  const mode = document.querySelector('input[name="strandMode"]:checked')?.value ?? "auto";
+  const picked = mode === "existing" ? ($("upStrandPick")?.value ?? "") : "";
+  const typed = mode === "new" ? ($("upStrand")?.value.trim() ?? "") : "";
+  const auth = document.querySelector('input[name="authMode"]:checked')?.value ?? "";
+
+  // three questions must be answered before a file can go in
+  const strandOk = mode === "auto" ? true : mode === "existing" ? !!picked : !!typed;
+  const ready = !!exam && strandOk && !!auth;
+
+  const btn = $("pickBtn");
+  if (btn) {
+    btn.disabled = !ready;
+    btn.title = !exam ? "Choose an exam first."
+      : !strandOk ? (mode === "existing" ? "Choose which tab these questions go into."
+                                         : "Name the new tab.")
+      : !auth ? "Say whether the file is official or unofficial."
+      : "Choose the files to add.";
+  }
+
+  const dest = $("upDest");
+  if (dest) {
+    const where = mode === "auto" ? "the strand the reader finds"
+      : mode === "existing" ? (picked || "a tab not chosen yet")
+      : (typed || "a tab not named yet");
+    dest.textContent = `Going into: ${BANK_LABEL[exam] ?? (exam || "no exam chosen")} · ${where}` +
+      (auth ? ` · ${auth}` : "");
+  }
+  const hint = $("authHint");
+  if (hint) hint.style.opacity = auth ? "0.55" : "1";
 }
 
 async function extractOne(blob, uid, name, onStrand) {

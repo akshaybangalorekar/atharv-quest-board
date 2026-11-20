@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<link rel="stylesheet" href="./assets/app.css?v=3.18.0">
+<link rel="stylesheet" href="./assets/app.css?v=3.19.0">
 </head>
 <body>
 
@@ -497,16 +497,19 @@
 
   <textarea id="upRows" rows="1" class="hidden"></textarea>
 
-  <div class="card" style="box-shadow:none;border:1px solid var(--line);padding:10px;margin-bottom:10px">
-    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13.5px">
-      <input type="checkbox" id="authOfficial" style="margin-top:3px">
-      <span><b>Official training material</b> — this file is the final word for the exam chosen above, and for
-        no other exam. It outranks the internet, her own questions and anything Generate produces.</span>
-    </label>
+  <label class="k">Is this file official or unofficial?</label>
+  <div class="bar" style="margin-bottom:10px;flex-wrap:wrap">
+    <label class="radio"><input type="radio" name="authMode" value="official" onchange="updateDest()">
+      <b>Official</b> — the final word for this exam</label>
+    <label class="radio"><input type="radio" name="authMode" value="unofficial" onchange="updateDest()">
+      <b>Unofficial</b> — useful practice, but not authoritative</label>
   </div>
+  <div class="hint" id="authHint" style="margin-bottom:10px">Official material outranks the internet, her own
+    questions and anything Generate writes — for the exam chosen above, and for no other exam.</div>
 
   <div class="bar">
-    <button class="go" data-action="pickFile">Choose files</button>
+    <button class="go" id="pickBtn" data-action="pickFile" disabled
+            title="Choose an exam, say where the questions go, and mark the file official or unofficial.">Choose files</button>
     <input type="file" id="upFile" multiple accept=".pdf,.jpg,.jpeg,.png,.html,.htm,.txt,.md,.docx"
            class="hidden" onchange="uploadAndRead(this)">
   </div>
@@ -734,6 +737,6 @@
 </footer>
 
 <script src="./supabase.js"></script>
-<script type="module" src="./assets/app.js?v=3.18.0"></script>
+<script type="module" src="./assets/app.js?v=3.19.0"></script>
 </body>
 </html>
