@@ -123,7 +123,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "2.79.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "2.80.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2081,6 +2081,13 @@ async function setExamDate(exam, value) {
 }
 
 async function loadParent() {
+  try {
+    const { data: st } = await sb.rpc("training_status");
+    S.libNote = (st?.docs ?? 0)
+      ? `She has read ${st.passages ?? 0} passages from ${st.web_docs ?? 0} sites — Generate 20 turns them into questions for this exam.`
+      : "";
+  } catch (_) { S.libNote = ""; }
+
   const { data } = await sb.rpc("truth");
   S.TR = data ?? {};
   S.studentId = data?.student?.id ?? S.studentId ?? null;
@@ -2176,6 +2183,7 @@ async function goParent() {
         </div>
         <div class="sub" style="margin:8px 0 0">No questions for this exam yet — nothing uploaded, nothing written.
           ${(f.schools_list ?? []).map((r) => esc(r.school)).join(", ")} sits it on ${esc(when)}.</div>
+        ${(S.libNote ?? "") ? `<div class="sub" style="margin:4px 0 0">${esc(S.libNote)}</div>` : ""}
         <div class="bar" style="margin-top:10px">
           <button class="mini" data-gen="${esc(fam)}">Generate 20</button>
           <button class="mini" data-print="${esc(fam)}">Print</button>
