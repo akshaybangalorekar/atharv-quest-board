@@ -82,16 +82,6 @@ Rules:
 Reply with JSON only:
 {"sites":[{"name":"...","url":"https://...","why":"..."}]}`;
 
-const SOLVE = `You check whether a maths question can be answered at all, before it is given to a child.
-
-Read the question on its own, with no extra information. Then answer:
-- "solvable": YES only if it states everything needed and leads to exactly one answer. NO if a quantity is
-  mentioned without saying which object it belongs to, if a drawing or table is referred to but not shown,
-  if two answers are possible, or if the numbers contradict each other.
-- "why": one short sentence naming the gap. Empty when YES.
-
-Be strict. Reply with JSON only: {"solvable":"YES","why":""}`;
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try { return await handle(req); }
@@ -158,23 +148,9 @@ async function handle(req: Request) {
       const pointsAtFigure = /\b(picture|diagram|figure|table|chart|graph|drawing|shown|below)\b/i.test(q);
       const hasFigure = !!r.diagram_svg;
 
-      let ok = false, why = "";
-      if (pointsAtFigure && !hasFigure) { ok = false; why = "it refers to a drawing that is not there"; }
-      else {
-        const raw = await ask(SOLVE, `Question: ${q}`);
-        const m = raw.match(/\{[\s\S]*\}/);
-        try {
-          const v = JSON.parse(m ? m[0] : "{}");
-          ok = String(v.solvable).toUpperCase() === "YES";
-          why = ok ? "" : String(v.why ?? "it cannot be answered as written");
-        } catch { ok = false; why = "it could not be checked"; }
-      }
-
-      await supa.from("problems").update({
-        verified: ok, verified_at: new Date().toISOString(), verify_note: ok ? null : why,
-      }).eq("chapter", r.chapter).eq("idx", r.idx);
-
-      checked.push({ chapter: r.chapter, idx: r.idx, ok, why });
+      const v = await checkQuestion(q, hasFigure);
+      await supa.from("problems").update(verdictColumns(v)).eq("chapter", r.chapter).eq("idx", r.idx);
+      checked.push({ chapter: r.chapter, idx: r.idx, ok: v.ok, why: v.why });
     }
     await supa.rpc("finish_job", {
     p_id: jobId, p_ok: true,

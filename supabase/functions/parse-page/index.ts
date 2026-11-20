@@ -48,48 +48,21 @@ Reply with JSON only:
           "diagram":{"x":0.1,"y":0.3,"w":0.6,"h":0.25,"kind":"complex"}}]}`;
 
 
-const SOLVE = `You check whether a question can be answered at all, before it is given to a child.
-Read it on its own. Answer "solvable": YES only if it states everything needed and leads to exactly one answer.
-NO if a quantity is named without saying which object it belongs to, if a drawing or table is referred to but not
-shown, if two answers are possible, or if the numbers contradict each other.
-Reply with JSON only: {"solvable":"YES","why":""}`;
-
-/* uploaded questions are held to the same rule as the ones she writes */
+/* the rule lives in _shared/quality.ts, so every writer applies the same one */
 async function checkRows(asUser: any, paper_id: string, rows: any[]) {
   let ok = 0, held = 0;
   for (const row of rows.slice(0, 12)) {
     const q = String(row.q ?? "").trim();
     if (!q) continue;
-    const pointsAtFigure = /\b(picture|diagram|figure|table|chart|graph|shown|below)\b/i.test(q);
-    const hasFigure = !!row.diagram;
-
-    let solvable = false, why = "";
-    if (pointsAtFigure && !hasFigure) { why = "it refers to a drawing that is not there"; }
-    else {
-      try {
-        const r = await fetch(ENDPOINT, {
-          method: "POST",
-          headers: { "content-type": "application/json", "api-subscription-key": Deno.env.get("SARVAM_API_KEY")! },
-          body: JSON.stringify({ model: "sarvam-m", temperature: 0,
-            messages: [{ role: "system", content: SOLVE }, { role: "user", content: `Question: ${q}` }] }),
-        });
-        const b = await r.json();
-        const raw = String(b?.choices?.[0]?.message?.content ?? "");
-        const m = raw.match(/\{[\s\S]*\}/);
-        const v = m ? JSON.parse(m[0]) : null;
-        solvable = String(v?.solvable).toUpperCase() === "YES";
-        why = solvable ? "" : String(v?.why ?? "it cannot be answered as written");
-      } catch (_) { why = "it could not be checked"; }
-    }
-
-    await asUser.from("problems").update({
-      verified: solvable, verified_at: new Date().toISOString(), verify_note: solvable ? null : why,
-    }).eq("paper_id", paper_id).eq("prompt", q);
-
-    solvable ? ok++ : held++;
+    const v = await checkQuestion(q, !!row.diagram);
+    await asUser.from("problems").update(verdictColumns(v))
+      .eq("paper_id", paper_id).eq("prompt", q);
+    v.ok ? ok++ : held++;
   }
   return { ok, held };
 }
+
+import { checkQuestion, verdictColumns } from "./_shared/quality.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });

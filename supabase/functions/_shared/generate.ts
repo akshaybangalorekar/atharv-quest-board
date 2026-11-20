@@ -7,6 +7,7 @@
 // solved, and discarded if it is ambiguous, unanchored or self-contradictory.
 
 import { ask, jsonIn } from "./mod.ts";
+import { checkQuestion, verdictColumns } from "./quality.ts";
 
 const SUBJECT_RULES: Record<string, string> = {
   maths: "Year 6 arithmetic only. Clean numbers. One definite answer.",
@@ -33,11 +34,6 @@ Write ${n} questions. Reply with JSON only:
 {"rows":[{"q":"the question","a":"the answer","m":"one line of method","d":1,
           "options":["a","b","c","d"]}]}
 Options are optional; when given there must be exactly one correct, equal to "a".`;
-
-const SOLVE = `You check whether a maths question can be answered at all, before it is given to a child.
-Read it alone. Answer "solvable": YES only if everything needed is stated and exactly one answer follows;
-NO if a quantity is unnamed, a drawing is referred to but not shown, two answers are possible, or the numbers
-contradict. Reply with JSON only: {"solvable":"YES","why":""}`;
 
 /** fill the thinnest strand of each exam from what she has read */
 export async function fillFromMaterial(admin: any, opts: { perStrand?: number; maxStrands?: number } = {}) {
@@ -78,8 +74,8 @@ export async function fillFromMaterial(admin: any, opts: { perStrand?: number; m
       const q = String(row.q).trim();
 
       // the gate: it must be answerable on its own
-      const verdict = jsonIn(await ask(SOLVE, `Question: ${q}`));
-      if (!verdict || String(verdict.solvable).toUpperCase() !== "YES") continue;
+      const verdict = await checkQuestion(q, false);
+      if (!verdict.ok) continue;
 
       const { data: dup } = await admin.from("problems").select("idx").eq("chapter", ch.n).eq("prompt", q).maybeSingle();
       if (dup) continue;
@@ -91,7 +87,7 @@ export async function fillFromMaterial(admin: any, opts: { perStrand?: number; m
         difficulty: Number(row.d) || 2,
         technique_tags: [String(ch.title).split("·").pop()?.trim() ?? String(ch.title)],
         source: ch.source ?? "book",
-        verified: true, verified_at: new Date().toISOString(),
+        ...verdictColumns(verdict),
       });
       if (error) { idx -= 1; continue; }
 
