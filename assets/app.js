@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.12.2";
+import * as data from "./data.js?v=3.12.3";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -188,7 +188,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.12.2";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.12.3";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 

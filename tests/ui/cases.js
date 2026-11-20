@@ -499,4 +499,52 @@ window.CASES = [
       assert("it goes away once cleared", el?.classList.contains("hidden"));
     },
   },
+
+  {
+    name: "an exam marked no_content still shows its count, not a grey pill",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth({ families: [{ label: "Olympiad", family: "olympiad", items: 0, verdict: "no_content", exam_on: "2027-05-05", days_left: 166, topics_all: 10, topics_done: 0, schools_list: [], schools: "A", rows: [], topics: [] }] });
+      window.__fixtures["sync_view"] = { totals: { questions: 6, cleared: 0, provisional: 6, draft: 0, failed: 0 },
+        library: { documents: 1, passages: 1, from_web: 1, from_upload: 0, official: 0 },
+        exams: [{ key: "olympiad", label: "Olympiad", servable: 6, cleared: 0, provisional: 6, draft: 0, failed: 0 }] };
+      window.__fixtures["exam_pipeline"] = [{ key: "olympiad", pipeline: 6, solved: 0, left_to_solve: 6 }];
+      window.__fixtures["topic_readiness"] = [];
+      window.__fixtures["exam_specs"] = [];
+
+      await window.openTimetable();
+      await T.wait(250);
+      const text = (T.$("ttBody")?.textContent ?? "").replace(/\s+/g, " ");
+      assert("the count is shown", /6 questions/.test(text));
+      assert("the left count is shown", /6 left/.test(text));
+      assert("no grey 'no questions' pill", !/no questions/.test(text));
+    },
+  },
+
+  {
+    name: "the five exam chips add up to the stated total, whatever the verdicts",
+    async run({ assert, T }) {
+      window.__fixtures["truth"] = T.baseTruth({ families: [{ label: "AAS", family: "aas", items: 0, verdict: "no_content", exam_on: "2027-05-05", days_left: 166, topics_all: 10, topics_done: 0, schools_list: [], schools: "A", rows: [], topics: [] }, { label: "Edutest", family: "edutest", items: 0, verdict: "thin", exam_on: "2027-05-05", days_left: 166, topics_all: 10, topics_done: 0, schools_list: [], schools: "A", rows: [], topics: [] }, { label: "Olympiad", family: "olympiad", items: 0, verdict: "no_content", exam_on: "2027-05-05", days_left: 166, topics_all: 10, topics_done: 0, schools_list: [], schools: "A", rows: [], topics: [] }, { label: "AMC", family: "amc", items: 0, verdict: "thin", exam_on: "2027-05-05", days_left: 166, topics_all: 10, topics_done: 0, schools_list: [], schools: "A", rows: [], topics: [] }, { label: "ICAS", family: "icas", items: 0, verdict: "thin", exam_on: "2027-05-05", days_left: 166, topics_all: 10, topics_done: 0, schools_list: [], schools: "A", rows: [], topics: [] }] });
+      window.__fixtures["sync_view"] = { totals: { questions: 62, cleared: 0, provisional: 62, draft: 0, failed: 1 },
+        library: { documents: 1, passages: 1, from_web: 1, from_upload: 0, official: 0 },
+        exams: [
+          { key: "aas", label: "AAS", servable: 15, cleared: 0, provisional: 15, draft: 0, failed: 0 },
+          { key: "edutest", label: "Edutest", servable: 14, cleared: 0, provisional: 14, draft: 0, failed: 0 },
+          { key: "olympiad", label: "Olympiad", servable: 6, cleared: 0, provisional: 6, draft: 0, failed: 0 },
+          { key: "amc", label: "AMC", servable: 12, cleared: 0, provisional: 12, draft: 0, failed: 0 },
+          { key: "icas", label: "ICAS", servable: 15, cleared: 0, provisional: 15, draft: 0, failed: 0 },
+        ] };
+      window.__fixtures["exam_pipeline"] = [];
+      window.__fixtures["topic_readiness"] = [];
+      window.__fixtures["exam_specs"] = [];
+
+      await window.openTimetable();
+      await T.wait(250);
+      const chips = [...(T.$("ttBody")?.querySelectorAll(".chip") ?? [])]
+        .map((c) => (c.textContent ?? "").trim())
+        .filter((t) => /^\d+ questions$/.test(t))
+        .map((t) => Number(t.split(" ")[0]));
+      assert("all five exams carry a count", chips.length === 5);
+      assert("they add up to 62", chips.reduce((a, b) => a + b, 0) === 62);
+    },
+  },
 ];
