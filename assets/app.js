@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.34.0";
+import * as data from "./data.js?v=3.35.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -315,7 +315,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.34.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.35.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -3476,7 +3476,7 @@ function goLanding() {
   const lane = S.plan.find((p) => p.lane !== "R");
   $("todayLine").textContent = lane
     ? `Today: ${lane.lane === "Q" ? "quest" : lane.lane === "M" ? "a test" : lane.lane === "D" ? "a drill" : lane.lane}${lane.chapter ? " · chapter " + lane.chapter : ""} · ${lane.minutes} minutes`
-    : "Today is a rest day.";
+    : "Today: pick a topic, or let her choose — nothing is scheduled, so anything counts.";
 
   const readinessFor = (id) => {
     const t = TRACKS.find((x) => x.id === id);
@@ -3557,18 +3557,16 @@ async function askCoachWhatNow() {
     S.planAction = lane
       ? { action: lane.lane === "M" ? (lane.chapter ? "quiz" : "paper") : lane.lane === "D" ? "drill" : "quest",
           chapter: lane.chapter ?? null, minutes: lane.minutes ?? 30 }
-      : { action: "rest", chapter: null, minutes: 0 };
+      : { action: "quest", chapter: null, minutes: 30 };   // no rest days: an unplanned day is still a day to work
     say.textContent = lane
       ? `Today is ${S.planAction.action === "quest" ? "a quest on chapter " + lane.chapter : S.planAction.action}. Ready?`
-      : "Today is a rest day. Nothing to do.";
+      : "Nothing is scheduled today. Say the word and we start — a chapter, a drill, or a paper.";
   } else {
     S.planAction = data.plan;
     say.textContent = data.reply;
   }
-  $("coachWhy").textContent = S.planAction.action === "rest"
-    ? "A rest day is part of the plan."
-    : `${S.planAction.action === "paper" ? "A full paper" : S.planAction.action === "quiz" ? "A chapter quiz" : S.planAction.action === "drill" ? "Drill on what you got wrong" : "Chapter " + S.planAction.chapter} · about ${S.planAction.minutes} minutes`;
-  go.disabled = S.planAction.action === "rest";
+  $("coachWhy").textContent = `${S.planAction.action === "paper" ? "A full paper" : S.planAction.action === "quiz" ? "A chapter quiz" : S.planAction.action === "drill" ? "Drill on what you got wrong" : "Chapter " + S.planAction.chapter} · about ${S.planAction.minutes} minutes`;
+  go.disabled = false;
   const { data: openP } = await sb.rpc("open_paper").catch(() => ({ data: null }));
   if (openP && (openP.items ?? []).length) {
     go.textContent = "Resume the paper you stopped →";
