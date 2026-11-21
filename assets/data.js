@@ -143,4 +143,6 @@ export const mark_hard = (args) => call((a) => sb.rpc("mark_hard", a), args);
 
 export const chapter_alternatives = (args) => call((a) => sb.rpc("chapter_alternatives", a), args);
 
+export const question_status_counts = (args) => call((a) => sb.rpc("question_status_counts", a), args);
+
 export const table = (name) => sb.from(name);

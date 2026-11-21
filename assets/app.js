@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.33.0";
+import * as data from "./data.js?v=3.34.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -166,6 +166,25 @@ async function paintScanBanner() {
       return;
     }
 
+    // nothing running: say where the bank actually stands
+    const { data: counts } = await sb.rpc("question_status_counts");
+    const c = counts ?? {};
+    const toCheck = Number(c.draft ?? 0), unverified = Number(c.provisional ?? 0);
+    const verified = Number(c.cleared ?? 0), held = Number(c.failed ?? 0);
+    const allDone = toCheck === 0 && unverified === 0;
+
+    if (allDone && verified > 0) {
+      el.className = "";
+      el.innerHTML = `<span><b>Everything is checked</b> — ${verified} question${verified === 1 ? "" : "s"} verified
+        against official material${held ? `, ${held} held back` : ""}. Nothing is waiting.</span>`;
+      return;
+    }
+    el.className = "";
+    el.innerHTML = `<span><b>Nothing running</b> — ${verified} verified · ${unverified} not verified ·
+      ${toCheck} still to check${held ? ` · ${held} held back` : ""}.
+      ${toCheck ? "She checks them on the next run." : ""}</span>`;
+    return;
+
     if (false) {
       el.className = "hidden";
       clearTimeout(scanTimer);
@@ -296,7 +315,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.33.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.34.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
