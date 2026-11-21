@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.38.0";
+import * as data from "./data.js?v=3.39.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -315,7 +315,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.38.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.39.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -3686,26 +3686,29 @@ async function loadWhatsNew(family) {
   card.style.display = "";
   S.tabs = all;
 
-  const row = (t) => `
-    <button class="newRow" data-action="openTab" data-a0="${t.chapter}"
-      style="display:flex;width:100%;gap:10px;align-items:center;border:0;background:#fff;padding:8px 0;border-bottom:1px solid var(--line);text-align:left">
-      <span class="dot ${t.verified ? "green" : t.attempted ? "amber" : "grey"}"></span>
-      <span style="flex:1">
-        <span class="newWhat">${esc(String(t.title).split(" · ").pop())}</span>
-        ${t.instruction ? `<div class="sub" style="font-size:12px;margin-top:2px">${esc(t.instruction)}</div>` : ""}
-      </span>
-      <span class="sub" style="white-space:nowrap"><b>${t.fresh}</b> new</span>
-      <span class="sub" style="white-space:nowrap"><b>${t.attempted}</b> attempted</span>
+  const tabCard = (t) => `
+    <button class="tabCard" data-action="openTab" data-a0="${t.chapter}"
+      style="flex:0 0 176px;text-align:left;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff">
+      <div class="chipRow" style="margin-bottom:6px">
+        <span class="chip ${t.verified ? "green" : t.attempted ? "amber" : "grey"}"><b>${t.fresh}</b> new</span>
+        <span class="chip grey"><b>${t.attempted}</b> tried</span>
+      </div>
+      <div style="font-weight:600;font-size:13px;line-height:1.25">${esc(String(t.title).split(" · ").pop())}</div>
+      ${t.instruction ? `<div class="sub" style="font-size:11.5px;margin-top:4px">${esc(String(t.instruction).slice(0, 70))}</div>` : ""}
     </button>`;
 
   const uploads = all.filter((t) => t.kind === "upload");
   const made = all.filter((t) => t.kind === "generated");
 
   box.innerHTML = `
-    <div class="foldHead" style="margin:2px 0 4px">From your files</div>
-    ${uploads.length ? uploads.map(row).join("") : `<div class="sub">No uploaded tabs for this exam yet.</div>`}
-    <div class="foldHead" style="margin:12px 0 4px">Quest generated</div>
-    ${made.length ? made.map(row).join("") : `<div class="sub">She has not written anything for this exam yet.</div>`}
+    <div class="sub" style="margin:2px 0 6px;font-weight:600">From your files</div>
+    <div style="display:flex;gap:10px;overflow-x:auto;padding:0 2px 10px">
+      ${uploads.length ? uploads.map(tabCard).join("") : `<div class="sub">Nothing uploaded for this exam yet.</div>`}
+    </div>
+    <div class="sub" style="margin:6px 0;font-weight:600">Quest generated</div>
+    <div style="display:flex;gap:10px;overflow-x:auto;padding:0 2px 10px">
+      ${made.length ? made.map(tabCard).join("") : `<div class="sub">She has not written anything for this exam yet.</div>`}
+    </div>
     <div id="tabDetail" style="margin-top:8px"></div>`;
 }
 
