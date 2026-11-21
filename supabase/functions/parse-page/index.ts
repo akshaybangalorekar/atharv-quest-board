@@ -113,7 +113,15 @@ Deno.serve(async (req) => {
     const isText = /(text|html|xml|json)/i.test(String(blob.type ?? "")) || /\.(html?|txt|md|json|xml)$/i.test(path);
     let b64 = "", pageText = "";
     if (isText) {
-      pageText = new TextDecoder("utf-8").decode(buf).slice(0, 60000);
+      // a document is mostly markup: keep the words, drop the tags, and stay inside the model's limit
+      pageText = new TextDecoder("utf-8").decode(buf)
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 12000);
       if (pageText.trim().length < 20) return json({ error: "no readable text", detail: "the file has no text in it" }, 400);
     } else {
       let bin = "";
