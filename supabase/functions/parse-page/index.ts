@@ -107,9 +107,19 @@ Deno.serve(async (req) => {
     const { data: blob, error: dlErr } = await admin.storage.from("papers").download(row.path);
     if (dlErr || !blob) return json({ error: "could not read the page" }, 400);
     const buf = new Uint8Array(await blob.arrayBuffer());
-    let bin = "";
-    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-    const b64 = btoa(bin);
+
+    // a page can be a picture or a document: send it as what it is, or the model refuses it
+    const path = String(row.path ?? "");
+    const isText = /(text|html|xml|json)/i.test(String(blob.type ?? "")) || /\.(html?|txt|md|json|xml)$/i.test(path);
+    let b64 = "", pageText = "";
+    if (isText) {
+      pageText = new TextDecoder("utf-8").decode(buf).slice(0, 60000);
+      if (pageText.trim().length < 20) return json({ error: "no readable text", detail: "the file has no text in it" }, 400);
+    } else {
+      let bin = "";
+      for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+      b64 = btoa(bin);
+    }
 
     const r = await fetch(ENDPOINT, {
       method: "POST",
@@ -126,7 +136,7 @@ Deno.serve(async (req) => {
           {
             role: "user",
             content: [
-              { type: "text", text: `Extract the questions from this image.
+              { type: "text", text: `Extract the questions from this ${isText ? "document" : "image"}.
 
 Two things to check before you start:
 1. A scanned image may hold ONE page or TWO facing pages. Decide which, from what you can see — do not assume:
@@ -136,7 +146,9 @@ Two things to check before you start:
    Never merge a question from the left page with a question from the right page, and never split a single page
    in two just because the text is in columns.
 2. If the image has no readable text at all, return {"rows": [], "why": "no readable text"} rather than guessing.` },
-              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${b64}` } },
+              ...(isText
+                ? [{ type: "text", text: pageText }]
+                : [{ type: "image_url", image_url: { url: `data:image/jpeg;base64,${b64}` } }]),
             ],
           },
         ],
