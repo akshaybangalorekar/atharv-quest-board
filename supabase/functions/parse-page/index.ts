@@ -95,9 +95,9 @@ Deno.serve(async (req) => {
     const { paper_id, page } = await req.json();
     if (!paper_id || !page) return json({ error: "paper and page required" }, 400);
 
-    const { data: row } = await asUser.from("paper_pages")
+    const { data: row } = await admin.from("paper_pages")
       .select("path, done").eq("paper_id", paper_id).eq("page_no", page).maybeSingle();
-    if (!row) return json({ error: "no such page" }, 404);
+    if (!row) return json({ error: "no such page", detail: `paper ${paper_id} page ${page}` }, 404);
 
     const { data: paper } = await admin.from("papers")
       .select("id, exam, student_id, strand_hint").eq("id", paper_id).single();
