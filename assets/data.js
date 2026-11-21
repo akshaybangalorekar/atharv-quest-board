@@ -149,4 +149,6 @@ export const upload_tabs = (args) => call((a) => sb.rpc("upload_tabs", a), args)
 
 export const tab_questions = (args) => call((a) => sb.rpc("tab_questions", a), args);
 
+export const generated_bank = (args) => call((a) => sb.rpc("generated_bank", a), args);
+
 export const table = (name) => sb.from(name);

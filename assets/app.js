@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.36.1";
+import * as data from "./data.js?v=3.37.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -315,7 +315,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.36.1";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.37.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -3675,30 +3675,35 @@ function barRow(label, value, pct, colour) {
 /* readiness per section, not one number for the whole thing */
 
 /* what has arrived for this exam lately, and how long ago */
-/* the uploads as tabs, like a shelf: each one says what is inside before you open it */
+/* everything she wrote herself, as a table: exam, topic, and where each question stands */
 async function loadWhatsNew(family) {
-  const card = $("newCard"), box = $("newList");
+  const card = $("genCard"), box = $("genList");
   if (!card || !box) return;
 
-  const { data } = await sb.rpc("upload_tabs", { p_exam: family });
-  const tabs = (data ?? []);
-  if (!tabs.length) { card.style.display = "none"; return; }
+  const { data } = await sb.rpc("generated_bank");
+  const rows = (data ?? []).filter((r) => String(r.exam) === String(family));
+  if (!rows.length) { card.style.display = "none"; return; }
   card.style.display = "";
-  S.tabs = tabs;
+  S.tabs = rows;
 
+  const total = rows.reduce((a, r) => a + Number(r.questions ?? 0), 0);
   box.innerHTML = `
-    <div style="display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px">
-      ${tabs.map((t) => `
-        <button class="tabCard" data-action="openTab" data-a0="${t.n}"
-          style="flex:0 0 210px;text-align:left;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff">
-          <div class="chipRow" style="margin-bottom:6px">
-            <span class="chip ${t.verified ? "green" : "amber"}"><b>${t.questions}</b> questions</span>
-          </div>
-          <div style="font-weight:600;font-size:13.5px">${esc(String(t.title).split(" · ").pop())}</div>
-          <div class="sub" style="margin-top:4px;font-size:12px">${esc(String(t.blurb ?? (t.paper ? "From " + t.paper : "From your upload")).slice(0, 110))}</div>
+    <div class="chipRow" style="margin-bottom:8px">
+      <span class="chip blue"><b>${total}</b> written by her</span>
+      <span class="chip green"><b>${rows.reduce((a, r) => a + Number(r.verified ?? 0), 0)}</b> verified</span>
+      <span class="chip amber"><b>${rows.reduce((a, r) => a + Number(r.to_check ?? 0), 0)}</b> to check</span>
+    </div>
+    <div style="max-height:260px;overflow:auto">
+      ${rows.map((r) => `
+        <button class="newRow" data-action="openTab" data-a0="${r.chapter}"
+          style="display:flex;width:100%;gap:10px;align-items:center;border:0;background:#fff;padding:7px 0;border-bottom:1px solid var(--line);text-align:left">
+          <span class="dot ${r.verified ? "green" : r.to_check ? "amber" : "grey"}"></span>
+          <span class="newWhat" style="flex:1">${esc(String(r.title).split(" · ").pop())}</span>
+          <span class="sub" style="white-space:nowrap"><b>${r.questions}</b> questions</span>
+          <span class="sub" style="white-space:nowrap">${r.verified ? `${r.verified} verified` : r.to_check ? `${r.to_check} to check` : "held back"}</span>
         </button>`).join("")}
     </div>
-    <div id="tabDetail" style="margin-top:6px"></div>`;
+    <div id="tabDetail" style="margin-top:8px"></div>`;
 }
 
 /* what is inside a tab, and the one button that opens it for him */
