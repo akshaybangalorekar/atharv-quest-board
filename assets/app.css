@@ -36,7 +36,7 @@ th{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em
 .pill.red{background:#fdeaea;color:var(--red)}.pill.grey{background:#eeeef4;color:var(--mut)}
 .hint{font-size:13.5px;color:var(--mut);margin-top:8px}
 .xpbar{height:8px;background:#ececf5;border-radius:999px;overflow:hidden;margin-top:8px}.xpbar i{display:block;height:100%;background:var(--acc)}
-footer{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+footer{min-height:0;padding:4px 16px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
   width:100%;max-width:1080px;margin:0 auto;padding:0 22px 30px;font-size:12.5px;color:var(--mut);padding-bottom:max(30px, env(safe-area-inset-bottom))}
 .hidden{display:none!important}
 input{font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px;width:100%;font-size:16px}
@@ -145,7 +145,7 @@ main#session{height:calc(100dvh - 62px);height:calc(100vh - 62px);padding:0;gap:
 #signin .card{background:rgba(255,255,255,.95);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
   box-shadow:0 18px 50px rgba(20,12,8,.30);border:1px solid rgba(255,255,255,.65);width:100%;max-width:420px}
 body.signing{background:#8c3b1e}
-body.signing .top,body.signing footer{display:none}
+body.signing .top,body.signing footer{min-height:0;padding:4px 16px;display:none}
 
 /* ---- session clock ---- */
 .budget{position:sticky;top:0;z-index:5;background:#fff;border:1px solid var(--line);border-radius:12px;
@@ -167,7 +167,7 @@ body.signing .top,body.signing footer{display:none}
 .opt.on b{background:var(--acc);color:#fff}
 .footLine{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
 .footLine .keys summary{font-size:12px}
-body:has(#session:not(.hidden)) footer{display:none}
+body:has(#session:not(.hidden)) footer{min-height:0;padding:4px 16px;display:none}
 main#session{height:calc(100dvh - 62px);height:calc(100vh - 62px);padding:0;gap:0;
   max-width:none;width:100%;display:flex;flex-direction:column;overflow:hidden}
 .topProg{display:flex;flex-direction:column;gap:3px;min-width:120px;max-width:190px}
@@ -287,7 +287,7 @@ h1{font-size:17px;letter-spacing:-.01em}
 .pk.space{flex:3}
 .pk.wide{flex:1.6;background:var(--acc);color:#fff;border-color:transparent}
 #padKeys > .pkRow > .pk{flex:1}
-body:has(.pad:not(.hidden)) footer{margin-bottom:220px}
+body:has(.pad:not(.hidden)) footer{min-height:0;padding:4px 16px;margin-bottom:220px}
 /* one tap is one tap: the browser stops treating a quick second tap as "zoom in",
    while a two-finger pinch still zooms for anyone who wants it */
 html{touch-action:manipulation;-webkit-text-size-adjust:100%}
