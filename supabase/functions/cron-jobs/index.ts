@@ -137,7 +137,10 @@ Deno.serve(async (req) => {
     const { data: chapter } = await admin.rpc("strand_for_words", { p_exam: row.exam, p_words: row.words });
     if (!chapter) return json({ refused: "no strand in that exam fits" });
 
-    const made = await callFn("make-questions", { chapter, count: Number(body?.count ?? 6), focus: row.words }, row.exam);
+    const made = await callFn("make-questions", {
+      chapter, count: Number(body?.count ?? 6), focus: row.words,
+      token: (await admin.from("app_config").select("value").eq("key", "drain_token").maybeSingle()).data?.value,
+    }, row.exam);
     const added = Number((made as any)?.added ?? (made as any)?.written ?? 0);
     await admin.from("hard_topics").update({
       taught: true,
