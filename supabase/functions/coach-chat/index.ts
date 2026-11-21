@@ -478,6 +478,13 @@ Deno.serve(async (req) => {
       pack = p ?? {};
     }
 
+    // what he or his parent has said is hard: she must teach it, write it, then test it
+    let hard: any = [];
+    try {
+      const { data: hl } = await asUser.rpc("hard_list", { p_limit: 10 });
+      hard = hl ?? [];
+    } catch (e) { console.error("hard list failed:", e); }
+
     // what is sitting ambiguous, so a parent is told about it rather than discovering it
     let ambiguous: any = [];
     try {
@@ -501,6 +508,15 @@ Deno.serve(async (req) => {
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
       `Exam readiness: ${JSON.stringify(c.readiness ?? [])}`,
+      `WHAT HE FINDS HARD — ${JSON.stringify(hard).slice(0, 900)}
+       When the child or the parent says a kind of question is difficult, that is a job, not a note. Do this in order:
+       1. Say it back in one line so they know you heard it, and if the EXAM is not obvious, ask which exam it is for —
+          do not guess between Olympiad, AMC, AAS, Edutest and ICAS.
+       2. TEACH it: name the trick in two or three lines, with one worked example.
+       3. WRITE questions of that kind into that exam, using its official topics only, and say how many you wrote.
+       4. TEST it: put that kind into the next mock for that exam, and say so.
+       Until all four are done, the item is not finished. If you can only do one thing this session, teach it.
+       Never file a difficulty against an exam nobody named.`,
       `EVERY CLAIM CARRIES ITS NUMBER — never say "you have mastered", "you are good at", "you are ready" without the
        figure beside it. "7 of 10 on fractions, up from 4" is allowed; "you have mastered fractions" is not. If you
        cannot put a number on it, do not make the claim.
