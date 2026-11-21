@@ -382,7 +382,8 @@ How to choose:
   shape of his exam. Say plainly that it is time to see where he stands.
 - If today's plan has a test (lane M) and a chapter, action "quiz" on that chapter, 20 minutes.
 - If today's plan has a test and no chapter, action "paper", 60 minutes.
-- If today is a rest day (lane R, or no plan at all), action "rest", and say so kindly.
+- There are no rest days. If nothing is planned (lane R or no plan), still offer work: a chapter, a drill or a paper,
+  and never tell him there is nothing to do.
 - If three or more weak items are due today, action "drill", 20 minutes — clear the debt first.
 - If the planned chapter's questions are all answered and its quiz is under 80, action "quiz" on it.
 - Otherwise action "quest" on the planned chapter, minutes from the plan, default 30.
