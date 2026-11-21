@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<link rel="stylesheet" href="./assets/app.css?v=3.30.0">
+<link rel="stylesheet" href="./assets/app.css?v=3.31.0">
 </head>
 <body>
 
@@ -538,9 +538,12 @@
   <div class="bar">
     <button class="go" id="pickBtn" data-action="pickFile" disabled
             title="Choose an exam, say where the questions go, and mark the file official or unofficial.">Choose files</button>
+    <button class="go" id="uploadBtn" data-action="uploadStaged" disabled
+            title="Nothing chosen yet.">Upload</button>
     <input type="file" id="upFile" multiple accept=".pdf,.jpg,.jpeg,.png,.html,.htm,.txt,.md,.docx"
-           class="hidden" onchange="uploadAndRead(this)">
+           class="hidden" onchange="stageFiles(this)">
   </div>
+  <div id="upStaged" style="margin-top:10px"></div>
 
   <div id="upProgWrap" class="hidden" style="margin:12px 0">
     <div class="prog"><span id="upProgBar"></span></div>
@@ -774,6 +777,6 @@
 </footer>
 
 <script src="./supabase.js"></script>
-<script type="module" src="./assets/app.js?v=3.30.0"></script>
+<script type="module" src="./assets/app.js?v=3.31.0"></script>
 </body>
 </html>

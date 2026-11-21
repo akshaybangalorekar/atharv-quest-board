@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.30.0";
+import * as data from "./data.js?v=3.31.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -261,7 +261,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.30.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.31.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2697,6 +2697,26 @@ function askPhotoReason() {
   });
 }
 
+/* choosing a file is not uploading it: show what was chosen, then let them press Upload */
+let stagedFiles = [];
+function stageFiles(input) {
+  stagedFiles = [...(input.files ?? [])];
+  input.value = "";
+  const box = $("upStaged"), btn = $("uploadBtn");
+  if (box) {
+    box.innerHTML = stagedFiles.length
+      ? `<div class="chipRow">${stagedFiles.map((f) =>
+          `<span class="chip blue" title="${esc(f.name)}"><b>${Math.max(1, Math.round(f.size / 1024))} KB</b> ${esc(f.name.slice(0, 40))}</span>`).join("")}</div>
+         <div class="sub" style="margin-top:6px">${stagedFiles.length} file${stagedFiles.length === 1 ? "" : "s"} chosen — not uploaded yet.</div>`
+      : "";
+  }
+  if (btn) {
+    btn.disabled = !stagedFiles.length;
+    btn.textContent = stagedFiles.length ? `Upload ${stagedFiles.length} file${stagedFiles.length === 1 ? "" : "s"}` : "Upload";
+    btn.title = stagedFiles.length ? "Send them to the bank and read them." : "Nothing chosen yet.";
+  }
+}
+
 async function uploadAndRead(input) {
   const files = [...(input.files ?? [])];
   input.value = "";
@@ -5109,6 +5129,23 @@ registerActions({
   writeMoreQuestions: (el) => writeMoreQuestions(el),
 
   pickFile: () => { const f = $("upFile"); if (f) f.click(); },
+
+  uploadStaged: async () => {
+    const btn = $("uploadBtn");
+    if (!stagedFiles.length) { alert("Choose a file first."); return; }
+    const fake = { files: stagedFiles, value: "" };
+    if (btn) { btn.disabled = true; btn.textContent = "Uploading…"; }
+    const box = $("upStaged");
+    if (box) box.innerHTML = `<div class="chipRow"><span class="chip amber"><b>uploading</b> ${stagedFiles.length} file${stagedFiles.length === 1 ? "" : "s"}…</span></div>`;
+    try {
+      await uploadAndRead(fake);
+      if (box) box.innerHTML = `<div class="chipRow"><span class="chip green"><b>uploaded</b> and being read</span></div>`;
+    } catch (e) {
+      if (box) box.innerHTML = `<div class="chipRow"><span class="chip red"><b>upload failed</b> ${esc(String(e.message ?? e))}</span></div>`;
+    }
+    stagedFiles = [];
+    if (btn) { btn.textContent = "Upload"; btn.disabled = true; }
+  },
   toggleOpen: (el) => el.closest("details")?.toggleAttribute("open"),
   padShift: (el) => { padShift = !padShift; paintPad(); },
   wipe: (el) => wipe(el.dataset.arg ?? "all"),
