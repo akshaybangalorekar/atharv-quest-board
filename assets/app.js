@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.35.0";
+import * as data from "./data.js?v=3.36.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -315,7 +315,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.35.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.36.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -3675,27 +3675,59 @@ function barRow(label, value, pct, colour) {
 /* readiness per section, not one number for the whole thing */
 
 /* what has arrived for this exam lately, and how long ago */
+/* the uploads as tabs, like a shelf: each one says what is inside before you open it */
 async function loadWhatsNew(family) {
   const card = $("newCard"), box = $("newList");
   if (!card || !box) return;
-  const { data: tr } = await sb.rpc("truth");
-  const data = (tr?.whats_new ?? {})[family] ?? [];
-  const rows = (data ?? []).slice(0, 8);
-  if (!rows.length) { card.style.display = "none"; return; }
+
+  const { data } = await sb.rpc("upload_tabs", { p_exam: family });
+  const tabs = (data ?? []);
+  if (!tabs.length) { card.style.display = "none"; return; }
   card.style.display = "";
-  box.innerHTML = rows.map((r) => {
-    const days = r.days_ago;
-    const when = days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
-    const what = r.kind === "file"
-      ? `${esc(r.what)}` + (r.n ? ` — ${r.n} questions` : "")
-      : `${r.n} questions written by Ananya`;
-    return `<div class="newRow">
-      <span class="dot ${days <= 2 ? "green" : days <= 7 ? "amber" : "grey"}"></span>
-      <span class="newWhat">${what}</span>
-      <span class="newWhen">${esc(when)}</span>
-    </div>`;
-  }).join("");
+  S.tabs = tabs;
+
+  box.innerHTML = `
+    <div style="display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px">
+      ${tabs.map((t) => `
+        <button class="tabCard" data-action="openTab" data-a0="${t.n}"
+          style="flex:0 0 210px;text-align:left;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff">
+          <div class="chipRow" style="margin-bottom:6px">
+            <span class="chip ${t.verified ? "green" : "amber"}"><b>${t.questions}</b> questions</span>
+          </div>
+          <div style="font-weight:600;font-size:13.5px">${esc(String(t.title).split(" · ").pop())}</div>
+          <div class="sub" style="margin-top:4px;font-size:12px">${esc(String(t.blurb ?? (t.paper ? "From " + t.paper : "From your upload")).slice(0, 110))}</div>
+        </button>`).join("")}
+    </div>
+    <div id="tabDetail" style="margin-top:6px"></div>`;
 }
+
+/* what is inside a tab, and the one button that opens it for him */
+async function openTab(n) {
+  const box = $("tabDetail");
+  if (!box) return;
+  const t = (S.tabs ?? []).find((x) => Number(x.n) === Number(n)) ?? {};
+  box.innerHTML = `<div class="sub">Opening…</div>`;
+  const { data } = await sb.rpc("tab_questions", { p_chapter: Number(n), p_limit: 12 });
+  const rows = data ?? [];
+  box.innerHTML = `
+    <div class="card" style="box-shadow:none;border:1px solid var(--line);padding:12px">
+      <div style="font-weight:600">${esc(String(t.title ?? "this tab").split(" · ").pop())}</div>
+      <div class="sub" style="margin-top:4px">${esc(String(t.blurb ?? ""))}</div>
+      <div class="chipRow" style="margin:8px 0">
+        <span class="chip blue"><b>${t.questions ?? rows.length}</b> in this tab</span>
+        ${t.verified ? `<span class="chip green"><b>${t.verified}</b> verified</span>` : ""}
+        ${t.paper ? `<span class="chip grey">${esc(String(t.paper).slice(0, 28))}</span>` : ""}
+      </div>
+      <div style="max-height:220px;overflow:auto">
+        ${rows.map((q, i) => `<div class="sub" style="padding:4px 0;border-bottom:1px solid var(--line)">
+          ${i + 1}. ${esc(q.prompt)}${q.has_figure ? " · has a figure" : ""}</div>`).join("") || `<div class="sub">Nothing servable in this tab yet.</div>`}
+      </div>
+      <div class="bar" style="margin-top:10px">
+        <button class="go small" data-action="startChapter" data-a0="${Number(n)}">Open this for him →</button>
+      </div>
+    </div>`;
+}
+
 
 
 async function openPaper(id) {
@@ -5216,6 +5248,8 @@ registerActions({
   openChapter: (el) => openChapter(Number(el.dataset.a0)),
   padKey: (el) => padKey(el.dataset.a0),
 
+  openTab: (el) => openTab(el.dataset.a0),
+
   keepOutOfTurn: async () => {
     const words = ($("keepWords")?.value ?? "").trim();
     if (!words) return;
@@ -5323,7 +5357,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, saveOriginal, stageFiles, openHelp, openTimetable, toneForCount, paintWalletBanner, gateLabel, check, endSession, readSessionFromServer, autoFigure, startChapter, backToCoach, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, saveOriginal, stageFiles, openHelp, openTimetable, toneForCount, paintWalletBanner, gateLabel, check, endSession, readSessionFromServer, autoFigure, startChapter, backToCoach, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, openTab, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;

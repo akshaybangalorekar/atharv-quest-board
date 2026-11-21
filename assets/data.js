@@ -145,4 +145,8 @@ export const chapter_alternatives = (args) => call((a) => sb.rpc("chapter_altern
 
 export const question_status_counts = (args) => call((a) => sb.rpc("question_status_counts", a), args);
 
+export const upload_tabs = (args) => call((a) => sb.rpc("upload_tabs", a), args);
+
+export const tab_questions = (args) => call((a) => sb.rpc("tab_questions", a), args);
+
 export const table = (name) => sb.from(name);
