@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.39.0";
+import * as data from "./data.js?v=3.40.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -315,7 +315,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.39.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.40.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -3690,8 +3690,13 @@ async function loadWhatsNew(family) {
     <button class="tabCard" data-action="openTab" data-a0="${t.chapter}"
       style="flex:0 0 176px;text-align:left;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff">
       <div class="chipRow" style="margin-bottom:6px">
-        <span class="chip ${t.verified ? "green" : t.attempted ? "amber" : "grey"}"><b>${t.fresh}</b> new</span>
+        <span class="chip blue"><b>${t.questions}</b> in tab</span>
+        <span class="chip ${t.verified ? "green" : "amber"}"><b>${t.servable}</b> ready</span>
+      </div>
+      <div class="chipRow" style="margin-bottom:6px">
+        <span class="chip grey"><b>${t.fresh}</b> new</span>
         <span class="chip grey"><b>${t.attempted}</b> tried</span>
+        ${Number(t.to_check) ? `<span class="chip amber"><b>${t.to_check}</b> to check</span>` : ""}
       </div>
       <div style="font-weight:600;font-size:13px;line-height:1.25">${esc(String(t.title).split(" · ").pop())}</div>
       ${t.instruction ? `<div class="sub" style="font-size:11.5px;margin-top:4px">${esc(String(t.instruction).slice(0, 70))}</div>` : ""}

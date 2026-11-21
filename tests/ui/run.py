@@ -167,7 +167,7 @@ def build(filter_name: str, out_path: str) -> None:
     inject = (
         '<script src="./tests/ui/harness.js"></script>'
         '<script src="./tests/ui/scenarios.js"></script>'
-        '<script src="./tests/ui/uploads.js"></script>'
+        '<script src="./tests/ui/uploads.js"></script><script src="./tests/ui/files.js"></script>'
         '<script src="./tests/ui/diagrams.js"></script>'
         '<script src="./tests/ui/cases.js"></script>'
     )
