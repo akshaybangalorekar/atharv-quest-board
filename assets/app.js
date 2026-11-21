@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.32.0";
+import * as data from "./data.js?v=3.33.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -133,18 +133,53 @@ let scanTimer = null;
 async function paintScanBanner() {
   const el = $("scanBanner");
   if (!el) return;
+  // this bar is the parent's: on his screen it would be noise he cannot act on
+  if (!S.isParent) { el.className = "hidden"; return; }
   try {
     const { data: p } = await sb.rpc("ingest_progress");
     if (!p) return;
     const busy = p.state === "running" || p.queued > 0;
 
+    // a file of yours being read comes first: it is the thing a parent just did
+    const { data: papers } = await sb.rpc("papers_to_read");
+    const reading = (papers ?? []).filter((x) => (x.pages_total ?? 0) > 0 && (x.pages_done ?? 0) < (x.pages_total ?? 0));
+
+    if (reading.length) {
+      const one = reading[0];
+      el.className = "";
+      el.innerHTML = `<span><b>Reading your file</b> — ${esc(one.title)}: page ${one.pages_done ?? 0} of
+        ${one.pages_total ?? 0}${(one.questions ?? 0) ? `, ${one.questions} questions so far` : ", no questions yet"}
+        ${reading.length > 1 ? ` · ${reading.length - 1} more file${reading.length === 2 ? "" : "s"} waiting` : ""}.
+        It finishes on its own; you can carry on.</span>`;
+      clearTimeout(scanTimer);
+      scanTimer = setTimeout(paintScanBanner, 5000);
+      return;
+    }
+
     if (busy) {
       el.className = "";
-      el.innerHTML = `<span><b>Reading and writing questions</b> — ${p.fetched ?? 0} sources read,
+      el.innerHTML = `<span><b>Reading online sources and writing questions</b> — ${p.fetched ?? 0} sources read,
         ${p.generated ?? 0} written this run, ${p.bank ?? 0} in the bank${p.queued ? ` · ${p.queued} more run${p.queued === 1 ? "" : "s"} queued` : ""}.
         You can carry on; this finishes on its own.</span>`;
       clearTimeout(scanTimer);
       scanTimer = setTimeout(paintScanBanner, 6000);
+      return;
+    }
+
+    if (false) {
+      el.className = "hidden";
+      clearTimeout(scanTimer);
+      scanTimer = setTimeout(paintScanBanner, 6000);
+      return;
+    }
+
+    const justRead = (papers ?? []).filter((x) => (x.pages_total ?? 0) > 0 && (x.pages_done ?? 0) === (x.pages_total ?? 0));
+    if (justRead.length && !reading.length) {
+      const q = justRead.reduce((a, x) => a + (x.questions ?? 0), 0);
+      el.className = "";
+      el.innerHTML = `<span><b>Your files are read</b> — ${justRead.length} file${justRead.length === 1 ? "" : "s"},
+        ${q} question${q === 1 ? "" : "s"} in the bank.</span>
+        <button class="mini" data-action="dismissScanBanner">Got it</button>`;
       return;
     }
 
@@ -261,7 +296,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.32.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.33.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -2136,6 +2171,7 @@ async function loadPapersToRead() {
   // if anything is still being read, look again shortly so the row moves
   if (rows.some((r) => (r.pages_total ?? 0) > (r.pages_done ?? 0) || r.status === "running")) {
     papersPoll = setTimeout(loadPapersToRead, 4000);
+    paintScanBanner();   // the top bar follows the reading, not just the job queue
   }
 }
 
