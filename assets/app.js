@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.29.0";
+import * as data from "./data.js?v=3.30.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -104,6 +104,28 @@ async function renderAmbiguous() {
           data-a0="${r.chapter}" data-a1="${r.idx}" title="Removes it for good.">Drop it</button>
       </div>
     </div>`).join("");
+}
+
+/* the powers he has earned, named from the epics, and the next one within reach */
+function paintPowers() {
+  const box = $("powerBar");
+  if (!box) return;
+  const a = S.TR?.attempts ?? {};
+  const acc = Number(a.accuracy_7 ?? 0), done = Number(a.last_7 ?? 0), streak = Number(S.TR?.student?.streak ?? 0);
+  const powers = [
+    { name: "Vajra", epic: "Indra's thunderbolt", got: acc >= 80 && done >= 20, hint: "80% right over 20 questions" },
+    { name: "Gandiva", epic: "Arjuna's bow", got: acc >= 90 && done >= 30, hint: "90% right over 30 questions" },
+    { name: "Hanuman's leap", epic: "the leap to Lanka", got: streak >= 7, hint: "seven days in a row" },
+    { name: "Ekalavya", epic: "focus without help", got: Number(a.solo ?? 0) >= 10, hint: "ten questions finished alone" },
+  ];
+  const earned = powers.filter((p) => p.got);
+  const next = powers.find((p) => !p.got);
+  box.innerHTML = `<div class="chipRow">
+    ${earned.length
+      ? earned.map((p) => `<span class="chip green" title="${esc(p.epic)}"><b>${esc(p.name)}</b></span>`).join("")
+      : `<span class="chip grey" title="Earned by doing the work, not by asking">no powers yet</span>`}
+    ${next ? `<span class="chip amber" title="${esc(next.epic)} — ${esc(next.hint)}"><b>${esc(next.name)}</b> next</span>` : ""}
+  </div>`;
 }
 
 /* what the scan is doing right now, at the top of the screen for both of them */
@@ -239,7 +261,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.29.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.30.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -370,6 +392,7 @@ async function paintNote() {
   // a parent keeps it until they say so; a child's screen lets it go after three minutes
   if (!S.isParent) setTimeout(() => { if ($("noteBar")?.textContent) dismissNote(data.id); }, 180000);
   checkExamDates();
+  paintPowers();
   paintWalletBanner();
   paintScanBanner();
   paintJobBanner();
@@ -5102,6 +5125,14 @@ registerActions({
   deletePaper: (el) => deletePaper(Number(el.dataset.a0)),
   openChapter: (el) => openChapter(Number(el.dataset.a0)),
   padKey: (el) => padKey(el.dataset.a0),
+
+  keepOutOfTurn: async () => {
+    const words = ($("keepWords")?.value ?? "").trim();
+    if (!words) return;
+    await sb.rpc("note_difficulty", { p_words: words, p_exam: S.ctx?.plan?.exam ?? null, p_who: "child" });
+    if ($("keepWords")) $("keepWords").value = "";
+    alert("Kept. It will come back as practice.");
+  },
 
   skipChapter: async (el) => {
     const asked = Number(el.dataset.a0);
