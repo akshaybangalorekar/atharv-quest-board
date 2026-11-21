@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<link rel="stylesheet" href="./assets/app.css?v=3.38.0">
+<link rel="stylesheet" href="./assets/app.css?v=3.39.0">
 </head>
 <body>
 
@@ -129,16 +129,14 @@
 
 <!-- track home -->
 <main id="track" class="hidden">
-  <div class="card" id="genCard" style="display:none">
-    <details>
-      <summary class="foldHead">Tabs — your files, and what she wrote</summary>
-      <div class="sub" style="margin:6px 0 8px">Two groups: the tabs you made when you uploaded, and the tabs she wrote
-        into. Each shows how many questions are new and how many he has attempted.</div>
-      <div id="genList" style="margin-top:6px"></div>
-    </details>
-  </div>
-
   <div id="trackCard"></div>
+
+  <div class="card" id="genCard" style="display:none">
+    <div class="foldHead" style="margin-bottom:4px">Tabs</div>
+    <div class="sub" style="margin-bottom:8px">Your files, and what she wrote. Each shows how many are new and how
+      many he has attempted.</div>
+    <div id="genList"></div>
+  </div>
 
   <div class="card"><div class="sub" id="trackStats"></div></div>
 </main>
@@ -780,6 +778,6 @@
 </footer>
 
 <script src="./supabase.js"></script>
-<script type="module" src="./assets/app.js?v=3.38.0"></script>
+<script type="module" src="./assets/app.js?v=3.39.0"></script>
 </body>
 </html>
