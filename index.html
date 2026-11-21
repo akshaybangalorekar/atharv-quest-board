@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Coach">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<link rel="stylesheet" href="./assets/app.css?v=3.36.0">
+<link rel="stylesheet" href="./assets/app.css?v=3.36.1">
 </head>
 <body>
 
@@ -129,10 +129,11 @@
 
 <!-- track home -->
 <main id="track" class="hidden">
-  <div class="card" id="newCard" style="display:none"><details>
-    <summary class="foldHead">What's new</summary>
-    <div id="newList" style="margin-top:10px"></div>
-  </details></div>
+  <div class="card" id="newCard" style="display:none">
+    <div class="foldHead" style="margin-bottom:2px">Your uploads</div>
+    <div class="sub" style="margin-bottom:8px">Each tab is one of your files. Tap it to see what is inside, then open it for him.</div>
+    <div id="newList"></div>
+  </div>
 
   <div id="trackCard"></div>
 
@@ -776,6 +777,6 @@
 </footer>
 
 <script src="./supabase.js"></script>
-<script type="module" src="./assets/app.js?v=3.36.0"></script>
+<script type="module" src="./assets/app.js?v=3.36.1"></script>
 </body>
 </html>
