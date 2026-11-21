@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.42.0";
+import * as data from "./data.js?v=3.43.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -315,7 +315,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.42.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.43.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -3686,23 +3686,17 @@ async function loadWhatsNew(family) {
   card.style.display = "";
   S.tabs = all;
 
-  // one line of facts and a thin bar: no chips, nothing to read twice
-  const tabCard = (t) => {
-    const total = Math.max(1, Number(t.questions) || 1);
-    const tried = Math.round((Number(t.attempted) || 0) / total * 100);
-    const ready = Math.round((Number(t.servable) || 0) / total * 100);
-    return `
+  // exactly two numbers: not attempted, and attempted
+  const tabCard = (t) => `
     <button class="tabCard" data-action="openTab" data-a0="${t.chapter}"
-      style="flex:0 0 200px;text-align:left;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff">
+      style="flex:0 0 190px;text-align:left;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff">
       <div style="font-weight:600;font-size:13px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
         ${esc(t.title)}</div>
-      <div class="sub" style="font-size:11.5px;margin-top:2px">${t.questions} questions · ${t.servable} ready</div>
-      <div style="height:3px;border-radius:2px;background:#eceff3;margin-top:8px;overflow:hidden;position:relative">
-        <i style="position:absolute;left:0;top:0;height:3px;width:${ready}%;background:#c9d3e0"></i>
-        <i style="position:absolute;left:0;top:0;height:3px;width:${tried}%;background:#1f9d55"></i>
+      <div class="chipRow" style="margin-top:8px">
+        <span class="chip grey"><b>${t.fresh}</b> not attempted</span>
+        <span class="chip ${Number(t.attempted) ? "green" : "grey"}"><b>${t.attempted}</b> attempted</span>
       </div>
     </button>`;
-  };
 
   const uploads = all.filter((t) => t.kind === "upload");
   const made = all.filter((t) => t.kind === "generated");
