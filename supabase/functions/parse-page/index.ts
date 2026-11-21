@@ -167,11 +167,13 @@ Two things to check before you start:
     const body = await r.json();
     const raw = body?.choices?.[0]?.message?.content ?? "";
     const a = raw.indexOf("{"), b = raw.lastIndexOf("}");
-    if (a < 0 || b <= a) return json({ error: "could not read that page" }, 422);
+    if (a < 0 || b <= a) {
+      return json({ ok: true, rows: [], why: "no questions found on this page — it may be text, not a paper" });
+    }
 
     let parsed: any = {};
     try { parsed = JSON.parse(raw.slice(a, b + 1)); }
-    catch { return json({ error: "could not read that page" }, 422); }
+    catch { return json({ ok: true, rows: [], why: "no questions found on this page" }); }
 
     const rows = (parsed.rows ?? [])
       .map((x: any) => {
