@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.26.0";
+import * as data from "./data.js?v=3.27.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -46,6 +46,35 @@ async function paintWalletBanner() {
     }
     el.className = "hidden";
   } catch (e) { console.error("wallet check failed:", e); }
+}
+
+/* tell her what is hard: one line and one exam, then she teaches, writes and tests it */
+async function renderHard() {
+  const box = $("hardBox");
+  if (!box) return;
+  const { data } = await sb.rpc("hard_list", { p_limit: 10 });
+  const rows = data ?? [];
+  box.innerHTML = `
+    <div class="bar" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <select id="hardExam" style="font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px">
+        <option value="">which exam…</option>
+        <option value="olympiad">Olympiad</option><option value="amc">AMC</option>
+        <option value="edutest">Edutest</option><option value="aas">AAS</option><option value="icas">ICAS</option>
+      </select>
+      <input id="hardWords" placeholder="what kind of question is hard — for example: comparing two fractions"
+             style="flex:1;min-width:220px;font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px">
+      <button class="mini" data-action="noteDifficulty">Tell her</button>
+    </div>
+    ${rows.length ? rows.map((r) => `<div style="padding:6px 0;border-bottom:1px solid var(--line)">
+      <div class="chipRow">
+        <span class="chip blue"><b>${esc(r.exam ?? "no exam")}</b></span>
+        <span class="chip ${r.taught ? "green" : "amber"}">${r.taught ? "taught" : "not taught yet"}</span>
+        <span class="chip ${r.questions_written ? "green" : "grey"}"><b>${r.questions_written ?? 0}</b> written</span>
+        <span class="chip ${r.tested_in_mock ? "green" : "grey"}">${r.tested_in_mock ? "in a mock" : "not tested"}</span>
+        <span class="sub">said by ${esc(r.said_by)}</span>
+      </div>
+      <div class="sub" style="margin-top:4px">“${esc(r.words)}”</div>
+    </div>`).join("") : `<div class="sub">Nothing yet. Tell her what is hard and she will teach it, write it, then test it.</div>`}`;
 }
 
 /* every question she set aside, with the reason and the two ways out */
@@ -210,7 +239,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.26.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.27.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -5072,6 +5101,22 @@ registerActions({
   openChapter: (el) => openChapter(Number(el.dataset.a0)),
   padKey: (el) => padKey(el.dataset.a0),
 
+  noteDifficulty: async () => {
+    const words = ($("hardWords")?.value ?? "").trim();
+    const exam = $("hardExam")?.value || null;
+    if (!words) { alert("Say what kind of question is hard first."); return; }
+    const { data, error } = await sb.rpc("note_difficulty",
+      { p_words: words, p_exam: exam, p_who: S.isParent ? "parent" : "child" });
+    if (error) { alert("Could not tell her: " + error.message); return; }
+    if ($("hardWords")) $("hardWords").value = "";
+    await renderHard();
+    // and it goes into the chat, so the teaching starts in the same breath
+    const note = `He says this is hard: "${words}".${exam ? ` It is for ${exam}.` : " The exam is not named — ask which one before you file it."}
+      Teach it now in two or three lines with one worked example.`;
+    const reply = await callCoach({ mode: "reply", note });
+    if (reply) bubble("coach", reply, false);
+  },
+
   fixAmbiguous: async (el) => {
     const chapter = Number(el.dataset.a0), idx = Number(el.dataset.a1);
     el.disabled = true; el.textContent = "Asking her…";
@@ -5082,6 +5127,7 @@ registerActions({
       el.textContent = "She will rewrite it, then it is checked again";
     } catch (e) { el.textContent = "Could not ask her"; }
     renderAmbiguous();
+  renderHard();
   },
 
   dropAmbiguous: async (el) => {
@@ -5121,7 +5167,7 @@ api = {
   askCoachWhatNow, runCoachPlan, scanContent, applyContent, forgotPassword, saveNewPassword,
   openTrack, startMock, runExam, beginWork, startSolo, openDash,
   readPaper, extractOne, updateDest, buildScript, toggleMic, askDoubt, handlePhoto,
-  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, openHelp, openTimetable, toneForCount, paintWalletBanner, gateLabel, check, endSession, readSessionFromServer, autoFigure, startChapter, backToCoach, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
+  openJournal, openFormula, tickFormula, openPad, padKey, padDone, closePad, useSystemKeyboard, paintPad, buildTracks, fileToBase64, loadParent, paintTopProgress, checkRunningJob, needsFigure, openPaper, pickOption, uploadAndRead, dismissNote, paintNote, paintOptions, testMic, freshCopy, paintDiag, growSay, stickBottom, bubble, checkReset, startPlacement, solveBlanks, paintActions, rich, startChapter, backToCoach, startThinking, resumeSession, returnToSession, backButton, leavePaper, createChild, deleteChild, removeParent, retryReading, preparePages, generateFor, printQuestions, startDeleteAccount, loadParents, saveOriginal, openHelp, openTimetable, toneForCount, paintWalletBanner, gateLabel, check, endSession, readSessionFromServer, autoFigure, startChapter, backToCoach, enqueue, refreshVisible, afterWrite, findSources, autoTrain, trainNow, verifyBank, loadTraining, addTrainingSource, toggleTrainingSource, resumePaper, closeEmptyPaper, beginNow, checkExamDates, loadAlertTo, testAlertEmail, addAlertTo, removeAlertTo, paintDateBanner, dismissDateBanner, loadChat, keepChat, parentDictate, addFromChat, formatCoachHtml, wipe, loadTough, paintExamTag, loadWhatsNew, keepBankAhead, loadRequests, writeMoreQuestions, wantsMoreQuestions, quizReady, askForEarlyMock, takePhoto, askPhotoReason, strandMode, strandModeChanged, cutFromPage, freshPill, beep, uploadAndRead, deletePaper, buildTracks, journeyChart, loadPapersToRead, runServerQueue, editDate, setExamDate, saveName, savePassword, saveChildPassword, loadAccount
 };
 } catch (e) { console.warn("handler list incomplete:", e.message); }
 for (const [k, v] of Object.entries(api)) if (typeof v === "function") window[k] = v;

@@ -135,4 +135,10 @@ export const drop_question = (args) => call((a) => sb.rpc("drop_question", a), a
 
 export const set_question_status = (args) => call((a) => sb.rpc("set_question_status", a), args);
 
+export const note_difficulty = (args) => call((a) => sb.rpc("note_difficulty", a), args);
+
+export const hard_list = (args) => call((a) => sb.rpc("hard_list", a), args);
+
+export const mark_hard = (args) => call((a) => sb.rpc("mark_hard", a), args);
+
 export const table = (name) => sb.from(name);
