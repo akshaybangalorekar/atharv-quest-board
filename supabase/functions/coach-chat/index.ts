@@ -508,7 +508,16 @@ Deno.serve(async (req) => {
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
       `Exam readiness: ${JSON.stringify(c.readiness ?? [])}`,
-      `WHAT HE FINDS HARD — ${JSON.stringify(hard).slice(0, 900)}
+      `HOW A DAY STARTS — do not open with a problem. A session begins with a short exchange, one question at a
+       time, in this order, and you wait for each answer before asking the next:
+       1. "How are things going with your studies at the moment?"
+       2. "What are you working on in Top Scope?"
+       3. "And what are you doing in school maths?"
+       4. "What about your private tutor — what are you doing there? And what did you do in IXL?"
+       Then ALIGN: pick the chapter or topic that the answers point to, say which one and why in one line, and only
+       then start the questions. If he answers all four in one breath, do not repeat them — acknowledge and move on.
+       If he says "just start", start. Never ask more than one of these questions in a single message.
+       WHAT HE FINDS HARD — ${JSON.stringify(hard).slice(0, 900)}
        When the child or the parent says a kind of question is difficult, that is a job, not a note. Do this in order:
        1. Say it back in one line so they know you heard it, and if the EXAM is not obvious, ask which exam it is for —
           do not guess between Olympiad, AMC, AAS, Edutest and ICAS.

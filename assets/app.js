@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.27.0";
+import * as data from "./data.js?v=3.28.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -239,7 +239,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.27.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.28.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -1310,6 +1310,8 @@ function paintActions() {
   if (plan?.chapter && plan.action === "quest" && !S.script?.length) {
     const t = (TRACKS.find((x) => x.id === S.track) ?? {});
     btns.push(`<button class="go small" data-action="startChapter" data-a0="${plan.chapter}">Chapter ${plan.chapter} →</button>`);
+    btns.push(`<button class="ghost small" data-action="skipChapter" data-a0="${plan.chapter}"
+      title="Not this one? She will offer two other chapters, then decide.">Skip this chapter</button>`);
   }
 
   if (c.mock?.due) btns.push(`<button class="go small" data-action="startMock">Paper is due — sit it</button>`);
@@ -5100,6 +5102,39 @@ registerActions({
   deletePaper: (el) => deletePaper(Number(el.dataset.a0)),
   openChapter: (el) => openChapter(Number(el.dataset.a0)),
   padKey: (el) => padKey(el.dataset.a0),
+
+  skipChapter: async (el) => {
+    const asked = Number(el.dataset.a0);
+    S.skips = (S.skips ?? 0) + 1;
+
+    // two alternatives, and only two: after that she decides and starts
+    if (S.skips > 2) {
+      const note = `He has skipped ${S.skips} chapters in a row. Do not offer another choice: pick the chapter that best
+        fits what he told you today, say why in one line, and start it.`;
+      const reply = await callCoach({ mode: "reply", note });
+      if (reply) bubble("coach", reply, false);
+      const plan = S.ctx?.plan ?? null;
+      if (plan?.chapter) await startChapter(plan.chapter);
+      S.skips = 0;
+      return;
+    }
+
+    const { data } = await sb.rpc("chapter_alternatives", { p_exclude: asked, p_count: 2 });
+    const alts = data ?? [];
+    if (!alts.length) {
+      const note = `There is no other chapter with questions left. Say so in one line and tell him what to do instead.`;
+      const reply = await callCoach({ mode: "reply", note });
+      if (reply) bubble("coach", reply, false);
+      return;
+    }
+    bubble("coach", `Not that one. Two others: ${alts.map((a) => a.title).join(", ")}. Or I choose.`, false);
+    const box = $("actionBar");
+    if (box) {
+      box.innerHTML = alts.map((a) => `<button class="go small" data-action="startChapter" data-a0="${a.n}">
+        ${esc(String(a.title).split(" · ").pop())} →</button>`).join("") +
+        `<button class="ghost small" data-action="startChapter" data-a0="${alts[0].n}">You choose</button>`;
+    }
+  },
 
   noteDifficulty: async () => {
     const words = ($("hardWords")?.value ?? "").trim();
