@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
     else if (tries >= 4 && acc < 0.5) difficulty = 1;                               // struggling: easier
     else if (tries >= 4 && acc < 0.7) difficulty = 1;
 
-    const focus = TYPES[Math.floor(Math.random() * TYPES.length)];
+    const focusType = TYPES[Math.floor(Math.random() * TYPES.length)];
     const n = Math.min(Math.max(Number(count) || 6, 1), 20);
 
     // what she has read on this topic, to base the new questions on
