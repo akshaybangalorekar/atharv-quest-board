@@ -125,6 +125,28 @@ Deno.serve(async (req) => {
 
 
 
+  // a plain note for each upload tab, written from the questions themselves
+  if (body?.mode === "blurb") {
+    const { data: tabs } = await admin.from("strands").select("n, title, blurb").not("blurb", "is", null);
+    const out: any[] = [];
+    for (const t of (tabs ?? []).slice(0, Number(body?.limit ?? 6))) {
+      const { data: qs } = await admin.from("problems").select("prompt")
+        .eq("chapter", t.n).limit(5);
+      const sample = (qs ?? []).map((q: any) => String(q.prompt).slice(0, 120)).join("\n");
+      if (!sample) continue;
+      const text = await ask(
+        `You write one short line for an 11-year-old and his parent describing what is inside a set of practice questions.
+Two sentences at most, plain words, no praise, no adjectives like "exciting". Say what kind of maths it is and what
+he will have to do. Do not invent numbers or topics that are not in the samples.`,
+        `Tab: ${t.title}\n\nQuestions:\n${sample}`, 0.2, 160);
+      const line = String(text ?? "").trim().replace(/^["']|["']$/g, "");
+      if (!line) continue;
+      await admin.from("strands").update({ blurb: line.slice(0, 300) }).eq("n", t.n);
+      out.push({ n: t.n, blurb: line.slice(0, 80) });
+    }
+    return json({ written: out.length, out });
+  }
+
   // what they said is hard: write questions of that kind into that exam, then record it
   if (body?.mode === "hard") {
     const id = Number(body?.id ?? 0);
