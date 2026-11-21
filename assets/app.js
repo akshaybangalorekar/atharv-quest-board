@@ -1,4 +1,4 @@
-import * as data from "./data.js?v=3.40.0";
+import * as data from "./data.js?v=3.41.0";
 
 const createClient = window.supabase?.createClient;
 if (!createClient) {
@@ -315,7 +315,7 @@ document.addEventListener("click", (e) => {
 
 const TITLES = ["Apprentice", "Explorer", "Challenger", "Olympian", "Grandmaster"];
 const COACH = "Ananya";   // her name, in one place
-const APP_VERSION = "3.40.0";   // bumped on every push; shown at the foot of the page
+const APP_VERSION = "3.41.0";   // bumped on every push; shown at the foot of the page
 
 window.__sb = sb;
 
@@ -3698,7 +3698,7 @@ async function loadWhatsNew(family) {
         <span class="chip grey"><b>${t.attempted}</b> tried</span>
         ${Number(t.to_check) ? `<span class="chip amber"><b>${t.to_check}</b> to check</span>` : ""}
       </div>
-      <div style="font-weight:600;font-size:13px;line-height:1.25">${esc(String(t.title).split(" · ").pop())}</div>
+      <div style="font-weight:600;font-size:13px;line-height:1.25">${esc(t.title)}</div>
       ${t.instruction ? `<div class="sub" style="font-size:11.5px;margin-top:4px">${esc(String(t.instruction).slice(0, 70))}</div>` : ""}
     </button>`;
 
@@ -3706,7 +3706,7 @@ async function loadWhatsNew(family) {
   const made = all.filter((t) => t.kind === "generated");
 
   box.innerHTML = `
-    <div class="sub" style="margin:2px 0 6px;font-weight:600">From your files</div>
+    <div class="sub" style="margin:2px 0 6px;font-weight:600">Your files</div>
     <div style="display:flex;gap:10px;overflow-x:auto;padding:0 2px 10px">
       ${uploads.length ? uploads.map(tabCard).join("") : `<div class="sub">Nothing uploaded for this exam yet.</div>`}
     </div>
