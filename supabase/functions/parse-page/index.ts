@@ -162,7 +162,7 @@ Two things to check before you start:
         ],
       }),
     });
-    if (!r.ok) return json({ error: "model call failed", detail: await r.text() }, 502);
+    if (!r.ok) return json({ error: "could not read that page", detail: (await r.text()).slice(0, 300) }, 422);
 
     const body = await r.json();
     const raw = body?.choices?.[0]?.message?.content ?? "";
