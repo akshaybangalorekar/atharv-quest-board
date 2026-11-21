@@ -10,7 +10,7 @@ if './assets/app.css' not in html: fails.append("css not linked")
 if './assets/app.js' not in html: fails.append("js not linked")
 ids = set(re.findall(r'id="([A-Za-z0-9_-]+)"', html))
 refs = set(re.findall(r'\$\("([A-Za-z0-9_-]+)"\)', js))
-DYNAMIC = {"ans","chk","exNext","exSol","qOpts","qfb","qtimer","qFig","balIn","capCalls","capSpend","capPct","capBelow", "hardExam", "hardWords"}
+DYNAMIC = {"ans","chk","exNext","exSol","qOpts","qfb","qtimer","qFig","balIn","capCalls","capSpend","capPct","capBelow", "hardExam", "hardWords", "actionBar"}
 missing = sorted(refs - ids - DYNAMIC)
 if missing: fails.append("elements referenced but missing: " + ", ".join(missing[:12]))
 rpcs = set(re.findall(r'sb\.rpc\("([a-z_]+)"', js))
