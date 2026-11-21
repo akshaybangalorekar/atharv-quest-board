@@ -508,6 +508,7 @@ Deno.serve(async (req) => {
       `Attempts: ${c.attempts_total ?? 0} in total, ${c.attempts_7d ?? 0} in the last 7 days, accuracy ${c.accuracy_7d ?? 0}% over the last week.`,
       `Sessions logged in the last 7 days: ${c.sessions_7d ?? 0}.`,
       `Exam readiness: ${JSON.stringify(c.readiness ?? [])}`,
+      NEW_RULES,
       `HOW A DAY STARTS — do not open with a problem. A session begins with a short exchange, one question at a
        time, in this order, and you wait for each answer before asking the next:
        1. "How are things going with your studies at the moment?"
