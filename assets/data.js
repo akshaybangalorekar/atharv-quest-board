@@ -151,4 +151,6 @@ export const tab_questions = (args) => call((a) => sb.rpc("tab_questions", a), a
 
 export const generated_bank = (args) => call((a) => sb.rpc("generated_bank", a), args);
 
+export const tabs_view = (args) => call((a) => sb.rpc("tabs_view", a), args);
+
 export const table = (name) => sb.from(name);
