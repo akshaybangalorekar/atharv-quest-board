@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await asUser.auth.getUser();
     if (!user) return json({ error: "not signed in" }, 401);
 
-    const { chapter, count = 6, exam = null } = await req.json();
+    const { chapter, count = 6, exam = null, focus = null } = await req.json();
 
     // an exam can be named instead of a chapter: pick its first strand with room
     let ch: any = null;
@@ -243,7 +243,7 @@ Deno.serve(async (req) => {
         temperature: 0.85,
         max_tokens: 3600,
         messages: [
-          { role: "system", content: PROMPT(focus, difficulty, seeds, scope, ch.subject ?? "maths") + materialNote },
+          { role: "system", content: PROMPT(String(focus ?? ch.title ?? "this topic"), difficulty, seeds, scope, ch.subject ?? "maths") + materialNote },
           { role: "user", content:
             `Topic: ${String(ch.title).split(" · ").pop()} (${ch.title}). ` +
             `This is one of the official topics for this exam. Write ${n} questions inside it.` },

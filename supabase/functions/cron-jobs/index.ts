@@ -125,6 +125,27 @@ Deno.serve(async (req) => {
 
 
 
+  // what they said is hard: write questions of that kind into that exam, then record it
+  if (body?.mode === "hard") {
+    const id = Number(body?.id ?? 0);
+    if (!id) return json({ error: "no difficulty id given" }, 400);
+    const { data: row } = await admin.from("hard_topics")
+      .select("id, exam, words, questions_written").eq("id", id).maybeSingle();
+    if (!row) return json({ error: "no such difficulty" }, 404);
+    if (!row.exam) return json({ refused: "no exam named — ask which exam before writing" });
+
+    const { data: chapter } = await admin.rpc("strand_for_words", { p_exam: row.exam, p_words: row.words });
+    if (!chapter) return json({ refused: "no strand in that exam fits" });
+
+    const made = await callFn("make-questions", { chapter, count: Number(body?.count ?? 6), focus: row.words }, row.exam);
+    const added = Number((made as any)?.added ?? (made as any)?.written ?? 0);
+    await admin.from("hard_topics").update({
+      taught: true,
+      questions_written: Number(row.questions_written ?? 0) + added,
+    }).eq("id", id);
+    return json({ id, exam: row.exam, chapter, focus: row.words, added, made });
+  }
+
   // scope first: a question off the official topic list is not verified, it is out of scope
   if (body?.mode === "scope") {
     const exam = String(body?.exam ?? "");
