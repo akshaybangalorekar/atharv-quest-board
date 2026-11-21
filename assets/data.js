@@ -141,4 +141,6 @@ export const hard_list = (args) => call((a) => sb.rpc("hard_list", a), args);
 
 export const mark_hard = (args) => call((a) => sb.rpc("mark_hard", a), args);
 
+export const chapter_alternatives = (args) => call((a) => sb.rpc("chapter_alternatives", a), args);
+
 export const table = (name) => sb.from(name);
